@@ -6,29 +6,43 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return <div>Loading...</div>; // Could be replaced with a proper loading spinner
+  // If we have a cached profile or the data has loaded, we can proceed
+  const hasAccess = profile && profile.role;
+  
+  // Show minimal loader only if we are truly stuck with no data and still loading
+  if (loading && !hasAccess) {
+    return (
+      <div style={{ 
+        height: '100vh', width: '100vw', display: 'flex', 
+        justifyContent: 'center', alignItems: 'center', 
+        background: 'var(--bg-primary)', color: 'var(--primary-color)' 
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '32px', height: '32px', border: '2px solid rgba(255,255,255,0.05)', borderTop: '2px solid var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+          <p style={{ margin: 0, fontWeight: '900', letterSpacing: '2px', fontSize: '0.7rem', opacity: 0.5 }}>SPEEDWAY</p>
+        </div>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
-  // If user is not logged in at all, redirect to landing page
-  if (!user) {
+  // If not loading and no user, go home
+  if (!loading && !user && !hasAccess) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  // If user exists but profile hasn't loaded yet, show loading
-  if (!profile) {
-    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0f172a', color: '#38bdf8' }}>Loading...</div>;
+  // Final check for role access
+  if (hasAccess && allowedRoles && !allowedRoles.includes(profile.role)) {
+    const defaultRoutes = {
+      CUSTOMER: '/dashboard',
+      STAFF: '/staff',
+      ADMIN: '/admin',
+      SUPER_ADMIN: '/admin'
+    };
+    return <Navigate to={defaultRoutes[profile.role] || '/'} replace />;
   }
 
-  // If roles are specified, check if the user has permission
-  if (allowedRoles && !allowedRoles.includes(profile.role)) {
-    // Redirect unauthorized users to their respective default dashboards
-    if (profile.role === 'CUSTOMER') return <Navigate to="/my-bookings" replace />;
-    if (profile.role === 'STAFF') return <Navigate to="/staff" replace />;
-    if (profile.role === 'ADMIN' || profile.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
-    return <Navigate to="/" replace />;
-  }
-
+  // If we have a user and profile (even from cache), render the children immediately
   return children;
 };
 

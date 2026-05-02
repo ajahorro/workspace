@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Play, CheckSquare, DollarSign, Clock } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const StaffTasks = () => {
   const { user } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -54,7 +57,8 @@ const StaffTasks = () => {
             user_id: task.customer_id,
             title,
             message,
-            type: 'info'
+            type: 'info',
+            action_url: `/my-bookings/${task.id}`
           });
         }
       }
@@ -77,20 +81,22 @@ const StaffTasks = () => {
   if (loading) return <div style={{ padding: '2rem' }}>Loading your tasks...</div>;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>My Assigned Tasks</h1>
-        <button onClick={fetchTasks} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '0.5rem', cursor: 'pointer' }}>Refresh</button>
-      </div>
+    <div style={{ animation: 'fadeIn 0.5s ease' }}>
+      <PageHeader 
+        badge="STAFF PORTAL"
+        title="MY ASSIGNED TASKS"
+        subtitle="Manage your daily detailing operations and payments."
+        onRefresh={fetchTasks}
+      />
 
       {tasks.length === 0 ? (
-        <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-          <CheckSquare size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-          <h3>You're all caught up!</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>No active tasks assigned to you right now.</p>
+        <div style={{ padding: '4rem 2rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+          <CheckSquare size={48} style={{ opacity: 0.1, marginBottom: '1.5rem' }} />
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '900' }}>YOU'RE ALL CAUGHT UP!</h3>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontWeight: '700' }}>No active tasks assigned to you right now.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.5rem' }}>
           {tasks.map(task => {
             const isStarted = task.service_status === 'IN_PROGRESS';
             const isFinished = task.service_status === 'FINISHED';
@@ -98,7 +104,7 @@ const StaffTasks = () => {
             const needsCashCollection = isFinished && paymentIntent?.method === 'CASH' && paymentIntent?.status !== 'PAID';
 
             return (
-              <div key={task.id} style={{ background: 'var(--bg-secondary)', borderRadius: '1rem', border: `1px solid ${isStarted ? 'var(--primary-color)' : 'var(--border-color)'}`, overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: `1px solid ${isStarted ? 'var(--primary-color)' : 'rgba(255,255,255,0.03)'}`, overflow: 'hidden' }}>
                 <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                     <div>
@@ -127,9 +133,9 @@ const StaffTasks = () => {
                     <button 
                       onClick={() => handleRpcAction('start_service', task.id)}
                       disabled={actionLoading === task.id}
-                      style={{ flex: 1, padding: '0.75rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.5rem', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                      style={{ flex: 1, padding: '0.75rem', background: 'var(--primary-color)', color: '#fff', border: 'none', borderRadius: '0.5rem', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
                     >
-                      <Play size={18} fill="#000" /> Start Service
+                      <Play size={18} fill="#fff" /> Start Service
                     </button>
                   )}
 

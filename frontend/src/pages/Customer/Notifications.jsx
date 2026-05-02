@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Bell, CheckCheck, Trash2, Clock } from 'lucide-react';
+import { Bell, CheckCheck, Trash2, Clock, Calendar, CreditCard, CheckCircle, Info, ArrowRight, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/PageHeader';
+import LoadingState from '../../components/LoadingState';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Notifications = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -34,7 +40,6 @@ const Notifications = () => {
 
     loadNotifications();
 
-    // Subscribe to real-time notifications
     const channel = supabase
       .channel(`notifications-${user?.id}`)
       .on(
@@ -77,92 +82,186 @@ const Notifications = () => {
     if (!error) {
       toast.success('All marked as read');
       refreshNotifications();
+      window.dispatchEvent(new Event('notificationsRead'));
     }
   };
 
-  const deleteNotification = async (id) => {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
+  const handleNotificationClick = async (n) => {
+    if (n.action_url) {
+      navigate(n.action_url);
+    } else if (n.title && n.title.toLowerCase().includes('booking')) {
+      navigate('/my-bookings');
+    } else {
+      refreshNotifications();
+    }
+  };
 
+  const filteredNotifications = notifications.filter(n => {
+    const searchStr = `${n.title} ${n.message}`.toLowerCase();
+    return searchStr.includes(searchTerm.toLowerCase());
+  });
+
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation();
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
     if (!error) {
       toast.success('Notification deleted');
       setNotifications(notifications.filter(n => n.id !== id));
     }
   };
 
+  const getIcon = (title, message) => {
+    const text = (title + ' ' + message).toLowerCase();
+    if (text.includes('booking')) return <Calendar size={18} color="var(--primary-color)" />;
+    if (text.includes('payment')) return <CreditCard size={18} color="#f59e0b" />;
+    if (text.includes('verified') || text.includes('completed')) return <CheckCircle size={18} color="#10b981" />;
+    return <Info size={18} color="rgba(255,255,255,0.4)" />;
+  };
+
+  const isMobile = useMediaQuery('(max-width: 1024px)');
+
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: 0 }}>Notifications</h1>
-        <button 
-          onClick={markAllRead}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600' }}
-        >
-          <CheckCheck size={18} /> Mark all as read
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+      
+      <PageHeader 
+        badge="ACCOUNT ACTIVITY"
+        title="NOTIFICATIONS"
+        subtitle={`You have ${notifications.filter(n => !n.is_read).length} unread updates.`}
+        onRefresh={() => { refreshNotifications(); toast.success('Refreshing...'); }}
+      >
+        {notifications.length > 0 && (
+          <button 
+            onClick={markAllRead}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.6rem', padding: isMobile ? '0.6rem 1.25rem' : '0.75rem 1.5rem', 
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', 
+              color: 'rgba(255,255,255,0.6)', borderRadius: '5rem', cursor: 'pointer', 
+              fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: '800', transition: 'all 0.2s', textTransform: 'uppercase'
+            }}
+          >
+            <CheckCheck size={16} /> {isMobile ? 'Read All' : 'Mark all read'}
+          </button>
+        )}
+      </PageHeader>
+
+      {/* Search Bar */}
+      <div style={{ 
+        background: 'var(--bg-secondary)', 
+        borderRadius: '1rem', 
+        border: '1px solid rgba(255,255,255,0.03)', 
+        padding: '1rem',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <Search size={18} color="rgba(255,255,255,0.3)" />
+          <input 
+            placeholder="Search notifications..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ border: 'none', background: 'transparent', color: '#fff', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
+          />
+        </div>
       </div>
 
       {error && (
-        <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '0.5rem', border: '1px solid #ef4444', marginBottom: '2rem', fontSize: '0.9rem' }}>
-          ⚠️ <strong>Database Error:</strong> {error}
+        <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.05)', color: '#ef4444', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.1)', fontSize: '0.85rem', fontWeight: '700' }}>
+          ⚠️ System error: {error}
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: '3rem', textAlign: 'center' }}>Loading notifications...</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {notifications.length === 0 ? (
-            <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-               <Bell size={48} color="var(--text-secondary)" style={{ marginBottom: '1.5rem', opacity: 0.5 }} />
-               <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>You have no notifications yet.</p>
-            </div>
-          ) : (
-            notifications.map((n) => (
-              <div 
-                key={n.id} 
-                style={{ 
-                  background: n.is_read ? 'rgba(255,255,255,0.02)' : 'var(--bg-secondary)', 
-                  padding: '1.5rem 2rem', 
-                  borderRadius: '1rem', 
-                  border: '1px solid var(--border-color)', 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  transition: 'transform 0.2s ease',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}
-              >
-                {!n.is_read && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--primary-color)' }}></div>}
-                
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>{n.title || 'Notification'}</h3>
-                    {!n.is_read && <span style={{ background: 'var(--primary-color)', color: '#0f172a', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>New</span>}
-                  </div>
-                  <p style={{ margin: '0 0 0.75rem 0', color: n.is_read ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.5' }}>{n.message}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <Clock size={12} />
-                    <span>{new Date(n.created_at).toLocaleString()}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {loading ? (
+          <LoadingState message="Checking for updates..." />
+        ) : filteredNotifications.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', padding: isMobile ? '4rem 1.5rem' : '6rem 2rem', 
+            background: 'var(--bg-secondary)', borderRadius: '1.5rem', 
+            border: '1px solid rgba(255,255,255,0.03)'
+          }}>
+            <Bell size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'rgba(255,255,255,0.4)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', fontSize: isMobile ? '0.9rem' : '1.1rem' }}>No matches found</h3>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.2)', fontSize: isMobile ? '0.75rem' : '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
+          </div>
+        ) : (
+          filteredNotifications.map(n => (
+            <div 
+              key={n.id}
+              onClick={() => handleNotificationClick(n)}
+              style={{ 
+                background: n.is_read ? 'rgba(24, 23, 23, 0.2)' : 'rgba(169, 27, 24, 0.04)', 
+                padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1rem', 
+                border: '1px solid',
+                borderColor: n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(169, 27, 24, 0.2)',
+                display: 'flex', gap: isMobile ? '1rem' : '1.5rem', cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                position: 'relative',
+                backdropFilter: 'blur(10px)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isMobile) {
+                  e.currentTarget.style.transform = 'translateX(8px)';
+                  e.currentTarget.style.background = n.is_read ? 'rgba(24, 23, 23, 0.4)' : 'rgba(169, 27, 24, 0.08)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isMobile) {
+                  e.currentTarget.style.transform = 'translateX(0)';
+                  e.currentTarget.style.background = n.is_read ? 'rgba(24, 23, 23, 0.2)' : 'rgba(169, 27, 24, 0.04)';
+                }
+              }}
+            >
+              <div style={{ 
+                width: isMobile ? '40px' : '48px', height: isMobile ? '40px' : '48px', borderRadius: '0.75rem', 
+                background: 'rgba(0,0,0,0.2)', display: 'flex', 
+                alignItems: 'center', justifyContent: 'center',
+                border: '1px solid rgba(255,255,255,0.05)', flexShrink: 0
+              }}>
+                {React.cloneElement(getIcon(n.title, n.message), { size: isMobile ? 16 : 18 })}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
+                  <h3 style={{ margin: 0, fontSize: isMobile ? '0.95rem' : '1.1rem', fontWeight: '900', color: n.is_read ? 'rgba(255,255,255,0.6)' : '#fff' }}>
+                    {n.title}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.25rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800' }}>
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    {!isMobile && (
+                      <button 
+                        onClick={(e) => deleteNotification(e, n.id)}
+                        style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.1)', cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.1)'}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <button 
-                  onClick={() => deleteNotification(n.id)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '0.5rem' }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--danger-color)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-                >
-                  <Trash2 size={20} />
-                </button>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: isMobile ? '0.8rem' : '0.95rem', color: n.is_read ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.7)', lineHeight: '1.5' }}>
+                  {n.message}
+                </p>
+                <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+
+              {!n.is_read && (
+                <div style={{ 
+                  position: 'absolute', top: isMobile ? '1rem' : '1.5rem', right: isMobile ? '1rem' : '1.5rem', 
+                  width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary-color)',
+                  boxShadow: '0 0 10px var(--primary-color)'
+                }}></div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 };

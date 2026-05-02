@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Box, Car, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import PageHeader from '../../components/PageHeader';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const MyBookings = () => {
   const { user } = useAuth();
@@ -11,10 +13,17 @@ const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState({ show: false, bookingId: null });
+  const [cancelPolicy, setCancelPolicy] = useState(null);
 
   useEffect(() => {
     fetchBookings();
+    fetchBusinessSettings();
   }, [user]);
+
+  const fetchBusinessSettings = async () => {
+    const { data } = await supabase.from('business_settings').select('cancellation_window_hours').maybeSingle();
+    if (data) setCancelPolicy(data);
+  };
 
   const fetchBookings = async () => {
     if (!user) return;
@@ -71,8 +80,25 @@ const MyBookings = () => {
     }
   };
 
-  const handleCancelRequest = (id) => {
-    setConfirmModal({ show: true, bookingId: id });
+  const isWithinCancellationWindow = (scheduledStart) => {
+    const windowHours = cancelPolicy?.cancellation_window_hours || 24;
+    const now = new Date();
+    const start = new Date(scheduledStart);
+    const diffMs = start - now;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours >= windowHours;
+  };
+
+  const handleCancelRequest = (booking) => {
+    if (booking.service_status === 'IN_PROGRESS' || booking.service_status === 'FINISHED') {
+      toast.error("Ongoing or completed services cannot be cancelled.");
+      return;
+    }
+    if (!isWithinCancellationWindow(booking.scheduled_start)) {
+      toast.error(`Cancellation is only allowed ${cancelPolicy?.cancellation_window_hours || 24} hours before the appointment.`);
+      return;
+    }
+    setConfirmModal({ show: true, bookingId: booking.id });
   };
 
   const processCancellation = async () => {
@@ -90,14 +116,16 @@ const MyBookings = () => {
         throw new Error('Update failed. You may not have permission to cancel this booking.');
       }
       
+      const activeBooking = data[0];
       setBookings(prev => prev.map(b => b.id === confirmModal.bookingId ? { ...b, booking_status: 'CANCELLED' } : b));
       
       // Notify Customer
       const { error: notifError } = await supabase.from('notifications').insert({
         user_id: user.id,
         title: 'Booking Cancelled',
-        message: 'Your booking has been successfully cancelled. If you paid via GCash, your refund is now being processed.',
-        type: 'warning'
+        message: `Your booking for ${new Date(activeBooking.scheduled_start).toLocaleDateString()} has been cancelled.`,
+        type: 'warning',
+        action_url: `/my-bookings/${activeBooking.id}`
       });
       if (notifError) console.error('Notification insert failed:', notifError);
 
@@ -122,115 +150,229 @@ const MyBookings = () => {
     }
   };
 
+  const isMobile = useMediaQuery('(max-width: 1024px)');
+
   if (loading) return <div style={{ padding: '2rem' }}>Loading bookings...</div>;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: '0 0 2rem 0' }}>My Bookings</h1>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '0' : '0 1rem' }}>
+      <PageHeader 
+        badge="BOOKING HISTORY"
+        title="MY BOOKINGS"
+        subtitle="Track and manage your scheduled detailing services."
+        onRefresh={() => fetchBookings()}
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {bookings.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '1rem', color: 'var(--text-secondary)' }}>
-            You have no bookings history.
+      <div style={{ 
+        background: isMobile ? 'transparent' : 'var(--bg-secondary)', 
+        borderRadius: '1rem', 
+        border: isMobile ? 'none' : '1px solid var(--border-color)', 
+        overflow: 'hidden' 
+      }}>
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {bookings.length === 0 ? (
+              <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>You have no bookings history.</div>
+            ) : (
+              bookings.map((booking) => {
+                const status = getStatusDisplay(booking.booking_status);
+                const serviceStatus = getServiceStatusDisplay(booking.service_status);
+                const intent = booking.payment_intents?.[0] || {};
+                const paymentStatus = getPaymentStatusDisplay(intent.status);
+
+                return (
+                  <div 
+                    key={booking.id}
+                    onClick={() => navigate(`/my-bookings/${booking.id}`)}
+                    style={{ 
+                      background: 'var(--bg-secondary)', 
+                      borderRadius: '1.25rem', 
+                      padding: '1.5rem', 
+                      border: '1px solid rgba(255,255,255,0.03)',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <span style={{ 
+                          background: 'rgba(169, 27, 24, 0.1)', 
+                        color: 'var(--primary-color)', 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '0.4rem', 
+                        fontWeight: '800', 
+                        fontSize: '0.65rem',
+                        letterSpacing: '0.5px'
+                      }}>
+                        #{booking.id.substring(0, 4).toUpperCase()}
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <span style={{ padding: '0.3rem 0.75rem', background: serviceStatus.bg, color: serviceStatus.color, borderRadius: '2rem', fontSize: '0.6rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          {serviceStatus.label}
+                        </span>
+                        <span style={{ padding: '0.3rem 0.75rem', background: paymentStatus.bg, color: paymentStatus.color, borderRadius: '2rem', fontSize: '0.6rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          {paymentStatus.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem' }}>
+                       <div style={{ background: 'rgba(169, 27, 24, 0.1)', width: '48px', height: '48px', borderRadius: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                         <Car size={24} color="var(--primary-color)" />
+                       </div>
+                       <div>
+                         <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>{booking.vehicle_type || 'Sedan'}</h4>
+                         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{booking.plate_number}</p>
+                       </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</div>
+                        <div style={{ color: 'var(--primary-color)', fontWeight: '800', fontSize: '0.75rem' }}>{new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Total Amount</div>
+                        <div style={{ fontWeight: '900', fontSize: '1.2rem', color: '#fff' }}>₱{(intent.total_amount || 0).toLocaleString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         ) : (
-          bookings.map((booking) => {
-            const status = getStatusDisplay(booking.booking_status);
-            const serviceStatus = getServiceStatusDisplay(booking.service_status);
-            
-            // Handle multiple payment intents (though usually there is only one)
-            const intent = booking.payment_intents?.[0] || {};
-            const paymentStatus = getPaymentStatusDisplay(intent.status);
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)' }}>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>ID</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Vehicle</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Date & Time</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Service Status</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Amount</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.length === 0 ? (
+                <tr><td colSpan="7" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>You have no bookings history.</td></tr>
+              ) : (
+                bookings.map((booking) => {
+                  const status = getStatusDisplay(booking.booking_status);
+                  const serviceStatus = getServiceStatusDisplay(booking.service_status);
+                  const intent = booking.payment_intents?.[0] || {};
+                  const paymentStatus = getPaymentStatusDisplay(intent.status);
 
-            const servicesList = booking.booking_services.map(bs => bs.service_name).join(', ');
-
-            return (
-              <div key={booking.id} style={{ background: 'var(--bg-secondary)', borderRadius: '1rem', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                {/* Header */}
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--primary-color)', fontSize: '1rem', fontWeight: '700' }}>
-                      #{booking.id.substring(0, 4)}
-                    </h2>
-                    <span style={{ fontSize: '1rem', fontWeight: '600' }}>
-                      {new Date(booking.scheduled_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span style={{ padding: '0.25rem 0.75rem', background: status.bg, color: status.color, borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Clock size={12} /> {status.label}
-                    </span>
-                    <span style={{ padding: '0.25rem 0.75rem', background: serviceStatus.bg, color: serviceStatus.color, borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '700' }}>
-                      {serviceStatus.label}
-                    </span>
-                    <span style={{ padding: '0.25rem 0.75rem', background: paymentStatus.bg, color: paymentStatus.color, borderRadius: '1rem', fontSize: '0.75rem', fontWeight: '700' }}>
-                      {paymentStatus.label}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Body */}
-                <div style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', color: 'var(--text-secondary)' }}>
-                      <Box size={18} style={{ marginTop: '0.1rem' }} />
-                      <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{servicesList}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)' }}>
-                      <Car size={18} />
-                      <span>{booking.vehicle_type || 'Sedan'} - {booking.plate_number}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'var(--bg-input)', padding: '1.5rem', borderRadius: '0.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                    <div>
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', fontWeight: '600', letterSpacing: '0.5px' }}>TOTAL AMOUNT</span>
-                      <span style={{ fontSize: '1.25rem', fontWeight: '700' }}>₱{intent.total_amount || 0}</span>
-                    </div>
-                    <div>
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem', fontWeight: '600', letterSpacing: '0.5px' }}>PAID</span>
-                      <span style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--accent-green)' }}>₱{intent.amount_paid || 0}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                  {(booking.booking_status === 'PENDING_ASSIGNMENT' || booking.booking_status === 'CONFIRMED') && (
-                    <button 
-                      onClick={() => handleCancelRequest(booking.id)}
-                      style={{ 
-                        padding: '0.5rem 1rem', 
-                        background: 'rgba(239, 68, 68, 0.05)', 
-                        border: '1px solid var(--danger-color)', 
-                        color: 'var(--danger-color)', 
-                        borderRadius: '0.25rem', 
-                        cursor: 'pointer', 
-                        fontWeight: '700', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.5rem',
-                        fontSize: '0.75rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      <AlertTriangle size={14} /> {intent.method === 'GCASH' ? 'Cancel and Get Refund' : 'Cancel Booking'}
-                    </button>
-                  )}
-
-                  {booking.booking_status === 'CANCELLED' && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase' }}>
-                      <Clock size={14} /> {intent.method === 'GCASH' ? 'Cancelled & Awaiting Refund' : 'Cancelled'}
-                    </span>
-                  )}
-                  <button onClick={() => navigate(`/my-bookings/${booking.id}`)} style={{ padding: '0.5rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    View Details <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-            );
-          })
+                  return (
+                    <tr key={booking.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <span style={{ 
+                            background: 'rgba(169, 27, 24, 0.1)', 
+                          color: 'var(--primary-color)', 
+                          padding: '0.4rem 0.8rem', 
+                          borderRadius: '0.4rem', 
+                          fontWeight: '800', 
+                          fontSize: '0.75rem',
+                          letterSpacing: '0.5px'
+                        }}>
+                          #{booking.id.substring(0, 4).toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.85rem' }}>{booking.vehicle_type || 'Sedan'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{booking.plate_number}</div>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                          {new Date(booking.scheduled_start).toLocaleDateString()}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: '700' }}>
+                          {new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <div style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem', 
+                          background: 'rgba(255, 255, 255, 0.05)', 
+                          color: '#f8fafc', 
+                          padding: '0.4rem 0.8rem', 
+                          borderRadius: '2rem', 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          border: '1px solid rgba(255, 255, 255, 0.1)'
+                        }}>
+                          <Clock size={12} /> {serviceStatus.label}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <div style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem', 
+                          background: paymentStatus.label === 'UNPAID' ? '#f59e0b' : `${paymentStatus.color}20`, 
+                          color: paymentStatus.label === 'UNPAID' ? '#000' : paymentStatus.color, 
+                          padding: '0.4rem 0.8rem', 
+                          borderRadius: '2rem', 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          border: paymentStatus.label === 'UNPAID' ? 'none' : `1px solid ${paymentStatus.color}40`
+                        }}>
+                          <Clock size={12} /> {paymentStatus.label}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <span style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1rem', letterSpacing: '-0.5px' }}>₱{(intent.total_amount || 0).toLocaleString()}</span>
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button 
+                            onClick={() => navigate(`/my-bookings/${booking.id}`)}
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '0.5rem', 
+                              background: 'rgba(255, 255, 255, 0.05)', 
+                              border: '1px solid rgba(255, 255, 255, 0.1)', 
+                              color: '#f8fafc', 
+                              padding: '0.5rem 1rem', 
+                              borderRadius: '0.5rem', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '700', 
+                              cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                          >
+                            <ChevronRight size={14} /> View
+                          </button>
+                          
+                          {(booking.booking_status === 'PENDING_ASSIGNMENT' || booking.booking_status === 'CONFIRMED') && (
+                            <button 
+                              onClick={() => handleCancelRequest(booking)}
+                              style={{ 
+                                background: 'transparent', 
+                                border: '1px solid rgba(239, 68, 68, 0.3)', 
+                                color: 'var(--danger-color)', 
+                                padding: '0.5rem', 
+                                borderRadius: '0.5rem', 
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Cancel Booking"
+                            >
+                              <AlertTriangle size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -242,9 +384,9 @@ const MyBookings = () => {
               <AlertTriangle size={36} color="var(--danger-color)" />
             </div>
             <h2 style={{ fontSize: '1.5rem', margin: '0 0 1rem 0', fontWeight: '800' }}>Confirm Cancellation?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: '1.6' }}>
               {bookings.find(b => b.id === confirmModal.bookingId)?.payment_intents?.[0]?.method === 'GCASH' 
-                ? 'Are you sure you want to cancel and get a refund? This will release your time slot and notify our team.'
+                ? 'Your refund will be the total payment minus any material costs (e.g. Tint, Ceramic items) already purchased for your service. We will coordinate this in the Refund Hub.'
                 : 'Are you sure you want to cancel this booking? This will release your time slot.'}
             </p>
             <div style={{ display: 'flex', gap: '1rem' }}>

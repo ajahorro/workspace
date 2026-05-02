@@ -1,63 +1,67 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import AiChatbot from '../components/AiChatbot';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { 
-  LayoutDashboard, 
-  CalendarPlus, 
-  History, 
-  Bell, 
-  Settings, 
-  LogOut 
+import {
+  LayoutDashboard,
+  CalendarPlus,
+  History,
+  Bell,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProfileHeader from '../components/ProfileHeader';
+import AdminSearch from '../components/AdminSearch';
+import NotificationPopover from '../components/NotificationPopover';
+import { confirmLogout } from '../utils/logoutConfirm.jsx';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { Menu, X } from 'lucide-react';
+
+const BlurGlow = ({ top, left, right, bottom, size, color }) => (
+  <div style={{
+    position: 'absolute',
+    top, left, right, bottom,
+    width: size,
+    height: size,
+    background: color || 'rgba(169, 27, 24, 0.4)',
+    filter: 'blur(120px)',
+    borderRadius: '50%',
+    zIndex: 0,
+    pointerEvents: 'none',
+    opacity: 0.6
+  }} />
+);
 
 const AuthenticatedCustomerLayout = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifPopover, setShowNotifPopover] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1024px)');
 
-  const handleLogout = async () => {
-    toast((t) => (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ margin: 0, fontWeight: '500' }}>Are you sure you want to log out?</p>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-          <button 
-            onClick={() => toast.dismiss(t.id)}
-            style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '0.25rem', cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await signOut();
-              navigate('/');
-            }}
-            style={{ padding: '0.5rem 1rem', background: 'var(--danger-color)', border: 'none', color: '#fff', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: '600' }}
-          >
-            Log Out
-          </button>
-        </div>
-      </div>
-    ), { duration: Infinity, style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' } });
-  };
-
-  const [unreadCount, setUnreadCount] = React.useState(0);
-
-  React.useEffect(() => {
+  useEffect(() => {
     fetchUnreadCount();
-
+    const handleNotificationsRead = () => fetchUnreadCount();
+    window.addEventListener('notificationsRead', handleNotificationsRead);
     const channel = supabase
-      .channel('notif-count')
+      .channel('customer-notif-count')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user?.id}` }, () => {
         fetchUnreadCount();
       })
       .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('notificationsRead', handleNotificationsRead);
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (isMobile) setIsSidebarOpen(false);
+  }, [location, isMobile]);
 
   const fetchUnreadCount = async () => {
     if (!user) return;
@@ -69,153 +73,164 @@ const AuthenticatedCustomerLayout = () => {
     setUnreadCount(count || 0);
   };
 
+  const handleLogout = () => {
+    confirmLogout(async () => {
+      await signOut();
+      navigate('/');
+    });
+  };
+
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Book Appointment', path: '/book', icon: CalendarPlus },
-    { name: 'My Bookings', path: '/my-bookings', icon: History },
-    { name: 'Notifications', path: '/notifications', icon: Bell, badge: unreadCount },
+    { name: 'Book Service', path: '/book', icon: CalendarPlus },
+    { name: 'My History', path: '/my-bookings', icon: History },
+    { name: 'Notifications', path: '/notifications', icon: Bell },
+    { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
+  const sidebarStyle = {
+    width: '280px',
+    background: 'var(--bg-secondary)',
+    borderRight: '1px solid rgba(255,255,255,0.03)',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '2rem 1.5rem',
+    position: 'fixed',
+    top: 0,
+    left: isMobile ? (isSidebarOpen ? 0 : '-280px') : 0,
+    height: '100vh',
+    zIndex: 1000,
+    transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+  };
+
+  const overlayStyle = {
+    display: isMobile && isSidebarOpen ? 'block' : 'none',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 999
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      {/* Sidebar */}
-      <aside style={{ 
-        width: '280px', 
-        background: 'var(--bg-primary)', 
-        borderRight: '1px solid var(--border-color)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '2rem 1.5rem',
-        position: 'sticky',
-        top: 0,
-        height: '100vh'
-      }}>
-        {/* Logo */}
-        <div style={{ marginBottom: '3rem', paddingLeft: '1rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: '8px', height: '24px', background: 'var(--primary-color)', borderRadius: '4px' }}></span>
-            RENEW
-          </h1>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
+      <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
+      <BlurGlow top="10%" right="5%" size="450px" color="rgba(206, 231, 243, 0.3)" />
+      <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.25)" />
+      <BlurGlow bottom="10%" left="5%" size="400px" color="rgba(206, 231, 243, 0.3)" />
+      <BlurGlow bottom="-5%" right="-5%" size="550px" color="rgba(169, 27, 24, 0.3)" />
+
+      <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
+
+      <aside style={sidebarStyle}>
+        <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '0.5px', marginBottom: '2.5rem', padding: '0 0.5rem', lineHeight: '1.2' }}>
+            SpeedWay AutoxMoto Detail Studio
+          </div>
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X /></button>}
         </div>
 
-        {/* Primary Navigation */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
           {navLinks.map((link) => {
             const Icon = link.icon;
-            const isActive = location.pathname.startsWith(link.path);
-            
+            const isActive = location.pathname === link.path || (link.path !== '/dashboard' && location.pathname.startsWith(link.path));
             return (
               <NavLink
                 key={link.name}
                 to={link.path}
-                style={({ isActive: exactActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1rem 1.25rem',
-                  borderRadius: '0.5rem',
-                  textDecoration: 'none',
-                  color: (exactActive || isActive) ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                  background: (exactActive || isActive) ? 'var(--primary-color)' : 'transparent',
-                  fontWeight: (exactActive || isActive) ? '700' : '500',
-                  transition: 'all 0.2s ease',
-                  border: (exactActive || isActive) ? '1px solid var(--primary-color)' : '1px solid transparent',
-                  position: 'relative'
-                })}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem',
+                  borderRadius: '0.75rem', textDecoration: 'none',
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
+                  background: isActive ? 'rgba(169, 27, 24, 0.1)' : 'transparent',
+                  fontWeight: isActive ? '800' : '600', fontSize: '0.9rem',
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                  borderLeft: isActive ? '3px solid var(--primary-color)' : '3px solid transparent'
+                }}
               >
-                <Icon size={20} color={location.pathname.startsWith(link.path) ? "var(--primary-color)" : "currentColor"} />
+                <Icon size={18} style={{ opacity: isActive ? 1 : 0.6 }} />
                 {link.name}
-                {link.badge > 0 && (
-                  <span style={{ 
-                    position: 'absolute', 
-                    right: '1.25rem', 
-                    top: '50%', 
-                    transform: 'translateY(-50%)',
-                    background: '#ef4444', 
-                    color: '#fff', 
-                    fontSize: '0.65rem', 
-                    fontWeight: '800', 
-                    padding: '0.1rem 0.4rem', 
-                    borderRadius: '1rem',
-                    minWidth: '1.2rem',
-                    textAlign: 'center',
-                    boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
-                  }}>
-                    {link.badge > 9 ? '9+' : link.badge}
-                  </span>
-                )}
               </NavLink>
             );
           })}
         </nav>
 
-        {/* Bottom: Settings + Logout */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
-          <NavLink
-            to="/settings"
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              padding: '1rem 1.25rem',
-              borderRadius: '0.5rem',
-              textDecoration: 'none',
-              color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
-              background: isActive ? 'var(--primary-color)' : 'transparent',
-              fontWeight: isActive ? '700' : '500',
-              border: isActive ? '1px solid var(--primary-color)' : '1px solid transparent',
-              transition: 'all 0.2s ease'
-            })}
-          >
-            <Settings size={20} color={location.pathname.startsWith('/settings') ? "var(--primary-color)" : "currentColor"} />
-            Settings
-          </NavLink>
-          
-          <button 
-            onClick={handleLogout}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '1rem', 
-              padding: '1rem 1.25rem', 
-              borderRadius: '0.5rem', 
-              border: 'none',
-              background: 'transparent', 
-              color: 'var(--danger-color)',
-              cursor: 'pointer',
-              fontWeight: '600',
-              textAlign: 'left',
-              marginTop: '0.5rem',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <LogOut size={20} />
-            Log Out
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem',
+            borderRadius: '0.75rem', border: 'none', background: 'transparent',
+            color: '#ef4444', cursor: 'pointer', fontWeight: '800', fontSize: '0.9rem',
+            transition: 'all 0.2s', marginTop: 'auto'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+          <LogOut size={18} />
+          LOG OUT
+        </button>
       </aside>
 
-      {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Top Bar with Profile Header */}
-        <header style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          alignItems: 'center', 
-          padding: '1rem 2.5rem', 
-          borderBottom: '1px solid var(--border-color)',
-          background: 'var(--bg-primary)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, minHeight: '100vh', maxWidth: '100%', marginLeft: isMobile ? 0 : '280px' }}>
+        <header style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: isMobile ? '0.75rem 1.25rem' : '1rem 2rem', background: 'var(--bg-secondary)',
+          position: 'sticky', top: 0, zIndex: 1000
         }}>
-          <ProfileHeader />
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '2rem' }}>
+            {isMobile && (
+              <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                <Menu size={24} />
+              </button>
+            )}
+            <div
+              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer' }}
+              onClick={() => navigate('/dashboard')}
+            >
+              CUSTOMER
+            </div>
+            {!isMobile && <AdminSearch />}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
+            <div
+              onClick={() => setShowNotifPopover(!showNotifPopover)}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6, transition: 'opacity 0.2s' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+              onMouseLeave={(e) => !showNotifPopover && (e.currentTarget.style.opacity = 0.6)}
+            >
+              <Bell size={22} />
+              {unreadCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: '#ef4444', color: '#fff', fontSize: '0.6rem',
+                  fontWeight: 'bold', width: '16px', height: '16px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%', border: '2px solid #050a15'
+                }}>{unreadCount}</div>
+              )}
+            </div>
+            {showNotifPopover && (
+              <NotificationPopover user={user} profile={profile} onClose={() => setShowNotifPopover(false)} onRead={fetchUnreadCount} />
+            )}
+            <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.05)' }}></div>
+            <ProfileHeader />
+          </div>
         </header>
-        <main style={{ flex: 1, padding: '2.5rem 3rem', overflowY: 'auto' }}>
+
+        {isMobile && (
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(5, 10, 21, 0.2)' }}>
+            <AdminSearch />
+          </div>
+        )}
+
+        <main style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem 2.5rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
+        <AiChatbot />
       </div>
     </div>
   );

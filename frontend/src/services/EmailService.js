@@ -10,12 +10,12 @@ export const sendBookingConfirmation = async (customerEmail, bookingData) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'RENEW Auto Detailing <onboarding@resend.dev>',
+        from: 'SpeedWay AutoxMoto Detail Studio <onboarding@resend.dev>',
         to: customerEmail,
         subject: 'Booking Confirmed! 🚗✨',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1e293b;">
-            <h1 style="color: #38bdf8;">RENEW Auto Detailing</h1>
+            <h1 style="color: #A91B18;">SpeedWay AutoxMoto Detail Studio</h1>
             <p>Hi there!</p>
             <p>Your booking has been successfully confirmed. We can't wait to make your vehicle look brand new again!</p>
             
@@ -29,7 +29,7 @@ export const sendBookingConfirmation = async (customerEmail, bookingData) => {
 
             <p>You can view more details or manage your booking in your customer dashboard.</p>
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
-            <p style="font-size: 0.8rem; color: #64748b;">RENEW Auto Detailing - Premium Car Care Services</p>
+            <p style="font-size: 0.8rem; color: #64748b;">SpeedWay AutoxMoto Detail Studio - Premium Car Care Services</p>
           </div>
         `
       })

@@ -4,12 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const AiChatbot = () => {
+  const isMobile = useMediaQuery('(max-width: 640px)');
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isHumanRequested, setIsHumanRequested] = useState(false);
   const [messages, setMessages] = useState([
-    { id: 1, role: 'bot', text: "Hello! I'm RENEW's AI Assistant. How can I help you with your vehicle detailing today?", timestamp: new Date() }
+    { id: 1, role: 'bot', text: "Hello! I'm SpeedWay's AI Assistant. How can I help you with your vehicle detailing today?", timestamp: new Date() }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -86,7 +89,8 @@ const AiChatbot = () => {
           user_id: admin.id,
           title: '🚨 LIVE SUPPORT REQUESTED',
           message: `${user.full_name || 'A customer'} (ID: ${user.id.slice(0,8)}) needs human assistance in the AI Chat.`,
-          type: 'urgent'
+          type: 'urgent',
+          action_url: '/admin/notifications'
         }));
         
         const { error } = await supabase.from('notifications').insert(notifs);
@@ -167,52 +171,61 @@ const AiChatbot = () => {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 10000, fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ 
+      position: 'fixed', 
+      bottom: isMobile ? '1rem' : '2rem', 
+      right: isMobile ? '1rem' : '2rem', 
+      zIndex: 10000, 
+      fontFamily: 'system-ui, sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-end'
+    }}>
       {/* Chat Window */}
       {isOpen && (
         <div style={{ 
-          width: '380px', 
-          height: '550px', 
+          width: isMobile ? 'calc(100vw - 2rem)' : '380px', 
+          height: isMobile ? '70vh' : '550px', 
+          maxHeight: isMobile ? 'calc(100vh - 100px)' : '550px',
           background: 'var(--bg-secondary)', 
           borderRadius: '1.5rem', 
-          border: '1px solid var(--border-color)', 
+          border: '1px solid rgba(255,255,255,0.08)', 
           display: 'flex', 
           flexDirection: 'column', 
-          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
           overflow: 'hidden',
           marginBottom: '1rem',
-          animation: 'slideUp 0.3s ease-out',
-          backdropFilter: 'blur(10px)'
+          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
           {/* Header */}
-          <div style={{ padding: '1.25rem', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: isMobile ? '1rem' : '1.25rem', background: 'linear-gradient(135deg, #181717 0%, #1c1b1b 100%)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ position: 'relative' }}>
-                <div style={{ width: '40px', height: '40px', background: 'var(--primary-color)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <Bot size={24} color="#000" />
+                <div style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', background: 'var(--primary-color)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <Bot size={isMobile ? 20 : 24} color="#000" />
                 </div>
                 <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', background: '#22c55e', borderRadius: '50%', border: '2px solid #0f172a' }}></div>
               </div>
               <div>
-                <p style={{ margin: 0, fontWeight: '700', fontSize: '1rem', color: '#fff' }}>RENEW AI</p>
-                <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>Always Online</p>
+                <p style={{ margin: 0, fontWeight: '700', fontSize: isMobile ? '0.9rem' : '1rem', color: '#fff' }}>SpeedWay AI</p>
+                <p style={{ margin: 0, fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)' }}>Always Online</p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><Minimize2 size={20} /></button>
+            <button onClick={() => setIsOpen(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}><X size={18} /></button>
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '1rem' : '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {messages.map((msg) => (
-              <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+              <div key={msg.id} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: isMobile ? '90%' : '85%' }}>
                 <div style={{ 
                   padding: '0.75rem 1rem', 
                   borderRadius: msg.role === 'user' ? '1.25rem 1.25rem 0 1.25rem' : '1.25rem 1.25rem 1.25rem 0',
-                  background: msg.role === 'user' ? 'var(--primary-color)' : 'var(--bg-input)',
+                  background: msg.role === 'user' ? 'var(--primary-color)' : 'rgba(255,255,255,0.07)',
                   color: msg.role === 'user' ? '#000' : '#fff',
-                  fontSize: '0.9rem',
+                  fontSize: isMobile ? '0.85rem' : '0.9rem',
                   lineHeight: '1.5',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}>
                   {msg.text}
                 </div>
@@ -221,13 +234,13 @@ const AiChatbot = () => {
                     onClick={connectToHuman}
                     style={{ 
                       marginTop: '0.75rem', 
-                      background: 'rgba(56, 189, 248, 0.1)', 
-                      border: '1px solid var(--primary-color)', 
+                      background: 'rgba(169, 27, 24, 0.15)', 
+                      border: '1px solid rgba(169, 27, 24, 0.3)', 
                       color: 'var(--primary-color)', 
-                      padding: '0.5rem 1rem', 
-                      borderRadius: '0.5rem', 
-                      fontSize: '0.8rem', 
-                      fontWeight: '700', 
+                      padding: '0.6rem 1rem', 
+                      borderRadius: '0.75rem', 
+                      fontSize: '0.75rem', 
+                      fontWeight: '800', 
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -238,29 +251,38 @@ const AiChatbot = () => {
                     <LifeBuoy size={14} /> Connect to Human Expert
                   </button>
                 )}
-                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.65rem', color: 'var(--text-secondary)', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', textAlign: msg.role === 'user' ? 'right' : 'left', fontWeight: '600' }}>
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             ))}
             {isTyping && (
-              <div style={{ alignSelf: 'flex-start', background: 'var(--bg-input)', padding: '0.75rem 1rem', borderRadius: '1.25rem 1.25rem 1.25rem 0', display: 'flex', gap: '4px' }}>
-                <div className="dot" style={{ width: '6px', height: '6px', background: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1s infinite 0s' }}></div>
-                <div className="dot" style={{ width: '6px', height: '6px', background: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }}></div>
-                <div className="dot" style={{ width: '6px', height: '6px', background: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }}></div>
+              <div style={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', padding: '0.75rem 1rem', borderRadius: '1.25rem 1.25rem 1.25rem 0', display: 'flex', gap: '4px' }}>
+                <div className="dot" style={{ width: '6px', height: '6px', background: 'rgba(255,255,255,0.3)', borderRadius: '50%', animation: 'bounce 1s infinite 0s' }}></div>
+                <div className="dot" style={{ width: '6px', height: '6px', background: 'rgba(255,255,255,0.3)', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }}></div>
+                <div className="dot" style={{ width: '6px', height: '6px', background: 'rgba(255,255,255,0.3)', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }}></div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSend} style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+          <form onSubmit={handleSend} style={{ padding: isMobile ? '1rem' : '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
             <div style={{ position: 'relative' }}>
               <input 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me anything..." 
-                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '2rem', padding: '0.75rem 3rem 0.75rem 1.25rem', color: '#fff', fontSize: '0.9rem' }}
+                placeholder="Type a message..." 
+                style={{ 
+                  width: '100%', 
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: '1px solid rgba(255,255,255,0.08)', 
+                  borderRadius: '1.25rem', 
+                  padding: '0.75rem 3rem 0.75rem 1.25rem', 
+                  color: '#fff', 
+                  fontSize: isMobile ? '0.85rem' : '0.9rem',
+                  outline: 'none'
+                }}
               />
               <button type="submit" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'var(--primary-color)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}>
                 <Send size={16} color="#000" />
@@ -274,8 +296,8 @@ const AiChatbot = () => {
       <button 
         onClick={() => setIsOpen(!isOpen)}
         style={{ 
-          width: '64px', 
-          height: '64px', 
+          width: isMobile ? '56px' : '64px', 
+          height: isMobile ? '56px' : '64px', 
           background: isOpen ? '#ef4444' : 'var(--primary-color)', 
           borderRadius: '50%', 
           border: 'none', 
@@ -283,15 +305,13 @@ const AiChatbot = () => {
           justifyContent: 'center', 
           alignItems: 'center', 
           cursor: 'pointer', 
-          boxShadow: '0 10px 30px rgba(56, 189, 248, 0.4)',
+          boxShadow: '0 10px 30px rgba(169, 27, 24, 0.4)',
           transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1) translateY(-5px)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1) translateY(0)'}
       >
-        {isOpen ? <X size={28} color="#fff" /> : <MessageSquare size={28} color="#000" />}
+        {isOpen ? <Minimize2 size={isMobile ? 24 : 28} color="#fff" /> : <MessageSquare size={isMobile ? 24 : 28} color="#000" />}
         {!isOpen && (
-          <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', fontSize: '0.7rem', fontWeight: '800', padding: '0.2rem 0.5rem', borderRadius: '1rem', border: '2px solid var(--bg-secondary)' }}>AI</div>
+          <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', fontSize: '0.7rem', fontWeight: '800', padding: '0.2rem 0.5rem', borderRadius: '1rem', border: '2px solid #050a15' }}>AI</div>
         )}
       </button>
 

@@ -14,7 +14,7 @@ const CustomerLayout = () => {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <header style={{ padding: '1rem 2rem', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.05em' }}>RENEW<span style={{ color: 'var(--primary-color)' }}>.</span></h1>
+          <h1 style={{ margin: 0, fontSize: '1rem', fontWeight: '900', letterSpacing: '0.5px', color: 'var(--primary-color)', lineHeight: '1.2' }}>SpeedWay AutoxMoto Detail Studio</h1>
         </Link>
         <nav style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontWeight: '500' }}>Services</Link>

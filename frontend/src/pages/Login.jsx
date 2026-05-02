@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, User, ShieldCheck, Phone, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const Login = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
@@ -14,11 +15,12 @@ const Login = ({ isModal = false, onClose }) => {
   const [fullName, setFullName] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
+  const isMobile = useMediaQuery('(max-width: 640px)');
   const { user, profile, signInWithPassword, verifyOTP } = useAuth();
 
   useEffect(() => {
-    if (user && profile && !isModal) {
+    if (user && profile) {
       const routes = {
         ADMIN: '/admin',
         SUPER_ADMIN: '/admin',
@@ -26,8 +28,11 @@ const Login = ({ isModal = false, onClose }) => {
         CUSTOMER: '/dashboard'
       };
       navigate(routes[profile.role] || '/dashboard');
+      if (isModal && onClose) {
+        onClose();
+      }
     }
-  }, [user, profile, navigate, isModal]);
+  }, [user, profile, navigate, isModal, onClose]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -36,7 +41,6 @@ const Login = ({ isModal = false, onClose }) => {
     if (error) toast.error(error.message);
     else {
       toast.success('Welcome back!');
-      if (onClose) onClose();
     }
     setIsLoading(false);
   };
@@ -44,7 +48,7 @@ const Login = ({ isModal = false, onClose }) => {
   const handleStartRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     // Safety timer to warn about slow Supabase email provider
     const timer = setTimeout(() => {
       toast('Still working on it. This may take a moment...', { icon: '⏳' });
@@ -71,7 +75,7 @@ const Login = ({ isModal = false, onClose }) => {
         setIsLoading(false);
         return;
       }
-      
+
       toast.success('Code sent to your email!');
       setMode('OTP_VERIFY');
     } catch (error) {
@@ -81,7 +85,6 @@ const Login = ({ isModal = false, onClose }) => {
       setIsLoading(false);
     }
   };
-
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -95,9 +98,9 @@ const Login = ({ isModal = false, onClose }) => {
         // Save profile details
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('profiles').update({ 
+          await supabase.from('profiles').update({
             full_name: fullName,
-            phone: phone 
+            phone: phone
           }).eq('id', user.id);
         }
       }
@@ -107,10 +110,40 @@ const Login = ({ isModal = false, onClose }) => {
     setIsLoading(false);
   };
 
+  const handleRecover = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      // First try standard Supabase reset (primary email)
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login?reset=true`,
+      });
+
+      if (resetError) {
+        // If primary fails, try the Edge Function for secondary email recovery
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'recover-staff', email })
+        });
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+        toast.success('Recovery link sent to your personal email!');
+      } else {
+        toast.success('Password reset link sent to your email!');
+      }
+      setMode('LOGIN');
+    } catch (err) {
+      toast.error(err.message || 'Failed to send recovery link.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const inputStyle = {
     width: '100%',
-    background: '#1e293b',
-    border: '1px solid #334155',
+    background: 'var(--bg-primary)',
+    border: '1px solid rgba(255,255,255,0.05)',
     padding: '0.75rem 1rem 0.75rem 2.75rem',
     borderRadius: '0.75rem',
     color: '#fff',
@@ -121,8 +154,8 @@ const Login = ({ isModal = false, onClose }) => {
 
   const buttonStyle = {
     width: '100%',
-    background: '#38bdf8',
-    color: '#000',
+    background: 'var(--primary-color)',
+    color: '#fff',
     padding: '0.875rem',
     borderRadius: '0.75rem',
     border: 'none',
@@ -150,34 +183,54 @@ const Login = ({ isModal = false, onClose }) => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: '#0f172a'
+    background: 'var(--bg-primary)'
   };
 
   const cardStyle = {
     width: '100%',
     maxWidth: '420px',
-    background: '#1e293b',
-    padding: '2.5rem',
+    background: 'var(--bg-secondary)',
+    padding: isMobile ? '1.5rem' : '2.5rem',
     borderRadius: '1.5rem',
     position: 'relative',
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-    border: '1px solid #334155',
+    border: '1px solid var(--border-color)',
     animation: 'modalIn 0.3s ease-out'
   };
 
+  const BlurGlow = ({ top, left, right, bottom, size, color }) => (
+    <div style={{
+      position: 'absolute',
+      top, left, right, bottom,
+      width: size,
+      height: size,
+      background: color || 'rgba(169, 27, 24, 0.2)',
+      filter: 'blur(150px)',
+      borderRadius: '50%',
+      zIndex: 0,
+      pointerEvents: 'none',
+      opacity: 0.5
+    }} />
+  );
+
   return (
-    <div style={overlayStyle} onClick={isModal ? onClose : undefined}>
-      <div style={cardStyle} onClick={e => e.stopPropagation()}>
+    <div style={{ ...overlayStyle, overflow: 'hidden', background: isModal ? 'rgba(0,0,0,0.85)' : 'var(--bg-primary)' }} onClick={isModal ? onClose : undefined}>
+      {/* Universal Glows */}
+      <BlurGlow top="-5%" left="-5%" size="800px" color="rgba(169, 27, 24, 0.3)" />
+      <BlurGlow top="20%" right="-5%" size="700px" color="rgba(169, 27, 24, 0.2)" />
+      <BlurGlow bottom="5%" right="0%" size="800px" color="rgba(169, 27, 24, 0.2)" />
+
+      <div style={{ ...cardStyle, zIndex: 10 }} onClick={e => e.stopPropagation()}>
         {isModal && (
-          <button 
+          <button
             onClick={onClose}
-            style={{ 
-              position: 'absolute', 
-              top: '1.25rem', 
-              right: '1.25rem', 
-              background: 'transparent', 
-              border: 'none', 
-              color: '#64748b', 
+            style={{
+              position: 'absolute',
+              top: '1.25rem',
+              right: '1.25rem',
+              background: 'transparent',
+              border: 'none',
+              color: '#64748b',
               cursor: 'pointer',
               padding: '0.5rem',
               borderRadius: '50%',
@@ -194,9 +247,9 @@ const Login = ({ isModal = false, onClose }) => {
         )}
 
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '900', color: '#38bdf8', letterSpacing: '2px' }}>RENEW</h1>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '1px', textTransform: 'uppercase', lineHeight: '1.2' }}>SpeedWay AutoxMoto Detail Studio</h1>
           <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-            {mode === 'LOGIN' ? 'Welcome back' : mode === 'REGISTER' ? 'Create your account' : 'Verify your account'}
+            {mode === 'LOGIN' ? 'Welcome back' : mode === 'REGISTER' ? 'Create your account' : mode === 'RECOVER' ? 'Reset your password' : 'Verify your account'}
           </p>
         </div>
 
@@ -211,9 +264,12 @@ const Login = ({ isModal = false, onClose }) => {
               <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Processing...' : 'Login'}</button>
-            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-              Don't have an account? <span onClick={() => setMode('REGISTER')} style={{ color: '#38bdf8', cursor: 'pointer', fontWeight: '600' }}>Register</span>
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem', fontSize: '0.9rem' }}>
+              <p style={{ margin: 0, color: '#94a3b8' }}>
+                Don't have an account? <span onClick={() => setMode('REGISTER')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Register</span>
+              </p>
+              <span onClick={() => setMode('RECOVER')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Forgot Password?</span>
+            </div>
           </form>
         )}
 
@@ -237,7 +293,7 @@ const Login = ({ isModal = false, onClose }) => {
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending Code...' : 'Register'}</button>
             <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-              Already have an account? <span onClick={() => setMode('LOGIN')} style={{ color: '#38bdf8', cursor: 'pointer', fontWeight: '600' }}>Login</span>
+              Already have an account? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
             </p>
           </form>
         )}
@@ -245,13 +301,29 @@ const Login = ({ isModal = false, onClose }) => {
         {mode === 'OTP_VERIFY' && (
           <form onSubmit={handleVerifyOtp}>
             <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Enter the 6-digit code sent to <br/><span style={{ color: '#fff', fontWeight: '600' }}>{email}</span>
+              Enter the 6-digit code sent to <br /><span style={{ color: '#fff', fontWeight: '600' }}>{email}</span>
             </p>
             <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
               <ShieldCheck size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input type="text" placeholder="000000" required value={otp} onChange={e => setOtp(e.target.value)} style={{ ...inputStyle, textAlign: 'center', letterSpacing: '0.5rem', fontSize: '1.25rem' }} />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Verifying...' : 'Complete Registration'}</button>
+          </form>
+        )}
+
+        {mode === 'RECOVER' && (
+          <form onSubmit={handleRecover}>
+            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              Enter your email address to receive a <br />password reset link.
+            </p>
+            <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+              <Mail size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
+            </div>
+            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending...' : 'Send Recovery Link'}</button>
+            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+              Remember your password? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
+            </p>
           </form>
         )}
       </div>

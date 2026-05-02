@@ -1,61 +1,288 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Users, CalendarCheck, CreditCard, Activity } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { TrendingUp, Users, Clipboard, CreditCard, ArrowRight, Check, Clock, Play, CheckCircle, XCircle } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
+import LoadingState from '../../components/LoadingState';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    pendingPayments: 0,
-    staffCount: 0,
-    completedServices: 0
-  });
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      // Very basic mock aggregations. In a real app, you would use a backend RPC or Edge Function to aggregate safely.
-      const [{ count: totalBookings }, { count: pendingPayments }, { count: staffCount }] = await Promise.all([
-        supabase.from('bookings').select('*', { count: 'exact', head: true }),
-        supabase.from('payment_intents').select('*', { count: 'exact', head: true }).eq('status', 'FOR_VERIFICATION'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'STAFF')
-      ]);
+    const fetchData = async () => {
+      const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          booking_status,
+          service_status,
+          scheduled_start,
+          staff_id,
+          created_at,
+          customer:profiles!bookings_customer_id_fkey(full_name),
+          payments:payment_intents(status, total_amount, amount_paid)
+        `)
+        .order('created_at', { ascending: false });
 
-      setStats({
-        totalBookings: totalBookings || 0,
-        pendingPayments: pendingPayments || 0,
-        staffCount: staffCount || 0,
-        completedServices: 0 // Mock for now
-      });
+      if (bookings) setData(bookings);
+      if (error) console.error('Error fetching dashboard data:', error);
+      setLoading(false);
     };
 
-    fetchStats();
+    fetchData();
   }, []);
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div style={{ background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-      <div style={{ background: color, padding: '1rem', borderRadius: '0.75rem', color: '#000' }}>
-        <Icon size={24} />
-      </div>
-      <div>
-        <p style={{ margin: '0 0 0.25rem 0', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: '500' }}>{title}</p>
-        <h3 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '700' }}>{value}</h3>
-      </div>
-    </div>
-  );
+  // Metrics calculation
+  let totalBookings = data.length;
+  let completedBookingsCount = 0;
+  let totalRevenue = 0;
+  let pendingPayments = 0;
+
+  // Discrete counts for the simple list
+  const bookingStats = { CONFIRMED: 0, CANCELLED: 0, COMPLETED: 0 };
+  const serviceStats = { NOT_STARTED: 0, ONGOING: 0, COMPLETED: 0 };
+
+  const recentActivity = [];
+  const needsAssignment = [];
+
+  data.forEach(booking => {
+    // Financials
+    let bookingRevenue = 0;
+    let bookingPending = 0;
+    let mainPaymentStatus = 'PENDING';
+
+    if (booking.payments && booking.payments.length > 0) {
+      const payment = booking.payments[0];
+      mainPaymentStatus = payment.status;
+      if (payment.status === 'COMPLETED' || payment.status === 'VERIFIED') {
+        bookingRevenue += Number(payment.total_amount || 0);
+      } else if (payment.status === 'PENDING' || payment.status === 'FOR_VERIFICATION') {
+        bookingPending += Number(payment.total_amount || 0);
+      } else if (payment.status === 'DOWNPAYMENT_PAID') {
+        bookingPending += Number(payment.total_amount || 0) - Number(payment.amount_paid || 0);
+      }
+    }
+    totalRevenue += bookingRevenue;
+    pendingPayments += bookingPending;
+
+    // Stat counts
+    if (bookingStats[booking.booking_status] !== undefined) bookingStats[booking.booking_status]++;
+    const sStat = booking.service_status || 'NOT_STARTED';
+    if (serviceStats[sStat] !== undefined) serviceStats[sStat]++;
+    if (booking.booking_status === 'COMPLETED') completedBookingsCount++;
+
+    // Recent Activity
+    if (recentActivity.length < 5) {
+      let pStat = mainPaymentStatus;
+      if (pStat === 'VERIFIED') pStat = 'COMPLETED';
+      if (pStat === 'FOR_VERIFICATION') pStat = 'PENDING';
+      recentActivity.push({
+        id: booking.id,
+        shortId: booking.id.substring(0, 8),
+        customer: booking.customer?.full_name || 'Unknown',
+        amount: booking.payments?.[0]?.total_amount || 0,
+        status: pStat
+      });
+    }
+
+    // Attention Needed
+    if (booking.booking_status === 'CONFIRMED' && !booking.staff_id) {
+      if (needsAssignment.length < 5) {
+        needsAssignment.push({
+          id: booking.id,
+          customer: booking.customer?.full_name || 'Unknown',
+          date: new Date(booking.scheduled_start).toLocaleDateString(),
+          amount: booking.payments?.[0]?.total_amount || 0
+        });
+      }
+    }
+  });
+
+  const handleStatusClick = (status) => {
+    navigate('/admin/bookings', { state: { filter: status } });
+  };
+
+  const getStatusDotColor = (status) => {
+    switch(status) {
+      case 'CONFIRMED': return 'var(--primary-color)';
+      case 'CANCELLED': return '#ef4444';
+      case 'COMPLETED': return '#10b981';
+      case 'NOT_STARTED': return 'rgba(255,255,255,0.4)';
+      case 'ONGOING': return '#8b5cf6';
+      default: return '#fff';
+    }
+  };
+
+  const panelStyle = {
+    background: 'var(--bg-secondary)',
+    borderRadius: '1.25rem',
+    border: '1px solid rgba(255,255,255,0.03)',
+    padding: '1.75rem',
+    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+  };
+
+  if (loading) {
+    return <LoadingState message="Fetching operational data..." />;
+  }
 
   return (
-    <div>
-      <h1 style={{ marginBottom: '2rem' }}>Dashboard Overview</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <StatCard title="Total Bookings" value={stats.totalBookings} icon={CalendarCheck} color="var(--primary-color)" />
-        <StatCard title="Pending Payments" value={stats.pendingPayments} icon={CreditCard} color="orange" />
-        <StatCard title="Active Staff" value={stats.staffCount} icon={Users} color="#4ade80" />
-        <StatCard title="Completed Services" value={stats.completedServices} icon={Activity} color="#60a5fa" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+      
+      {/* Welcome Header Area */}
+      <PageHeader 
+        badge="OPERATIONS OVERVIEW"
+        title={`Hello, ${profile?.full_name?.split(' ')[0] || 'Admin'}`}
+        subtitle="Here's a summary of the system performance today."
+        onRefresh={() => window.location.reload()}
+      />
+
+      {/* Primary Metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(260px, 1fr))', gap: isMobile ? '1rem' : '1.5rem' }}>
+        {[
+          { label: 'Total Bookings', value: totalBookings, color: 'var(--primary-color)', icon: Clipboard, path: '/admin/bookings' },
+          { label: 'Completed', value: completedBookingsCount, color: '#10b981', icon: Check, path: '/admin/bookings' },
+          { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}`, color: '#10b981', icon: TrendingUp, path: '/admin/analytics' },
+          { label: 'Pending Payments', value: `₱${pendingPayments.toLocaleString()}`, color: '#f59e0b', icon: CreditCard, path: '/admin/payments' }
+        ].map((stat, i) => (
+          <div 
+            key={i}
+            onClick={() => navigate(stat.path)}
+            style={{ ...panelStyle, cursor: 'pointer', transition: 'all 0.3s ease' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-5px)';
+              e.currentTarget.style.borderColor = 'rgba(169, 27, 24, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div style={{ background: `${stat.color}15`, color: stat.color, padding: '0.75rem', borderRadius: '1rem' }}>
+                <stat.icon size={22} />
+              </div>
+              <ArrowRight size={18} style={{ opacity: 0.15 }} />
+            </div>
+            <p style={{ margin: '0 0 0.25rem 0', color: 'rgba(255,255,255,0.4)', fontSize: isMobile ? '0.65rem' : '0.8rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>{stat.label}</p>
+            <h2 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2.5rem', fontWeight: '900', letterSpacing: '-1.5px' }}>{stat.value}</h2>
+          </div>
+        ))}
       </div>
 
-      <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-        <h2 style={{ marginBottom: '1rem' }}>Recent Activity</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>Detailed activity feed will be implemented here (Phase 6.4).</p>
+      {/* Workflow Status & Logs */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        
+        {/* Simple Workflow Status List */}
+        <div style={panelStyle}>
+          <h3 style={{ margin: '0 0 2rem 0', fontSize: '0.9rem', fontWeight: '900', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Workflow Status</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {Object.entries(bookingStats).map(([status, count]) => (
+              <div 
+                key={status} 
+                onClick={() => handleStatusClick(status)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 0.7}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 1}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'rgba(255,255,255,0.8)', letterSpacing: '0.5px' }}>{status}</span>
+                </div>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900' }}>{count}</span>
+              </div>
+            ))}
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.5rem 0' }}></div>
+            {Object.entries(serviceStats).map(([status, count]) => (
+              <div 
+                key={status} 
+                onClick={() => handleStatusClick(status)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 0.7}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 1}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
+                </div>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div style={{ ...panelStyle, padding: 0, overflow: 'hidden', background: 'var(--bg-secondary)' }}>
+          <div style={{ padding: '1.75rem 1.75rem 1.25rem 1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Bookings</h3>
+            <ArrowRight size={18} style={{ opacity: 0.2 }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {recentActivity.map((activity, i) => (
+              <div 
+                key={i} 
+                onClick={() => navigate(`/admin/bookings/${activity.id}`)}
+                style={{ 
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                  padding: '1.25rem 1.75rem', borderTop: '1px solid rgba(255,255,255,0.03)',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>{activity.customer}</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.5px' }}>#{activity.shortId.toUpperCase()}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: '#10b981' }}>₱{activity.amount.toLocaleString()}</p>
+                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '900', color: activity.status === 'COMPLETED' ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>{activity.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Required */}
+        <div style={panelStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 2s infinite' }}></div>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: '#ef4444', letterSpacing: '2px', textTransform: 'uppercase' }}>Needs Assignment</h3>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {needsAssignment.map((item, i) => (
+              <div 
+                key={i} 
+                onClick={() => navigate(`/admin/bookings/${item.id}`)}
+                style={{ 
+                  background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.1)', 
+                  padding: '1.25rem', borderRadius: '1rem', cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)'}
+              >
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '800' }}>{item.customer}</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>
+                  <span>{item.date}</span>
+                  <span style={{ color: '#ef4444' }}>₱{item.amount.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+      `}</style>
     </div>
   );
 };

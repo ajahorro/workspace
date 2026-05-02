@@ -4,12 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { confirmLogout } from '../utils/logoutConfirm.jsx';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const ProfileHeader = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -37,24 +40,10 @@ const ProfileHeader = () => {
 
   const handleLogout = () => {
     setIsOpen(false);
-    toast((t) => (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ margin: 0, fontWeight: '500' }}>Are you sure you want to log out?</p>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-          <button onClick={() => toast.dismiss(t.id)} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '0.25rem', cursor: 'pointer' }}>Cancel</button>
-          <button 
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await signOut();
-              navigate('/');
-            }}
-            style={{ padding: '0.5rem 1rem', background: 'var(--danger-color)', border: 'none', color: '#fff', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: '600' }}
-          >
-            Log Out
-          </button>
-        </div>
-      </div>
-    ), { duration: Infinity, style: { background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' } });
+    confirmLogout(async () => {
+      await signOut();
+      navigate('/');
+    });
   };
 
   const initial = user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U';
@@ -67,10 +56,10 @@ const ProfileHeader = () => {
         style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: '0.75rem', 
+          gap: isMobile ? '0.25rem' : '0.75rem', 
           background: 'rgba(255,255,255,0.04)', 
           border: '1px solid var(--border-color)', 
-          padding: '0.5rem 1rem 0.5rem 0.5rem', 
+          padding: isMobile ? '0.25rem' : '0.5rem 1rem 0.5rem 0.5rem', 
           borderRadius: '2rem', 
           cursor: 'pointer',
           transition: 'all 0.2s ease'
@@ -79,8 +68,8 @@ const ProfileHeader = () => {
         onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
       >
         <div style={{ 
-          width: '32px', 
-          height: '32px', 
+          width: isMobile ? '28px' : '32px', 
+          height: isMobile ? '28px' : '32px', 
           background: 'var(--primary-color)', 
           borderRadius: '50%', 
           display: 'flex', 
@@ -92,7 +81,7 @@ const ProfileHeader = () => {
         }}>
           {initial}
         </div>
-        <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.85rem' }}>{displayName}</span>
+        {!isMobile && <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.85rem' }}>{displayName}</span>}
         <ChevronDown size={14} color="var(--text-secondary)" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
       </button>
 
@@ -204,6 +193,9 @@ const ProfileHeader = () => {
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 };

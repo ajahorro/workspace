@@ -1,119 +1,217 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardList, Settings, LogOut } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { supabase } from '../lib/supabase';
+import { ClipboardList, Settings, LogOut, Bell, Menu, X } from 'lucide-react';
 import ProfileHeader from '../components/ProfileHeader';
+import AdminSearch from '../components/AdminSearch';
+import NotificationPopover from '../components/NotificationPopover';
+import { confirmLogout } from '../utils/logoutConfirm.jsx';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
+const BlurGlow = ({ top, left, right, bottom, size, color }) => (
+  <div style={{
+    position: 'absolute',
+    top, left, right, bottom,
+    width: size,
+    height: size,
+    background: color || 'rgba(169, 27, 24, 0.4)',
+    filter: 'blur(120px)',
+    borderRadius: '50%',
+    zIndex: 0,
+    pointerEvents: 'none',
+    opacity: 0.6
+  }} />
+);
 
 const StaffLayout = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifPopover, setShowNotifPopover] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1024px)');
 
-  const handleLogout = async () => {
-    toast((t) => (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ margin: 0, fontWeight: '500' }}>Confirm logout?</p>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-          <button onClick={() => toast.dismiss(t.id)} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '0.25rem', cursor: 'pointer' }}>Cancel</button>
-          <button 
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await signOut();
-              navigate('/');
-            }}
-            style={{ padding: '0.5rem 1rem', background: 'var(--danger-color)', border: 'none', color: '#fff', borderRadius: '0.25rem', cursor: 'pointer', fontWeight: '600' }}
-          >
-            Log Out
-          </button>
-        </div>
-      </div>
-    ), { duration: Infinity, style: { background: 'var(--bg-secondary)', color: '#fff', border: '1px solid var(--border-color)' } });
+  useEffect(() => {
+    fetchUnreadCount();
+    const handleNotificationsRead = () => fetchUnreadCount();
+    window.addEventListener('notificationsRead', handleNotificationsRead);
+    const channel = supabase
+      .channel('staff-notif-count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user?.id}` }, () => {
+        fetchUnreadCount();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('notificationsRead', handleNotificationsRead);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (isMobile) setIsSidebarOpen(false);
+  }, [location, isMobile]);
+
+  const fetchUnreadCount = async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false);
+    setUnreadCount(count || 0);
+  };
+
+  const handleLogout = () => {
+    confirmLogout(async () => {
+      await signOut();
+      navigate('/');
+    });
+  };
+
+  const navLinks = [
+    { name: 'Tasks', path: '/staff', icon: ClipboardList, exact: true },
+    { name: 'Notifications', path: '/staff/notifications', icon: Bell },
+    { name: 'Settings', path: '/staff/settings', icon: Settings },
+  ];
+
+  const sidebarStyle = {
+    width: '280px',
+    background: 'var(--bg-secondary)',
+    borderRight: '1px solid rgba(255,255,255,0.03)',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '2rem 1.5rem',
+    position: 'fixed',
+    top: 0,
+    left: isMobile ? (isSidebarOpen ? 0 : '-280px') : 0,
+    height: '100vh',
+    zIndex: 1000,
+    transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+  };
+
+  const overlayStyle = {
+    display: isMobile && isSidebarOpen ? 'block' : 'none',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 999
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <aside style={{ width: '280px', background: 'var(--bg-primary)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', padding: '2rem 1.5rem', position: 'sticky', top: 0, height: '100vh' }}>
-        <div style={{ marginBottom: '3rem', paddingLeft: '1rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: '800', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: '8px', height: '24px', background: 'var(--accent-green)', borderRadius: '4px' }}></span>
-            STAFF
-          </h1>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
+      <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
+      <BlurGlow top="10%" right="5%" size="450px" color="rgba(206, 231, 243, 0.3)" />
+      <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.25)" />
+      <BlurGlow bottom="10%" left="5%" size="400px" color="rgba(206, 231, 243, 0.3)" />
+      <BlurGlow bottom="-5%" right="-5%" size="550px" color="rgba(169, 27, 24, 0.3)" />
+
+      <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
+
+      <aside style={sidebarStyle}>
+        <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
+            SpeedWay AutoxMoto Detail Studio
+          </div>
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'rgba(255,255,255,0.4)' }}><X /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-          <NavLink
-            to="/staff"
-            end
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              padding: '1rem 1.25rem',
-              borderRadius: '0.5rem',
-              textDecoration: 'none',
-              color: isActive ? '#fff' : 'var(--text-secondary)',
-              background: isActive ? 'var(--bg-secondary)' : 'transparent',
-              fontWeight: isActive ? '600' : '400',
-              transition: 'all 0.2s ease',
-              border: isActive ? '1px solid var(--border-color)' : '1px solid transparent'
-            })}
-          >
-            <ClipboardList size={20} color={location.pathname === '/staff' ? "var(--accent-green)" : "currentColor"} />
-            My Tasks
-          </NavLink>
+          {navLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = link.exact ? location.pathname === link.path : location.pathname.startsWith(link.path);
+            return (
+              <NavLink
+                key={link.name}
+                to={link.path}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1.25rem',
+                  borderRadius: '0.75rem', textDecoration: 'none',
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
+                  background: isActive ? 'rgba(169, 27, 24, 0.1)' : 'transparent',
+                  fontWeight: isActive ? '800' : '600', fontSize: '0.9rem',
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                  borderLeft: isActive ? '3px solid var(--primary-color)' : '3px solid transparent'
+                }}
+              >
+                <Icon size={18} style={{ opacity: isActive ? 1 : 0.6 }} />
+                {link.name}
+              </NavLink>
+            );
+          })}
         </nav>
 
-        {/* Bottom: Settings + Logout */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
-          <NavLink
-            to="/staff/settings"
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              padding: '1rem 1.25rem',
-              borderRadius: '0.5rem',
-              textDecoration: 'none',
-              color: isActive ? '#fff' : 'var(--text-secondary)',
-              background: isActive ? 'var(--bg-secondary)' : 'transparent',
-              fontWeight: isActive ? '600' : '400',
-              border: isActive ? '1px solid var(--border-color)' : '1px solid transparent',
-              transition: 'all 0.2s ease'
-            })}
-          >
-            <Settings size={20} color={location.pathname === '/staff/settings' ? "var(--accent-green)" : "currentColor"} />
-            Settings
-          </NavLink>
-          
-          <button 
-            onClick={handleLogout}
-            style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', borderRadius: '0.5rem', border: 'none', background: 'transparent', color: 'var(--danger-color)', cursor: 'pointer', fontWeight: '600', textAlign: 'left', marginTop: '0.5rem', transition: 'all 0.2s ease' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <LogOut size={20} />
-            Log Out
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem',
+            borderRadius: '0.75rem', border: 'none', background: 'transparent',
+            color: '#ef4444', cursor: 'pointer', fontWeight: '800', fontSize: '0.9rem',
+            marginTop: 'auto'
+          }}
+        >
+          <LogOut size={18} />
+          LOG OUT
+        </button>
       </aside>
 
-      {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          alignItems: 'center', 
-          padding: '1rem 2.5rem', 
-          borderBottom: '1px solid var(--border-color)',
-          background: 'var(--bg-primary)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, minHeight: '100vh', maxWidth: '100%', marginLeft: isMobile ? 0 : '280px' }}>
+        <header style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: isMobile ? '0.75rem 1.25rem' : '1rem 2rem', background: 'var(--bg-secondary)',
+          position: 'sticky', top: 0, zIndex: 1000
         }}>
-          <ProfileHeader />
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '2rem' }}>
+            {isMobile && (
+              <button onClick={() => setIsSidebarOpen(true)} style={{ color: '#fff' }}>
+                <Menu size={24} />
+              </button>
+            )}
+            <div
+              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer' }}
+              onClick={() => navigate('/staff')}
+            >
+              STAFF
+            </div>
+            {!isMobile && <AdminSearch />}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
+            <div
+              onClick={() => setShowNotifPopover(!showNotifPopover)}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6 }}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: '#ef4444', color: '#fff', fontSize: '0.5rem',
+                  fontWeight: 'bold', width: '14px', height: '14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%', border: '1px solid #050a15'
+                }}>{unreadCount}</div>
+              )}
+            </div>
+            {showNotifPopover && (
+              <NotificationPopover user={user} profile={profile} onClose={() => setShowNotifPopover(false)} onRead={fetchUnreadCount} />
+            )}
+            <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.05)' }}></div>
+            <ProfileHeader />
+          </div>
         </header>
-        <main style={{ flex: 1, padding: '2.5rem 3rem', overflowY: 'auto' }}>
+
+        {isMobile && (
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(5, 10, 21, 0.2)' }}>
+            <AdminSearch />
+          </div>
+        )}
+
+        <main style={{ flex: 1, padding: '1.5rem 2.5rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
       </div>

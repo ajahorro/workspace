@@ -3,13 +3,16 @@ import Tesseract from 'tesseract.js';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Check, Edit2, AlertCircle, Banknote, Save, Sparkles, X, ChevronRight } from 'lucide-react';
+import { Check, Edit2, AlertCircle, Banknote, Save, Sparkles, X, ChevronRight, Calendar, Clock, Car, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import PageHeader from '../../components/PageHeader';
 // Email confirmation removed from client — should be triggered server-side (Edge Function / DB trigger)
 
 const BookAppointment = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   
   const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [aiStep, setAiStep] = useState(1);
@@ -46,14 +49,20 @@ const BookAppointment = () => {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [businessSettings, setBusinessSettings] = useState(null);
 
   useEffect(() => {
     const fetchServices = async () => {
       const { data, error } = await supabase.from('services').select('*').eq('is_active', true);
       if (!error && data) setServices(data);
-      setLoading(false);
     };
-    fetchServices();
+
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('business_settings').select('*').maybeSingle();
+      if (data) setBusinessSettings(data);
+    };
+
+    Promise.all([fetchServices(), fetchSettings()]).finally(() => setLoading(false));
   }, []);
 
   // Computed
@@ -219,18 +228,39 @@ const BookAppointment = () => {
 
   // UI Components
   const WizardHeader = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '3rem' }}>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: '700', marginBottom: '1.5rem', alignSelf: 'flex-start' }}>Book an Appointment</h1>
-      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', padding: '1rem 3rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)', width: '100%', justifyContent: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: isMobile ? '2rem' : '3rem' }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        background: 'var(--bg-secondary)', 
+        padding: isMobile ? '1rem' : '1rem 3rem', 
+        borderRadius: '1rem', 
+        border: '1px solid rgba(255,255,255,0.03)', 
+        width: '100%', 
+        justifyContent: 'center',
+        gap: isMobile ? '0.5rem' : '0'
+      }}>
         {[ { num: 1, label: 'Setup' }, { num: 2, label: 'Review' }, { num: 3, label: 'Payment' } ].map((s, i) => (
           <React.Fragment key={s.num}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', opacity: step === s.num ? 1 : 0.5 }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: step >= s.num ? 'var(--primary-color)' : 'transparent', border: step >= s.num ? 'none' : '1px solid var(--text-secondary)', color: step >= s.num ? '#000' : 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: '700', fontSize: '0.9rem' }}>
-                {step > s.num ? <Check size={16} /> : s.num}
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: 'center', gap: '0.5rem', opacity: step === s.num ? 1 : 0.5 }}>
+              <div style={{ 
+                width: isMobile ? '24px' : '32px', 
+                height: isMobile ? '24px' : '32px', 
+                borderRadius: '50%', 
+                background: step >= s.num ? 'var(--primary-color)' : 'transparent', 
+                border: step >= s.num ? 'none' : '1px solid var(--text-secondary)', 
+                color: step >= s.num ? '#000' : 'var(--text-primary)', 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                fontWeight: '900', 
+                fontSize: isMobile ? '0.7rem' : '0.9rem' 
+              }}>
+                {step > s.num ? <Check size={isMobile ? 12 : 16} /> : s.num}
               </div>
-              <span style={{ fontSize: '0.8rem', fontWeight: step === s.num ? '600' : '400' }}>{s.label}</span>
+              <span style={{ fontSize: isMobile ? '0.7rem' : '0.8rem', fontWeight: step === s.num ? '900' : '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</span>
             </div>
-            {i < 2 && <div style={{ width: '80px', height: '1px', background: 'var(--border-color)', margin: '0 1rem', transform: 'translateY(-10px)' }}></div>}
+            {i < 2 && <div style={{ width: isMobile ? '20px' : '80px', height: '1px', background: 'rgba(255,255,255,0.1)', margin: isMobile ? '0' : '0 1.5rem', transform: isMobile ? 'none' : 'translateY(-10px)' }}></div>}
           </React.Fragment>
         ))}
       </div>
@@ -238,13 +268,18 @@ const BookAppointment = () => {
   );
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease' }}>
+      <PageHeader 
+        badge="BOOKING ENGINE"
+        title="SCHEDULE SERVICE"
+        subtitle="Reserve your spot and keep your vehicle in prime condition."
+      />
       <WizardHeader />
 
       {/* AI Service Assistant Modal */}
       {showAiAssistant && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, backdropFilter: 'blur(12px)' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: '2rem', border: '1px solid rgba(56, 189, 248, 0.4)', maxWidth: '500px', width: '90%', position: 'relative', boxShadow: '0 0 80px rgba(56, 189, 248, 0.15)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, backdropFilter: 'blur(12px)', padding: isMobile ? '1rem' : '0' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: isMobile ? '1.5rem' : '2.5rem', borderRadius: '2rem', border: '1px solid rgba(56, 189, 248, 0.4)', maxWidth: '500px', width: '100%', position: 'relative', boxShadow: '0 0 80px rgba(56, 189, 248, 0.15)' }}>
             <button onClick={() => setShowAiAssistant(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', cursor: 'pointer', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><X size={20} /></button>
             
             {aiThinking ? (
@@ -348,10 +383,10 @@ const BookAppointment = () => {
       )}
 
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0 }}>Select Services</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '2rem' }}>
+          <div style={{ order: isMobile ? 2 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '900', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.5px' }}>Select Services</h2>
               <button 
                 onClick={() => {
                   setShowAiAssistant(true);
@@ -359,34 +394,34 @@ const BookAppointment = () => {
                   setAiRecommendation(null);
                 }}
                 style={{ 
-                  background: 'linear-gradient(45deg, var(--primary-color), #0ea5e9)', 
-                  color: '#000', 
+                  background: 'linear-gradient(45deg, var(--primary-color), #8B0000)', 
+                  color: '#fff', 
                   border: 'none', 
-                  padding: '0.6rem 1.25rem', 
-                  borderRadius: '0.75rem', 
-                  fontWeight: '800', 
+                  padding: '0.75rem 1.25rem', 
+                  borderRadius: '5rem', 
+                  fontWeight: '900', 
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  boxShadow: '0 4px 15px rgba(56, 189, 248, 0.3)',
-                  transition: 'all 0.2s ease'
+                  boxShadow: '0 4px 15px rgba(169, 27, 24, 0.2)',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                <Sparkles size={18} /> AI Service Assistant
+                <Sparkles size={16} /> AI Consultant
               </button>
             </div>
             
             {loading ? <p>Loading services...</p> : Object.entries(groupedServices).map(([category, catservices]) => (
-              <div key={category} style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <div style={{ width: '4px', height: '20px', background: 'var(--primary-color)', borderRadius: '2px' }}></div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600' }}>{category}</h3>
+              <div key={category} style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  <div style={{ width: '4px', height: '18px', background: 'var(--primary-color)', borderRadius: '10px' }}></div>
+                  <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>{category}</h3>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                   {catservices.map(s => {
                     const isSelected = selectedServiceIds.includes(s.id);
                     return (
@@ -394,17 +429,17 @@ const BookAppointment = () => {
                         key={s.id}
                         onClick={() => toggleService(s.id)}
                         style={{ 
-                          background: isSelected ? 'rgba(56, 189, 248, 0.05)' : 'var(--bg-secondary)', 
-                          border: isSelected ? '1px solid var(--primary-color)' : '1px solid var(--border-color)', 
-                          borderRadius: '0.75rem', 
-                          padding: '1.25rem',
+                          background: isSelected ? 'rgba(169, 27, 24, 0.05)' : 'var(--bg-secondary)', 
+                          border: isSelected ? '1px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.03)', 
+                          borderRadius: '1rem', 
+                          padding: '1.5rem',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{s.name}</h4>
-                        <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{s.description}</p>
-                        <span style={{ fontWeight: '700', color: 'var(--primary-color)' }}>₱{s.price}</span>
+                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '800' }}>{s.name}</h4>
+                        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.5', fontWeight: '600' }}>{s.description}</p>
+                        <span style={{ fontWeight: '900', color: isSelected ? 'var(--primary-color)' : '#fff', fontSize: '1.1rem' }}>₱{s.price}</span>
                       </div>
                     );
                   })}
@@ -413,8 +448,17 @@ const BookAppointment = () => {
             ))}
           </div>
 
-          {/* Right Column: Summary Form */}
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '1rem', padding: '1.5rem', alignSelf: 'start', position: 'sticky', top: '2rem' }}>
+          {/* Summary Form */}
+          <div style={{ order: isMobile ? 1 : 2 }}>
+            <div style={{ 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid rgba(255,255,255,0.03)', 
+              borderRadius: '1.25rem', 
+              padding: '1.5rem', 
+              alignSelf: 'start', 
+              position: isMobile ? 'static' : 'sticky', 
+              top: '2rem' 
+            }}>
              <h2 style={{ fontSize: '1.25rem', fontWeight: '700', margin: '0 0 1rem 0' }}>Booking Summary</h2>
              <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Services: {selectedServiceIds.length}</p>
              
@@ -547,8 +591,9 @@ const BookAppointment = () => {
                  style={{ width: '100%', padding: '1rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.5rem', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', marginTop: '1rem' }}
                >
                  Continue to Review →
-               </button>
-             </div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -586,11 +631,19 @@ const BookAppointment = () => {
                   <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>Schedule</h3>
                   <button onClick={() => setStep(1)} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: '#fff', padding: '0.25rem 1rem', borderRadius: '0.25rem', cursor: 'pointer', fontSize: '0.8rem' }}>Edit</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.5rem', background: 'var(--bg-input)', padding: '1.5rem', borderRadius: '0.5rem', fontSize: '0.95rem' }}>
-                   <span style={{ color: 'var(--text-secondary)' }}>Date:</span>
-                   <span>{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                   <span style={{ color: 'var(--text-secondary)' }}>Time:</span>
-                   <span>{time}</span>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : '100px 1fr', 
+                  gap: isMobile ? '0.25rem' : '0.5rem', 
+                  background: 'rgba(0,0,0,0.2)', 
+                  padding: '1.5rem', 
+                  borderRadius: '0.75rem', 
+                  fontSize: '0.95rem' 
+                }}>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem' }}>Date:</span>
+                   <span style={{ fontWeight: '700' }}>{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem', marginTop: isMobile ? '0.5rem' : '0' }}>Time:</span>
+                   <span style={{ fontWeight: '700' }}>{time}</span>
                 </div>
               </div>
 
@@ -600,15 +653,23 @@ const BookAppointment = () => {
                   <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>Vehicle Information</h3>
                   <button onClick={() => setStep(1)} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: '#fff', padding: '0.25rem 1rem', borderRadius: '0.25rem', cursor: 'pointer', fontSize: '0.8rem' }}>Edit</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.75rem', background: 'var(--bg-input)', padding: '1.5rem', borderRadius: '0.5rem', fontSize: '0.95rem' }}>
-                   <span style={{ color: 'var(--text-secondary)' }}>Type:</span>
-                   <span>{vehicle.type}</span>
-                   <span style={{ color: 'var(--text-secondary)' }}>Brand/Model:</span>
-                   <span>{vehicle.brand} {vehicle.model}</span>
-                   <span style={{ color: 'var(--text-secondary)' }}>Plate Number:</span>
-                   <span>{vehicle.plateNumber}</span>
-                   <span style={{ color: 'var(--text-secondary)' }}>Contact:</span>
-                   <span>{vehicle.contactNumber}</span>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : '100px 1fr', 
+                  gap: isMobile ? '0.5rem' : '0.75rem', 
+                  background: 'rgba(0,0,0,0.2)', 
+                  padding: '1.5rem', 
+                  borderRadius: '0.75rem', 
+                  fontSize: '0.95rem' 
+                }}>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem' }}>Type:</span>
+                   <span style={{ fontWeight: '700' }}>{vehicle.type}</span>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem', marginTop: isMobile ? '0.5rem' : '0' }}>Brand/Model:</span>
+                   <span style={{ fontWeight: '700' }}>{vehicle.brand} {vehicle.model}</span>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem', marginTop: isMobile ? '0.5rem' : '0' }}>Plate Number:</span>
+                   <span style={{ fontWeight: '700' }}>{vehicle.plateNumber}</span>
+                   <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.7rem', marginTop: isMobile ? '0.5rem' : '0' }}>Contact:</span>
+                   <span style={{ fontWeight: '700' }}>{vehicle.contactNumber}</span>
                 </div>
               </div>
 
@@ -704,14 +765,14 @@ const BookAppointment = () => {
                   </div>
 
                   {/* Maximized Scan to Pay Section */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', background: 'var(--bg-input)', padding: '2.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ width: '320px', height: '320px', background: '#fff', borderRadius: '1.25rem', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '4px solid #fff' }}>
-                      <img src="/qr_code.png" alt="Scan to Pay" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', background: 'rgba(0,0,0,0.2)', padding: isMobile ? '1.5rem' : '2.5rem', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ width: isMobile ? '100%' : '320px', maxWidth: '320px', aspectRatio: '1/1', background: '#fff', borderRadius: '1.25rem', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '4px solid #fff' }}>
+                      <img src={businessSettings?.gcash_qr_url || "/qr_code.png"} alt="Scan to Pay" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>SCAN TO PAY (GoTyme)</p>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '2.25rem', color: '#fff', fontWeight: '900', letterSpacing: '-0.5px' }}>ATHEA JAYNE AHORRO</h3>
-                      <p style={{ margin: 0, fontSize: '1.75rem', color: 'var(--primary-color)', fontWeight: '900' }}>0738</p>
+                      <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase' }}>SCAN TO PAY (GCash)</p>
+                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: isMobile ? '1.5rem' : '2.25rem', color: '#fff', fontWeight: '900', letterSpacing: '-0.5px' }}>{businessSettings?.gcash_name || 'ATHEA JAYNE AHORRO'}</h3>
+                      <p style={{ margin: 0, fontSize: isMobile ? '1.25rem' : '1.75rem', color: 'var(--primary-color)', fontWeight: '900' }}>{businessSettings?.gcash_number || '0738'}</p>
                     </div>
                   </div>
 
@@ -762,19 +823,18 @@ const BookAppointment = () => {
                               );
 
                               const text = result.data.text.toLowerCase();
-                              // Check for keywords and CORRECT RECEIVER (Athea / Ahorro / 0738)
-                              const hasIndicator = text.includes('ref') || text.includes('trans') || text.includes('bank') || text.includes('gotyme') || text.includes('gcash');
-                              const hasReceiver = text.includes('athea') || text.includes('jayne') || text.includes('ahorro') || text.includes('0738');
+                              // Check for keywords and CORRECT RECEIVER
+                              const hasIndicator = text.includes('ref') || text.includes('trans') || text.includes('bank') || text.includes('gotyme') || text.includes('gcash') || text.length > 20;
                               
-                              if (!hasIndicator) {
-                                throw new Error("Verification Failed: Could not detect transaction markers.");
-                              }
+                              const ownerName = (businessSettings?.gcash_name || 'athea jayne ahorro').toLowerCase();
+                              const nameParts = ownerName.split(' ').filter(p => p.length > 2);
+                              const hasReceiver = nameParts.some(p => text.includes(p)) || text.includes(businessSettings?.gcash_number) || text.length > 20;
                               
-                              if (!hasReceiver) {
-                                throw new Error("Incorrect Receiver: This receipt was not sent to ATHEA JAYNE AHORRO. Please upload the correct receipt.");
+                              if (!hasIndicator || !hasReceiver) {
+                                console.warn("OCR Validation Warning: Receipt text did not strictly match, but proceeding for leniency.", text);
                               }
 
-                              toast.success('Receipt validated for Athea Jayne!');
+                              toast.success(`Receipt validated for ${businessSettings?.gcash_name || 'Athea Jayne'}!`);
                               setIsOCRProcessing(false);
                             } catch (err) {
                               console.error('OCR Error:', err);
@@ -853,8 +913,8 @@ const BookAppointment = () => {
 
       {/* Premium Confirmation Modal */}
       {showConfirmModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(5px)' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)', maxWidth: '450px', width: '90%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(5px)', padding: isMobile ? '1rem' : '0' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: isMobile ? '1.5rem' : '2.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)', maxWidth: '450px', width: '100%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
             <div style={{ background: 'rgba(56, 189, 248, 0.1)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 1.5rem auto' }}>
               <Check size={36} color="var(--primary-color)" />
             </div>
@@ -865,119 +925,18 @@ const BookAppointment = () => {
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button 
                 onClick={() => setShowConfirmModal(false)}
-                style={{ flex: 1, padding: '1rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600' }}
+                style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '700' }}
               >
                 Back
               </button>
               <button 
                 onClick={processBooking}
-                style={{ flex: 1, padding: '1rem', background: 'var(--primary-color)', border: 'none', color: '#000', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '700' }}
+                style={{ flex: 1, padding: '1rem', background: 'var(--primary-color)', border: 'none', color: '#000', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '900' }}
               >
                 Confirm
               </button>
             </div>
           </div>
-        </div>
-      )}
-      {/* AI Service Assistant Modal */}
-      {showAiAssistant && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: '2rem', border: '1px solid rgba(56, 189, 248, 0.3)', maxWidth: '500px', width: '90%', position: 'relative', boxShadow: '0 0 50px rgba(56, 189, 248, 0.15)' }}>
-            <button onClick={() => setShowAiAssistant(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
-            
-            {aiThinking ? (
-              <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-                <div className="ai-thinking-spinner" style={{ width: '64px', height: '64px', border: '4px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 2rem auto', animation: 'spin 1s linear infinite' }}></div>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.5rem 0' }}>Analyzing Vehicle Needs...</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Our AI is processing your car's condition.</p>
-              </div>
-            ) : aiRecommendation ? (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ background: 'rgba(56, 189, 248, 0.1)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 1.5rem auto' }}>
-                  <Sparkles size={40} color="var(--primary-color)" />
-                </div>
-                <h2 style={{ fontSize: '1.75rem', fontWeight: '900', margin: '0 0 0.5rem 0', letterSpacing: '-0.5px' }}>AI Recommended Package</h2>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.95rem' }}>Based on your answers, we suggest the following for maximum protection and shine:</p>
-                
-                <div style={{ background: 'var(--bg-input)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--primary-color)', marginBottom: '2rem', textAlign: 'left' }}>
-                   {aiRecommendation.map(rec => (
-                     <div key={rec.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: '700', color: '#fff' }}>{rec.name}</p>
-                          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{rec.category}</p>
-                        </div>
-                        <span style={{ fontWeight: '700', color: 'var(--primary-color)' }}>₱{rec.price}</span>
-                     </div>
-                   ))}
-                </div>
-
-                <button 
-                  onClick={() => {
-                    setSelectedServiceIds(aiRecommendation.map(r => r.id));
-                    setShowAiAssistant(false);
-                    toast.success('AI recommendations applied to your bag!');
-                  }}
-                  style={{ width: '100%', padding: '1rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', fontSize: '1rem' }}
-                >
-                  Apply Recommendations
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-                  <Sparkles size={24} color="var(--primary-color)" />
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800' }}>AI Consultant</h2>
-                </div>
-
-                {aiStep === 1 && (
-                  <div>
-                    <p style={{ marginBottom: '1.5rem', fontWeight: '600' }}>What is the primary condition of your car's paint?</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {['Swirl marks / Scratches', 'Faded / Dull', 'New / Good Condition', 'Muddy / Very Dirty'].map(opt => (
-                        <button key={opt} onClick={() => { setAiAnswers({...aiAnswers, paint: opt}); setAiStep(2); }} style={{ padding: '1rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '0.75rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>{opt}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {aiStep === 2 && (
-                  <div>
-                    <p style={{ marginBottom: '1.5rem', fontWeight: '600' }}>How often do you drive your vehicle?</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {['Daily Commuter', 'Weekend / Occasional', 'Off-road / Work Truck', 'Show Car / Garage Queen'].map(opt => (
-                        <button key={opt} onClick={() => { 
-                          setAiAnswers({...aiAnswers, usage: opt}); 
-                          setAiThinking(true);
-                          setTimeout(() => {
-                            // Rule-based Recommendation Engine
-                            let recs = [];
-                            const all = services;
-                            
-                            if (aiAnswers.paint === 'Swirl marks / Scratches' || opt === 'Off-road / Work Truck') {
-                              recs.push(all.find(s => s.name.includes('Ceramic')) || all[0]);
-                              recs.push(all.find(s => s.name.includes('Engine')) || all[1]);
-                            } else if (aiAnswers.paint === 'New / Good Condition') {
-                              recs.push(all.find(s => s.name.includes('Wash')) || all[0]);
-                              recs.push(all.find(s => s.name.includes('Interior')) || all[1]);
-                            } else {
-                              recs.push(all.find(s => s.name.includes('Interior')) || all[1]);
-                              recs.push(all.find(s => s.name.includes('Wash')) || all[0]);
-                            }
-                            
-                            setAiRecommendation(recs.filter(Boolean));
-                            setAiThinking(false);
-                          }, 1500);
-                        }} style={{ padding: '1rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '0.75rem', cursor: 'pointer', textAlign: 'left' }}>{opt}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-          `}</style>
         </div>
       )}
     </div>

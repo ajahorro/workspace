@@ -3,30 +3,34 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const BookingContext = createContext();
 
 export const BookingProvider = ({ children }) => {
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem('renew_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [cart, setCart] = useState([]);
   
-  const [bookingDetails, setBookingDetails] = useState(() => {
-    const saved = localStorage.getItem('renew_booking_details');
-    return saved ? JSON.parse(saved) : {
-      vehicleType: '',
-      plateNumber: '',
-      vehicleBrand: '',
-      vehicleModel: '',
-      customerNotes: '',
-      scheduledStart: null,
-      paymentMethod: 'CASH'
-    };
+  const [bookingDetails, setBookingDetails] = useState({
+    vehicleType: '',
+    plateNumber: '',
+    vehicleBrand: '',
+    vehicleModel: '',
+    customerNotes: '',
+    scheduledStart: null,
+    paymentMethod: 'CASH'
   });
 
   useEffect(() => {
-    localStorage.setItem('renew_cart', JSON.stringify(cart));
+    const saved = localStorage.getItem('speedway_cart');
+    if (saved) setCart(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('speedway_booking_details');
+    if (saved) setBookingDetails(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('speedway_cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem('renew_booking_details', JSON.stringify(bookingDetails));
+    localStorage.setItem('speedway_booking_details', JSON.stringify(bookingDetails));
   }, [bookingDetails]);
 
   const addToCart = (service) => {
