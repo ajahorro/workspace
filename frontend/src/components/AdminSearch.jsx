@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const AdminSearch = () => {
@@ -11,18 +12,39 @@ const AdminSearch = () => {
   const searchRef = useRef(null);
   const isMobile = useMediaQuery('(max-width: 1024px)');
 
-  const pages = [
-    { name: 'Dashboard', path: '/admin', keywords: ['home', 'main', 'overview'] },
-    { name: 'Booking Management', path: '/admin/bookings', keywords: ['orders', 'appointments', 'reservations'] },
-    { name: 'Payment Verification', path: '/admin/payments', keywords: ['cash', 'verify', 'finance', 'money'] },
-    { name: 'Schedule', path: '/admin/schedule', keywords: ['calendar', 'time', 'availability'] },
-    { name: 'Refunds', path: '/admin/refunds', keywords: ['return', 'money back', 'cancel'] },
-    { name: 'Analytics', path: '/admin/analytics', keywords: ['reports', 'charts', 'data', 'stats'] },
-    { name: 'Audit Logs', path: '/admin/audit-logs', keywords: ['history', 'actions', 'events'] },
-    { name: 'Staff Management', path: '/admin/staff', keywords: ['employees', 'team', 'technicians'] },
-    { name: 'User Management', path: '/admin/users', keywords: ['customers', 'accounts', 'profiles'] },
-    { name: 'Settings', path: '/admin/settings', keywords: ['config', 'profile', 'password'] },
-  ];
+  const { profile } = useAuth();
+  const role = profile?.role || 'CUSTOMER';
+
+  const allPages = {
+    ADMIN: [
+      { name: 'Dashboard', path: '/admin', keywords: ['home', 'main', 'overview'] },
+      { name: 'Booking Management', path: '/admin/bookings', keywords: ['orders', 'appointments', 'reservations'] },
+      { name: 'Payment Verification', path: '/admin/payments', keywords: ['cash', 'verify', 'finance', 'money'] },
+      { name: 'Schedule', path: '/admin/schedule', keywords: ['calendar', 'time', 'availability'] },
+      { name: 'Refunds', path: '/admin/refunds', keywords: ['return', 'money back', 'cancel'] },
+      { name: 'Analytics', path: '/admin/analytics', keywords: ['reports', 'charts', 'data', 'stats'] },
+      { name: 'Audit Logs', path: '/admin/audit-logs', keywords: ['history', 'actions', 'events'] },
+      { name: 'Staff Management', path: '/admin/staff', keywords: ['employees', 'team', 'technicians'] },
+      { name: 'User Management', path: '/admin/users', keywords: ['customers', 'accounts', 'profiles'] },
+      { name: 'Notifications', path: '/admin/notifications', keywords: ['alerts', 'messages', 'updates'] },
+      { name: 'Settings', path: '/admin/settings', keywords: ['config', 'profile', 'password'] },
+    ],
+    SUPER_ADMIN: [], // Same as ADMIN
+    STAFF: [
+      { name: 'Dashboard', path: '/staff', keywords: ['home', 'tasks', 'main'] },
+      { name: 'Notifications', path: '/staff/notifications', keywords: ['alerts', 'messages', 'updates'] },
+      { name: 'Settings', path: '/staff/settings', keywords: ['config', 'profile', 'password'] },
+    ],
+    CUSTOMER: [
+      { name: 'Dashboard', path: '/dashboard', keywords: ['home', 'main'] },
+      { name: 'Book Service', path: '/book', keywords: ['appointment', 'detailing', 'reserve'] },
+      { name: 'My History', path: '/my-bookings', keywords: ['orders', 'previous', 'bookings'] },
+      { name: 'Notifications', path: '/notifications', keywords: ['alerts', 'messages', 'updates'] },
+      { name: 'Settings', path: '/settings', keywords: ['config', 'profile', 'password'] },
+    ]
+  };
+
+  const pages = (role === 'SUPER_ADMIN' ? allPages.ADMIN : allPages[role]) || allPages.CUSTOMER;
 
   useEffect(() => {
     if (query.trim() === '') {
