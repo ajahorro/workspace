@@ -163,18 +163,18 @@ const BookAppointment = () => {
       return;
     }
     
-    // OCR ENFORCEMENT
+    // OCR & RECEIPT ENFORCEMENT
     if (paymentMethod === 'GCASH') {
       if (!receipt) {
-        toast.error('Please upload your GCash payment receipt first.');
-        return;
-      }
-      if (ocrError) {
-        toast.error('Invalid receipt detected. Please upload a valid payment receipt to Athea Jayne Ahorro.');
+        toast.error('MANDATORY: Please upload your GCash payment receipt to continue.');
         return;
       }
       if (isOCRProcessing) {
-        toast.error('Please wait for AI verification to complete.');
+        toast.error('Please wait for verification to complete.');
+        return;
+      }
+      if (ocrError) {
+        toast.error(`Verification Failed: ${ocrError}. Please upload a valid receipt to Athea Jayne Ahorro.`);
         return;
       }
     }
@@ -186,6 +186,27 @@ const BookAppointment = () => {
     setShowConfirmModal(false);
     setSubmitting(true);
     try {
+      let receiptUrl = null;
+      
+      // 1. Upload receipt if GCash
+      if (paymentMethod === 'GCASH' && receipt) {
+        const fileExt = receipt.name.split('.').pop();
+        const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+        const filePath = `receipts/${fileName}`;
+
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('receipts')
+          .upload(filePath, receipt);
+
+        if (uploadError) throw new Error('Failed to upload receipt image. Please try again.');
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('receipts')
+          .getPublicUrl(filePath);
+          
+        receiptUrl = publicUrl;
+      }
+
       const scheduledStart = new Date(`${date}T${time}:00`);
       const { data, error } = await supabase.rpc('create_booking', {
         p_customer_id: user.id,
@@ -196,7 +217,8 @@ const BookAppointment = () => {
         p_plate_number: vehicle.plateNumber,
         p_vehicle_brand: vehicle.brand,
         p_vehicle_model: vehicle.model,
-        p_customer_notes: vehicle.notes || ''
+        p_customer_notes: vehicle.notes || '',
+        p_receipt_url: receiptUrl
       });
 
       if (error) throw error;

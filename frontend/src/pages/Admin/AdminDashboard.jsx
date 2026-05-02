@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { TrendingUp, Users, Clipboard, CreditCard, ArrowRight, Check, Clock, Play, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, Users, Clipboard, CreditCard, ArrowRight, Check, Clock, Play, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import LoadingState from '../../components/LoadingState';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -43,9 +43,11 @@ const AdminDashboard = () => {
   let completedBookingsCount = 0;
   let totalRevenue = 0;
   let pendingPayments = 0;
+  let pendingVerificationsCount = 0;
+  let refundRequestsCount = 0;
 
   // Discrete counts for the simple list
-  const bookingStats = { CONFIRMED: 0, CANCELLED: 0, COMPLETED: 0 };
+  const bookingStats = { PENDING_ASSIGNMENT: 0, CONFIRMED: 0, CANCELLED: 0, COMPLETED: 0 };
   const serviceStats = { NOT_STARTED: 0, ONGOING: 0, COMPLETED: 0 };
 
   const recentActivity = [];
@@ -91,14 +93,22 @@ const AdminDashboard = () => {
       });
     }
 
-    // Attention Needed
-    if (booking.booking_status === 'CONFIRMED' && !booking.staff_id) {
+    // Attention Needed (Unassigned or Pending Verification)
+    const needsAction = 
+      (booking.booking_status === 'PENDING_ASSIGNMENT' || booking.booking_status === 'CONFIRMED') && !booking.staff_id;
+    
+    const needsVerification = mainPaymentStatus === 'FOR_VERIFICATION';
+    if (needsVerification) pendingVerificationsCount++;
+    if (booking.booking_status === 'CANCELLED' && mainPaymentStatus !== 'REFUNDED') refundRequestsCount++; // Simplified refund logic
+
+    if (needsAction || needsVerification) {
       if (needsAssignment.length < 5) {
         needsAssignment.push({
           id: booking.id,
           customer: booking.customer?.full_name || 'Unknown',
           date: new Date(booking.scheduled_start).toLocaleDateString(),
-          amount: booking.payments?.[0]?.total_amount || 0
+          amount: booking.payments?.[0]?.total_amount || 0,
+          type: needsVerification ? 'PAYMENT' : 'ASSIGNMENT'
         });
       }
     }
@@ -110,6 +120,7 @@ const AdminDashboard = () => {
 
   const getStatusDotColor = (status) => {
     switch(status) {
+      case 'PENDING_ASSIGNMENT': return '#f59e0b';
       case 'CONFIRMED': return 'var(--primary-color)';
       case 'CANCELLED': return '#ef4444';
       case 'COMPLETED': return '#10b981';
@@ -147,8 +158,9 @@ const AdminDashboard = () => {
         {[
           { label: 'Total Bookings', value: totalBookings, color: 'var(--primary-color)', icon: Clipboard, path: '/admin/bookings' },
           { label: 'Completed', value: completedBookingsCount, color: '#10b981', icon: Check, path: '/admin/bookings' },
-          { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}`, color: '#10b981', icon: TrendingUp, path: '/admin/analytics' },
-          { label: 'Pending Payments', value: `₱${pendingPayments.toLocaleString()}`, color: '#f59e0b', icon: CreditCard, path: '/admin/payments' }
+          { label: 'Pending Verification', value: pendingVerificationsCount, color: '#f59e0b', icon: Clock, path: '/admin/payments' },
+          { label: 'Refund Requests', value: refundRequestsCount, color: '#ef4444', icon: AlertTriangle, path: '/admin/refunds' },
+          { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}`, color: '#10b981', icon: TrendingUp, path: '/admin/analytics' }
         ].map((stat, i) => (
           <div 
             key={i}
@@ -267,10 +279,15 @@ const AdminDashboard = () => {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)'}
               >
-                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: '800' }}>{item.customer}</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>{item.customer}</h4>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', background: item.type === 'PAYMENT' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(169, 27, 24, 0.2)', color: item.type === 'PAYMENT' ? '#f59e0b' : 'var(--primary-color)' }}>
+                    {item.type}
+                  </span>
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>
                   <span>{item.date}</span>
-                  <span style={{ color: '#ef4444' }}>₱{item.amount.toLocaleString()}</span>
+                  <span style={{ color: item.type === 'PAYMENT' ? '#f59e0b' : 'var(--primary-color)' }}>₱{item.amount.toLocaleString()}</span>
                 </div>
               </div>
             ))}

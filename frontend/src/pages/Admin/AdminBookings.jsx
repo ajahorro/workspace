@@ -58,20 +58,24 @@ const AdminBookings = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'PENDING': return '#f59e0b';
+      case 'PENDING_ASSIGNMENT': return '#f59e0b';
       case 'CONFIRMED': return 'var(--primary-color)';
       case 'COMPLETED': return '#10b981';
       case 'CANCELLED': return '#ef4444';
       case 'ONGOING': return '#8b5cf6';
+      case 'IN_PROGRESS': return '#8b5cf6';
+      case 'FINISHED': return '#10b981';
       default: return 'rgba(255,255,255,0.4)';
     }
   };
 
   const getPaymentStatus = (payments) => {
     if (!payments || payments.length === 0) return { label: 'UNPAID', color: '#f59e0b' };
-    const status = payments[0].status;
-    if (status === 'COMPLETED' || status === 'VERIFIED') return { label: 'PAID', color: '#10b981' };
-    if (status === 'DOWNPAYMENT_PAID') return { label: 'PARTIAL', color: 'var(--primary-color)' };
+    const payment = payments[0];
+    const status = payment.status;
+    if (status === 'COMPLETED' || status === 'VERIFIED' || status === 'PAID') return { label: 'PAID', color: '#10b981' };
+    if (status === 'FOR_VERIFICATION') return { label: 'VERIFYING', color: '#f59e0b' };
+    if (status === 'PARTIALLY_PAID' || status === 'DOWNPAYMENT_PAID') return { label: 'PARTIAL', color: 'var(--primary-color)' };
     return { label: 'UNPAID', color: '#f59e0b' };
   };
 
@@ -138,8 +142,8 @@ const AdminBookings = () => {
                     border: '1px solid rgba(255,255,255,0.05)', textTransform: 'uppercase',
                     display: 'flex', alignItems: 'center', gap: '0.4rem'
                   }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.service_status) }}></div>
-                    {(booking.service_status || 'NOT_STARTED').replace('_', ' ')}
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status) }}></div>
+                    {(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status).replace('_', ' ')}
                   </div>
                 </div>
                 
@@ -211,8 +215,8 @@ const AdminBookings = () => {
                         borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '900',
                         border: '1px solid rgba(255,255,255,0.05)', textTransform: 'uppercase'
                       }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.service_status) }}></div>
-                        {(booking.service_status || 'NOT_STARTED').replace('_', ' ')}
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status) }}></div>
+                        {(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status).replace('_', ' ')}
                       </div>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>

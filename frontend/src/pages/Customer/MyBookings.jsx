@@ -91,11 +91,7 @@ const MyBookings = () => {
 
   const handleCancelRequest = (booking) => {
     if (booking.service_status === 'IN_PROGRESS' || booking.service_status === 'FINISHED') {
-      toast.error("Ongoing or completed services cannot be cancelled.");
-      return;
-    }
-    if (!isWithinCancellationWindow(booking.scheduled_start)) {
-      toast.error(`Cancellation is only allowed ${cancelPolicy?.cancellation_window_hours || 24} hours before the appointment.`);
+      toast.error("Ongoing or completed services cannot be cancelled. Please contact support.");
       return;
     }
     setConfirmModal({ show: true, bookingId: booking.id });

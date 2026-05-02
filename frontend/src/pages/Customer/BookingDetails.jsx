@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
+import BookingChat from '../../components/BookingChat';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const BookingDetails = () => {
@@ -256,6 +257,18 @@ const BookingDetails = () => {
                   <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Balance</span>
                   <span style={{ fontWeight: '800', color: 'var(--danger-color)' }}>₱{((intent.total_amount || 0) - (intent.amount_paid || 0)).toLocaleString()}</span>
                 </div>
+
+                {intent.method === 'GCASH' && intent.receipt_url && (
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+                    <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: '800' }}>UPLOADED RECEIPT</span>
+                    <div 
+                      onClick={() => window.open(intent.receipt_url, '_blank')}
+                      style={{ width: '100%', height: '120px', background: '#000', borderRadius: '0.5rem', overflow: 'hidden', cursor: 'pointer' }}
+                    >
+                      <img src={intent.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
+                  </div>
+                )}
               </div>
           </div>
 
@@ -288,59 +301,10 @@ const BookingDetails = () => {
             </button>
           )}
 
-          {/* Refund Coordinator */}
-          {refund && (
-            <div style={{ background: 'var(--bg-secondary)', borderRadius: '1rem', border: '1px solid rgba(169, 27, 24, 0.2)', padding: '1.25rem' }}>
-              <h2 style={{ fontSize: '0.9rem', fontWeight: '800', margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <History size={16} /> Refund Hub
-              </h2>
-              
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', fontSize: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Status</span>
-                  <span style={{ fontWeight: '800', color: 'var(--primary-color)' }}>{refund.status.toUpperCase()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Final Payout</span>
-                  <span style={{ fontWeight: '900', color: 'var(--accent-green)' }}>₱{refund.final_refund_amount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div style={{ maxHeight: '150px', overflowY: 'auto', marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {(refund.chat_history || []).map((msg, i) => (
-                  <div key={i} style={{ padding: '0.6rem 0.75rem', borderRadius: '0.5rem', background: msg.role === 'ADMIN' ? 'rgba(169, 27, 24, 0.1)' : 'rgba(255,255,255,0.03)', alignSelf: msg.role === 'ADMIN' ? 'flex-start' : 'flex-end', maxWidth: '90%' }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: '900', color: msg.role === 'ADMIN' ? 'var(--primary-color)' : 'var(--text-secondary)', marginBottom: '0.15rem', textTransform: 'uppercase' }}>{msg.role}</div>
-                    <div style={{ fontSize: '0.75rem', lineHeight: '1.4' }}>{msg.text}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <input 
-                  value={newChatMsg}
-                  onChange={(e) => setNewChatMsg(e.target.value)}
-                  placeholder="Details..."
-                  style={{ flex: 1, padding: '0.5rem 0.75rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '0.4rem', color: '#fff', fontSize: '0.75rem' }}
-                />
-                <button 
-                  disabled={!newChatMsg || sendingMsg}
-                  onClick={async () => {
-                    setSendingMsg(true);
-                    const updatedChat = [...(refund.chat_history || []), { role: 'CUSTOMER', text: newChatMsg, time: new Date().toISOString() }];
-                    const { error } = await supabase.from('refunds').update({ chat_history: updatedChat }).eq('id', refund.id);
-                    if (!error) {
-                      setRefund({ ...refund, chat_history: updatedChat });
-                      setNewChatMsg('');
-                    }
-                    setSendingMsg(false);
-                  }}
-                  style={{ background: 'var(--primary-color)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '0.4rem', cursor: 'pointer' }}
-                >
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Unified Booking Chat */}
+          <div style={{ marginTop: '1rem' }}>
+            <BookingChat bookingId={id} />
+          </div>
         </div>
       </div>
 
@@ -376,14 +340,6 @@ const BookingDetails = () => {
                 onClick={async () => {
                   if (booking.service_status === 'IN_PROGRESS' || booking.service_status === 'FINISHED') {
                     toast.error("Cannot cancel ongoing service.");
-                    setShowCancelModal(false);
-                    return;
-                  }
-                  
-                  const windowHours = cancelPolicy?.cancellation_window_hours || 24;
-                  const diffMs = new Date(booking.scheduled_start) - new Date();
-                  if (diffMs / (1000 * 60 * 60) < windowHours) {
-                    toast.error(`Cancel at least ${windowHours}h before.`);
                     setShowCancelModal(false);
                     return;
                   }

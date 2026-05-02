@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
+import BookingChat from '../../components/BookingChat';
+import { Eye, ExternalLink, MessageCircle } from 'lucide-react';
 
 const AdminBookingDetails = () => {
   const { id } = useParams();
@@ -141,6 +143,39 @@ const AdminBookingDetails = () => {
 
       toast.success('Payment recorded');
       setPaymentAmount('');
+      fetchBookingDetails();
+      fetchAuditLogs();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    setIsProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const payment = booking.payments?.[0];
+      if (!payment) throw new Error('No payment intent found');
+
+      const { error } = await supabase.from('payment_intents').update({
+        status: 'VERIFIED'
+      }).eq('id', payment.id);
+
+      if (error) throw error;
+
+      await supabase.from('booking_events').insert({
+        booking_id: id,
+        actor_id: user.id,
+        event_type: 'PAYMENT_VERIFIED',
+        metadata: {
+          details: 'GCash payment receipt verified by admin.',
+          description: `GCash payment verified for booking #${id.slice(0, 4)}`
+        }
+      });
+
+      toast.success('Payment verified successfully');
       fetchBookingDetails();
       fetchAuditLogs();
     } catch (err) {
@@ -320,7 +355,31 @@ const AdminBookingDetails = () => {
               </div>
             </div>
             
-            {balance > 0 && (
+            {/* GCash Receipt View */}
+            {payment.method === 'GCASH' && payment.receipt_url && (
+              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--bg-primary)', borderRadius: '1.25rem', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary-color)', textTransform: 'uppercase' }}>GCash Receipt Upload</div>
+                  <a href={payment.receipt_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}>
+                    <ExternalLink size={12} /> View Full
+                  </a>
+                </div>
+                <div style={{ width: '100%', height: '200px', borderRadius: '0.75rem', overflow: 'hidden', background: '#000', cursor: 'pointer' }} onClick={() => window.open(payment.receipt_url, '_blank')}>
+                  <img src={payment.receipt_url} alt="GCash Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+                {payment.status === 'FOR_VERIFICATION' && (
+                  <button 
+                    onClick={handleVerifyPayment}
+                    disabled={isProcessing}
+                    style={{ width: '100%', marginTop: '1rem', padding: '1rem', background: 'var(--primary-color)', border: 'none', color: '#fff', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    {isProcessing ? 'Verifying...' : 'Verify Receipt & Confirm Payment'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {balance > 0 && payment.method === 'CASH' && (
               <div style={{ padding: '1.5rem', background: 'var(--bg-primary)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Record Cash Payment</div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
@@ -339,11 +398,20 @@ const AdminBookingDetails = () => {
                     disabled={isProcessing}
                     style={{ background: 'var(--primary-color)', border: 'none', color: '#fff', padding: '0 2rem', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                   >
-                    Record Payment
+                    Record
                   </button>
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Refund & Communication Chat */}
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.05)', padding: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--primary-color)' }}>
+              <MessageCircle size={22} />
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Customer Chat</h2>
+            </div>
+            <BookingChat bookingId={id} />
           </div>
         </div>
 
