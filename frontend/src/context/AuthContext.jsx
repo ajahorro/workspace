@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
           await fetchProfile(session.user.id, session.user.email);
           
           // Sync OneSignal ID
+          /* 
           try {
             window.OneSignalDeferred = window.OneSignalDeferred || [];
             window.OneSignalDeferred.push(async function(OneSignal) {
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }) => {
           } catch (err) {
             console.warn('OneSignal sync failed:', err);
           }
+          */
         } else {
           setProfile(null);
           localStorage.removeItem('speedway_profile');

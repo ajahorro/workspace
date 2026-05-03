@@ -32,7 +32,7 @@ const AdminBookings = () => {
         plate_number,
         vehicle_brand,
         vehicle_model,
-        customer:profiles!bookings_customer_id_fkey(full_name),
+        customer:profiles!customer_id(full_name),
         payments:payment_intents(status, total_amount)
       `)
       .order('created_at', { ascending: false });

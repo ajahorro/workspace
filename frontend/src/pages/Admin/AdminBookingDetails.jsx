@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { 
-  ArrowLeft, Clock, CreditCard, User, Car, ClipboardList, 
-  History, CheckCircle, XCircle, AlertCircle, Trash2 
+import {
+  ArrowLeft, Clock, CreditCard, User, Car, ClipboardList,
+  History, CheckCircle, XCircle, AlertCircle, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
@@ -191,7 +191,7 @@ const AdminBookingDetails = () => {
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('bookings').update({ 
+      const { error } = await supabase.from('bookings').update({
         booking_status: 'CANCELLED',
         cancellation_status: 'APPROVED'
       }).eq('id', id);
@@ -229,7 +229,7 @@ const AdminBookingDetails = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <button 
+          <button
             onClick={() => navigate('/admin/bookings')}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.9rem', cursor: 'pointer', marginBottom: '1rem', padding: 0 }}
           >
@@ -249,21 +249,21 @@ const AdminBookingDetails = () => {
             </div>
           </div>
         </div>
-        <button 
+        <button
           onClick={handleCancelBooking}
           disabled={booking.booking_status === 'CANCELLED'}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            background: 'rgba(239, 68, 68, 0.1)', 
-            border: '1px solid rgba(239, 68, 68, 0.2)', 
-            color: '#ef4444', 
-            padding: '0.75rem 1.25rem', 
-            borderRadius: '0.75rem', 
-            fontSize: '0.85rem', 
-            fontWeight: '700', 
-            cursor: booking.booking_status === 'CANCELLED' ? 'not-allowed' : 'pointer' 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            color: '#ef4444',
+            padding: '0.75rem 1.25rem',
+            borderRadius: '0.75rem',
+            fontSize: '0.85rem',
+            fontWeight: '700',
+            cursor: booking.booking_status === 'CANCELLED' ? 'not-allowed' : 'pointer'
           }}
         >
           <XCircle size={18} /> Cancel Booking
@@ -309,8 +309,8 @@ const AdminBookingDetails = () => {
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase' }}>Assigned Staff</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#fff' }}>{booking.assigned_staff?.full_name}</div>
                 </div>
-                <button 
-                  onClick={() => handleAssignStaff(null)} 
+                <button
+                  onClick={() => handleAssignStaff(null)}
                   style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}
                 >
                   <Trash2 size={18} />
@@ -321,7 +321,7 @@ const AdminBookingDetails = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
                   <Clock size={20} /> No staff assigned yet
                 </div>
-                <select 
+                <select
                   onChange={(e) => handleAssignStaff(e.target.value)}
                   disabled={isProcessing}
                   style={{ width: '100%', padding: '1rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '0.9rem', cursor: 'pointer' }}
@@ -356,7 +356,7 @@ const AdminBookingDetails = () => {
                 <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>₱{balance.toLocaleString()}</div>
               </div>
             </div>
-            
+
             {/* GCash Receipt View */}
             {payment.method === 'GCASH' && payment.receipt_url && (
               <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.15)' }}>
@@ -370,7 +370,7 @@ const AdminBookingDetails = () => {
                   <img src={payment.receipt_url} alt="GCash Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 {payment.status === 'FOR_VERIFICATION' && (
-                  <button 
+                  <button
                     onClick={handleVerifyPayment}
                     disabled={isProcessing}
                     style={{ width: '100%', marginTop: '1rem', padding: '1rem', background: '#fff', border: 'none', color: 'var(--red-shade)', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
@@ -387,15 +387,15 @@ const AdminBookingDetails = () => {
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
                     <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.7)', fontWeight: '700' }}>₱</span>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       placeholder="Enter amount"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
                       style={{ width: '100%', padding: '1rem 1rem 1rem 2.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '1rem' }}
                     />
                   </div>
-                  <button 
+                  <button
                     onClick={handleRecordPayment}
                     disabled={isProcessing}
                     style={{ background: '#fff', border: 'none', color: 'var(--red-shade)', padding: '0 2rem', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}

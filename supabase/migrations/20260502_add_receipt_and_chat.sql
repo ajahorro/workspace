@@ -32,7 +32,7 @@ FOR INSERT WITH CHECK (
     OR (SELECT role FROM profiles WHERE id = auth.uid()) IN ('ADMIN', 'SUPER_ADMIN')
   )
 );
--- ?? UPDATE CREATE_BOOKING RPC TO SUPPORT RECEIPT_URL
+-- 🧱 UPDATE CREATE_BOOKING RPC TO SUPPORT RECEIPT_URL
 CREATE OR REPLACE FUNCTION create_booking(
   p_customer_id UUID,
   p_service_ids UUID[],
@@ -47,7 +47,7 @@ CREATE OR REPLACE FUNCTION create_booking(
 )
 RETURNS UUID
 LANGUAGE plpgsql SECURITY DEFINER
-AS 
+AS $$
 DECLARE
   v_booking_id UUID;
   v_total NUMERIC(10,2) := 0;
@@ -145,4 +145,4 @@ BEGIN
 
   RETURN v_booking_id;
 END;
-;
+$$;
