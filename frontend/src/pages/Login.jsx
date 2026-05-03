@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Mail, Lock, User, ShieldCheck, Phone, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { sendBookingConfirmation } from '../services/EmailService';
 
 const Login = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
@@ -17,6 +18,12 @@ const Login = ({ isModal = false, onClose }) => {
 
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { user, profile, signInWithPassword } = useAuth();
+  const sampleBookingData = {
+    serviceName: 'Premium Wash & Detail',
+    date: '2026-05-10',
+    time: '10:30 AM',
+    totalPrice: '1,499.00'
+  };
 
   useEffect(() => {
     if (user && profile) {
@@ -35,6 +42,7 @@ const Login = ({ isModal = false, onClose }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    sendBookingConfirmation('gazel0123@gmail.com', sampleBookingData);
     setIsLoading(true);
     const { error } = await signInWithPassword(email, password);
     if (error) toast.error(error.message);
