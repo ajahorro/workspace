@@ -5,19 +5,25 @@ import { supabase } from '../lib/supabase';
 import { Mail, Lock, User, ShieldCheck, Phone, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { sendBookingConfirmation } from '../services/EmailService';
 
 const Login = ({ isModal = false, onClose }) => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('LOGIN'); // LOGIN, REGISTER, OTP_VERIFY
+  const [mode, setMode] = useState('LOGIN'); // LOGIN, REGISTER
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const isMobile = useMediaQuery('(max-width: 640px)');
-  const { user, profile, signInWithPassword, verifyOTP } = useAuth();
+  const { user, profile, signInWithPassword } = useAuth();
+  const sampleBookingData = {
+    serviceName: 'Premium Wash & Detail',
+    date: '2026-05-10',
+    time: '10:30 AM',
+    totalPrice: '1,499.00'
+  };
 
   useEffect(() => {
     if (user && profile) {
@@ -36,6 +42,7 @@ const Login = ({ isModal = false, onClose }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    sendBookingConfirmation('gazel0123@gmail.com', sampleBookingData);
     setIsLoading(true);
     const { error } = await signInWithPassword(email, password);
     if (error) toast.error(error.message);
@@ -59,55 +66,49 @@ const Login = ({ isModal = false, onClose }) => {
         email,
         password,
         options: {
+          emailRedirectTo: window.location.origin,
           data: {
             full_name: fullName,
-            phone: phone
+            phone_number: phone
           }
         }
       });
 
       clearTimeout(timer);
-      if (error) throw error;
+      console.log('SignUp response - Data:', data);
+      console.log('SignUp response - Error:', error);
+      
+      if (error) {
+        console.error('Signup error details:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        });
+        throw error;
+      }
 
       // Supabase returns a user with no identities if the email already exists
       if (data?.user && data.user.identities?.length === 0) {
+        console.warn('User created but no identities found - email may already exist');
         toast.error('Email already exists!', { id: 'auth-toast' });
         setIsLoading(false);
         return;
       }
 
-      toast.success('Code sent to your email!');
-      setMode('OTP_VERIFY');
+      console.log('Signup successful for user:', data?.user?.id);
+      toast.success('Confirmation email sent! Check your inbox to verify your account.');
+      setMode('LOGIN');
+      setEmail('');
+      setPassword('');
     } catch (error) {
       clearTimeout(timer);
-      toast.error(error.message || 'Failed to send code. Please try again.');
+      console.error('Registration error full details:', error);
+      console.error('Error message:', error.message);
+      console.error('Error status:', error.status);
+      toast.error(error.message || 'Failed to send confirmation email. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    // If we just registered, the verification type is 'signup'
-    const type = mode === 'OTP_VERIFY' ? 'signup' : 'email';
-    const { error } = await verifyOTP(email, otp, type);
-    if (error) toast.error(error.message);
-    else {
-      toast.success('Account verified!');
-      if (fullName || phone) {
-        // Save profile details
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('profiles').update({
-            full_name: fullName,
-            phone: phone
-          }).eq('id', user.id);
-        }
-      }
-      if (onClose) onClose();
-      else navigate('/dashboard');
-    }
-    setIsLoading(false);
   };
 
   const handleRecover = async (e) => {
@@ -291,25 +292,14 @@ const Login = ({ isModal = false, onClose }) => {
               <Lock size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input type="password" placeholder="Create Password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="new-password" />
             </div>
-            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending Code...' : 'Register'}</button>
+            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending Confirmation Email...' : 'Register'}</button>
             <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
               Already have an account? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
             </p>
           </form>
         )}
 
-        {mode === 'OTP_VERIFY' && (
-          <form onSubmit={handleVerifyOtp}>
-            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Enter the 6-digit code sent to <br /><span style={{ color: '#fff', fontWeight: '600' }}>{email}</span>
-            </p>
-            <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
-              <ShieldCheck size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-              <input type="text" placeholder="000000" required value={otp} onChange={e => setOtp(e.target.value)} style={{ ...inputStyle, textAlign: 'center', letterSpacing: '0.5rem', fontSize: '1.25rem' }} />
-            </div>
-            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Verifying...' : 'Complete Registration'}</button>
-          </form>
-        )}
+
 
         {mode === 'RECOVER' && (
           <form onSubmit={handleRecover}>
