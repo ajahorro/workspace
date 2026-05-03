@@ -127,6 +127,19 @@ const AdminStaffManagement = () => {
     s.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const glassPanelStyle = {
+    background: 'var(--glass-red)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '1.25rem',
+    padding: isMobile ? '1.5rem' : '2rem',
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)',
+    position: 'sticky',
+    top: '100px'
+  };
+
   return (
     <div style={{ animation: 'fadeIn 0.5s ease' }}>
       <PageHeader 
@@ -144,18 +157,7 @@ const AdminStaffManagement = () => {
       }}>
         
         {/* Left: Registration Form */}
-        <div style={{ 
-          background: 'var(--glass-bg)', 
-          backdropFilter: 'blur(var(--blur-amount))',
-          WebkitBackdropFilter: 'blur(var(--blur-amount))',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '1.5rem',
-          padding: '2rem',
-          position: 'sticky',
-          top: '100px',
-          color: 'var(--card-text)',
-          boxShadow: 'var(--card-shadow)'
-        }}>
+        <div style={glassPanelStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
             <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
               <UserPlus size={20} />
@@ -272,7 +274,7 @@ const AdminStaffManagement = () => {
         </div>
 
         {/* Right: Team List */}
-        <div style={panelStyle}>
+        <div style={glassPanelStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
