@@ -110,9 +110,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, profile, loading, 
-      signInWithOTP: (email) => supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: window.location.origin } }),
       signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-      verifyOTP: (email, token, type = 'email') => supabase.auth.verifyOtp({ email, token, type }),
       signOut 
     }}>
       {children}

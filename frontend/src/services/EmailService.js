@@ -1,16 +1,11 @@
 
-const RESEND_API_KEY = 're_g2Q5BTRf_8pG32oW4yLVJ6HbpzNGGh6Av';
-
+// This service now forwards email requests to the local Nodemailer backend.
 export const sendBookingConfirmation = async (customerEmail, bookingData) => {
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch('http://localhost:3001/send-email', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SpeedWay AutoxMoto Detail Studio <onboarding@resend.dev>',
         to: customerEmail,
         subject: 'Booking Confirmed! 🚗✨',
         html: `
