@@ -79,7 +79,7 @@ const AdminBookings = () => {
     return { label: 'UNPAID', color: '#f59e0b' };
   };
 
-  const panelStyle = {
+  const containerStyle = {
     background: 'var(--glass-red)',
     backdropFilter: 'var(--blur-amount)',
     WebkitBackdropFilter: 'var(--blur-amount)',
