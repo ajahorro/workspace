@@ -190,8 +190,8 @@ const AdminBookings = () => {
                 return (
                   <tr key={booking.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{ color: 'var(--primary-color)', fontWeight: '900', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                        #{booking.id.substring(0, 4).toUpperCase()}
+                      <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: '900', fontSize: '0.65rem' }}>
+                        #{filteredBookings.length - filteredBookings.indexOf(booking)}
                       </span>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>

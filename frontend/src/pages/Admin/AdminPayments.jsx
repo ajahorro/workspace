@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { CheckCircle, AlertCircle, Search, RotateCw, Filter, CreditCard } from 'lucide-react';
+import { CheckCircle, AlertCircle, Search, RotateCw, Filter, CreditCard, XCircle, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/PageHeader';
 import LoadingState from '../../components/LoadingState';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const AdminPayments = () => {
   const location = useLocation();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(location.state?.filter || '');
@@ -80,9 +82,35 @@ const AdminPayments = () => {
       toast.success('Payment verified and customer notified');
       fetchPayments();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      toast.error(`Verification error: ${err.message}`);
     }
   };
+
+  const ViewReceiptModal = ({ payment, onClose }) => (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '1rem' : '2rem' }}>
+      <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.5rem', padding: isMobile ? '1.5rem' : '2rem', maxWidth: '600px', width: '100%', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><XCircle size={24} /></button>
+        <h3 style={{ margin: '0 0 1.5rem 0', fontWeight: '900', fontSize: isMobile ? '1.1rem' : '1.25rem' }}>GCASH RECEIPT</h3>
+        <div style={{ width: '100%', height: isMobile ? '300px' : '400px', background: '#000', borderRadius: '1rem', overflow: 'hidden' }}>
+          <img src={payment.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: '800' }}>REFERENCE</div>
+            <div style={{ fontWeight: '900', color: 'var(--primary-color)' }}>{payment.reference_number || 'N/A'}</div>
+          </div>
+          <button 
+            onClick={() => { handleVerifyPayment(payment); onClose(); }}
+            style={{ width: isMobile ? '100%' : 'auto', padding: '0.85rem 2rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}
+          >
+            VERIFY NOW
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const [viewingPayment, setViewingPayment] = useState(null);
 
   const containerStyle = {
     background: 'var(--bg-secondary)',
@@ -95,7 +123,6 @@ const AdminPayments = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
       
-      {/* Header Area Area */}
       <PageHeader 
         badge="FINANCIAL AUDIT"
         title="PAYMENTS"
@@ -103,12 +130,11 @@ const AdminPayments = () => {
         onRefresh={() => { fetchPayments(); toast.success('Refreshing transactions...'); }}
       />
 
-      {/* Search Bar */}
       <div style={{ ...containerStyle, padding: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
           <Search size={18} color="rgba(255,255,255,0.3)" />
           <input 
-            placeholder="Search by Reference Number, ID or Customer..." 
+            placeholder="Search Reference, ID or Customer..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ border: 'none', background: 'transparent', color: '#fff', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
@@ -116,30 +142,70 @@ const AdminPayments = () => {
         </div>
       </div>
 
-      {/* Data Table */}
-      <div style={containerStyle}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Intent ID</th>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Customer</th>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Amount</th>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Method / Ref</th>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Status</th>
-              <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="6">
-                  <LoadingState message="Verifying financial transactions..." />
-                </td>
+      {loading ? (
+        <LoadingState message="Verifying financial transactions..." />
+      ) : filteredPayments.length === 0 ? (
+        <div style={{ ...containerStyle, padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)' }}>No records found.</div>
+      ) : isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {filteredPayments.map(payment => (
+            <div key={payment.id} style={{ ...containerStyle, padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: '900', marginBottom: '0.25rem' }}>#{payment.id.split('-')[0].toUpperCase()}</div>
+                  <div style={{ fontWeight: '800', color: '#fff', fontSize: '1rem' }}>{payment.bookings?.profiles?.full_name || 'Unknown'}</div>
+                </div>
+                <div style={{ fontWeight: '900', color: '#fff', fontSize: '1.25rem' }}>₱{payment.total_amount?.toLocaleString()}</div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem 0', borderTop: '1px solid rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.03)', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', textTransform: 'uppercase' }}>Method / Ref</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{payment.method}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)' }}>{payment.reference_number}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', textTransform: 'uppercase' }}>Status</div>
+                  <div style={{ color: getStatusColor(payment.status), fontSize: '0.85rem', fontWeight: '900' }}>{payment.status.replace('_', ' ')}</div>
+                </div>
+              </div>
+
+              {payment.status === 'FOR_VERIFICATION' && payment.method === 'GCASH' ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    onClick={() => setViewingPayment(payment)}
+                    style={{ flex: 1, padding: '0.75rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', fontWeight: '800', fontSize: '0.75rem' }}
+                  >
+                    VIEW RECEIPT
+                  </button>
+                  <button 
+                    onClick={() => handleVerifyPayment(payment)}
+                    style={{ flex: 1, padding: '0.75rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.5rem', fontWeight: '900', fontSize: '0.75rem' }}
+                  >
+                    VERIFY
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: 'rgba(255,255,255,0.1)' }}>TRANSACTION SETTLED</div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={containerStyle}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Intent ID</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Customer</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Amount</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Method / Ref</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Status</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Action</th>
               </tr>
-            ) : filteredPayments.length === 0 ? (
-              <tr><td colSpan="6" style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: '600' }}>No records found.</td></tr>
-            ) : (
-              filteredPayments.map(payment => (
+            </thead>
+            <tbody>
+              {filteredPayments.map(payment => (
                 <tr key={payment.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
                     <span style={{ color: 'var(--primary-color)', fontWeight: '900', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
@@ -150,59 +216,34 @@ const AdminPayments = () => {
                     <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.9rem' }}>
                       {payment.bookings?.profiles?.full_name || 'Unknown'}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: '800' }}>
-                      {payment.bookings ? new Date(payment.bookings.scheduled_start).toLocaleDateString() : ''}
-                    </div>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <span style={{ fontWeight: '900', color: '#fff', fontSize: '1.1rem', letterSpacing: '-0.5px' }}>
+                    <span style={{ fontWeight: '900', color: '#fff', fontSize: '1.1rem' }}>
                       ₱{payment.total_amount?.toLocaleString()}
                     </span>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
                     <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.85rem' }}>{payment.method}</div>
-                    {payment.reference_number && (
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', letterSpacing: '0.5px' }}>
-                        REF: {payment.reference_number}
-                      </div>
-                    )}
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)' }}>{payment.reference_number}</div>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <div style={{ 
-                      display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                      background: 'rgba(255,255,255,0.03)', color: getStatusColor(payment.status), 
-                      padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '900',
-                      border: `1px solid ${getStatusColor(payment.status)}40`, textTransform: 'uppercase'
-                    }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(payment.status) }}></div>
-                      {payment.status.replace('_', ' ')}
-                    </div>
+                    <div style={{ color: getStatusColor(payment.status), fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase' }}>{payment.status.replace('_', ' ')}</div>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
                     {payment.status === 'FOR_VERIFICATION' && payment.method === 'GCASH' ? (
-                      <button 
-                        onClick={() => handleVerifyPayment(payment)}
-                        style={{ 
-                          padding: '0.65rem 1.5rem', background: 'var(--primary-color)', color: '#fff', 
-                          border: 'none', borderRadius: '5rem', fontWeight: '900', 
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          fontSize: '0.8rem', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                      >
-                        VERIFY <CheckCircle size={14} />
-                      </button>
-                    ) : (
-                      <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>SETTLED</span>
-                    )}
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => setViewingPayment(payment)} style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.75rem' }}>VIEW</button>
+                        <button onClick={() => handleVerifyPayment(payment)} style={{ padding: '0.5rem 1.5rem', background: 'var(--primary-color)', border: 'none', borderRadius: '0.5rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.75rem' }}>VERIFY</button>
+                      </div>
+                    ) : <span style={{ opacity: 0.2, fontSize: '0.75rem' }}>SETTLED</span>}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {viewingPayment && <ViewReceiptModal payment={viewingPayment} onClose={() => setViewingPayment(null)} />}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>

@@ -54,7 +54,8 @@ const BookingDetails = () => {
           *,
           booking_services (
             service_name,
-            service_price
+            service_price,
+            service_duration
           ),
           payment_intents (
             status,
@@ -129,7 +130,7 @@ const BookingDetails = () => {
       </button>
 
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '2rem', gap: '1rem' }}>
-        <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: '800', margin: 0 }}>Booking #{booking.id.substring(0, 4).toUpperCase()}</h1>
+        <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: '800', margin: 0 }}>Booking Details</h1>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
           <span style={{ padding: '0.4rem 1rem', background: status.bg, color: status.color, borderRadius: '5rem', fontSize: '0.65rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.35rem', border: `1px solid ${status.color}33` }}>
             <Clock size={12} /> {status.label.toUpperCase()}
@@ -157,7 +158,7 @@ const BookingDetails = () => {
                 <div key={bs.service_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <div>
                     <h3 style={{ margin: '0 0 0.15rem 0', fontSize: '0.95rem', fontWeight: '700' }}>{bs.service_name}</h3>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '800' }}>{bs.service_category || 'SERVICE'}</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '800' }}>SERVICE</span>
                   </div>
                   <span style={{ fontWeight: '800', fontSize: '1rem' }}>₱{bs.service_price.toLocaleString()}</span>
                 </div>

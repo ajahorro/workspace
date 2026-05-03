@@ -99,7 +99,8 @@ const AdminDashboard = () => {
     
     const needsVerification = mainPaymentStatus === 'FOR_VERIFICATION';
     if (needsVerification) pendingVerificationsCount++;
-    if (booking.booking_status === 'CANCELLED' && mainPaymentStatus !== 'REFUNDED') refundRequestsCount++; // Simplified refund logic
+    const needsRefund = (mainPaymentStatus === 'FOR_VERIFICATION' || mainPaymentStatus === 'VERIFIED' || mainPaymentStatus === 'PAID' || (booking.payments?.[0]?.amount_paid > 0)) && mainPaymentStatus !== 'REFUNDED';
+    if (booking.booking_status === 'CANCELLED' && needsRefund) refundRequestsCount++;
 
     if (needsAction || needsVerification) {
       if (needsAssignment.length < 5) {
@@ -154,7 +155,7 @@ const AdminDashboard = () => {
       />
 
       {/* Primary Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(260px, 1fr))', gap: isMobile ? '1rem' : '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(240px, 1fr))', gap: isMobile ? '1rem' : '1.5rem' }}>
         {[
           { label: 'Total Bookings', value: totalBookings, color: 'var(--primary-color)', icon: Clipboard, path: '/admin/bookings' },
           { label: 'Completed', value: completedBookingsCount, color: '#10b981', icon: Check, path: '/admin/bookings' },

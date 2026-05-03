@@ -101,6 +101,19 @@ serve(async (req) => {
       })
     }
 
+    if (action === 'delete-user') {
+      const { userId } = await req.json()
+      if (!userId) throw new Error('User ID is required')
+
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      if (deleteError) throw deleteError
+
+      return new Response(JSON.stringify({ success: true, message: 'User deleted successfully' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
     throw new Error('Invalid action')
 
   } catch (error) {

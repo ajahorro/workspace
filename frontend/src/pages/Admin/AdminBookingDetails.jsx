@@ -236,7 +236,9 @@ const AdminBookingDetails = () => {
             <ArrowLeft size={16} /> Back to Bookings
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: 0, color: '#fff' }}>Booking #{id.substring(0, 4).toUpperCase()}</h1>
+            <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: 0, color: '#fff' }}>
+              Booking for {booking.customer?.full_name || 'Guest'}
+            </h1>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#334155', color: '#94a3b8', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '700', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <Clock size={12} /> {(booking.service_status || 'NOT_STARTED').replace('_', ' ')}

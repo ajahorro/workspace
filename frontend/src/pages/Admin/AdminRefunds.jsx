@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { 
   AlertTriangle, CreditCard, ArrowRight, Clock, 
-  CheckCircle, XCircle, Search, Filter, MessageCircle
+  CheckCircle, XCircle, Search, Filter, MessageCircle,
+  Car, Calendar, User, Eye, Download
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import LoadingState from '../../components/LoadingState';
@@ -16,7 +17,8 @@ const AdminRefunds = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState('ALL'); // ALL, PENDING, PROCESSED
+  const [filter, setFilter] = useState('PENDING'); // PENDING, PROCESSED, ALL
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   useEffect(() => {
     fetchRefundableBookings();
@@ -28,8 +30,9 @@ const AdminRefunds = () => {
       .from('bookings')
       .select(`
         *,
-        customer:profiles!bookings_customer_id_fkey(full_name),
-        payments:payment_intents(*)
+        customer:profiles!bookings_customer_id_fkey(full_name, email, phone_number),
+        payments:payment_intents(*),
+        booking_services(service_name)
       `)
       .eq('booking_status', 'CANCELLED')
       .order('created_at', { ascending: false });
@@ -52,6 +55,7 @@ const AdminRefunds = () => {
 
       toast.success('Refund marked as PROCESSED');
       fetchRefundableBookings();
+      setSelectedBooking(null);
     } catch (err) {
       toast.error('Failed to update refund status');
     }
@@ -59,137 +63,212 @@ const AdminRefunds = () => {
 
   const filteredBookings = bookings.filter(b => {
     const payment = b.payments?.[0];
-    const matchesSearch = b.customer?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          b.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = 
+      b.customer?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.plate_number?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    if (filter === 'PENDING') return matchesSearch && payment?.status !== 'REFUNDED' && payment?.amount_paid > 0;
+    // Logic: If it's cancelled and either paid OR awaiting verification (because money might be in GCash)
+    const needsRefund = payment?.amount_paid > 0 || payment?.status === 'FOR_VERIFICATION' || payment?.status === 'VERIFIED' || payment?.status === 'PAID';
+    
+    if (filter === 'PENDING') return matchesSearch && needsRefund && payment?.status !== 'REFUNDED';
     if (filter === 'PROCESSED') return matchesSearch && payment?.status === 'REFUNDED';
-    return matchesSearch && payment?.amount_paid > 0;
+    return matchesSearch && needsRefund;
   });
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'REFUNDED': return '#10b981';
+      case 'FOR_VERIFICATION': return '#f59e0b';
+      default: return '#ef4444';
+    }
+  };
+
   if (loading) return <LoadingState message="Loading refund requests..." />;
+
+  const panelStyle = {
+    background: 'var(--bg-secondary)',
+    borderRadius: '1rem',
+    border: '1px solid rgba(255,255,255,0.03)',
+    overflow: 'hidden',
+    boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', animation: 'fadeIn 0.5s ease' }}>
       <PageHeader 
-        badge="FINANCIAL MANAGEMENT"
+        badge="FINANCIAL RECONCILIATION"
         title="REFUND HUB"
-        subtitle="Manage and process money-back requests for cancelled bookings."
+        subtitle="Manage money-back requests for cancelled bookings."
         onRefresh={fetchRefundableBookings}
       />
 
-      {/* Filters & Search */}
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem', justifyContent: 'space-between' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: isMobile ? '100%' : '400px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
-          <input 
-            type="text" 
-            placeholder="Search by customer or booking ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', color: '#fff', fontSize: '0.9rem' }}
-          />
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '2rem' }}>
+        
+        {/* Left Side: List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ ...panelStyle, padding: '1rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, width: '100%' }}>
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+              <input 
+                type="text" 
+                placeholder="Search customer, ID or plate..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '0.85rem 1rem 0.85rem 3rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', color: '#fff', fontSize: '0.9rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(0,0,0,0.2)', padding: '0.25rem', borderRadius: '0.75rem' }}>
+              {['PENDING', 'PROCESSED', 'ALL'].map(f => (
+                <button 
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  style={{ 
+                    padding: '0.5rem 1rem', borderRadius: '0.6rem', border: 'none', 
+                    background: filter === f ? 'var(--primary-color)' : 'transparent', 
+                    color: filter === f ? '#000' : 'rgba(255,255,255,0.4)', 
+                    fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' 
+                  }}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {filteredBookings.length === 0 ? (
+              <div style={{ ...panelStyle, padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontWeight: '700' }}>
+                No refund records found.
+              </div>
+            ) : (
+              filteredBookings.map(b => {
+                const payment = b.payments?.[0] || {};
+                const isSelected = selectedBooking?.id === b.id;
+                return (
+                  <div 
+                    key={b.id}
+                    onClick={() => setSelectedBooking(b)}
+                    style={{ 
+                      ...panelStyle, 
+                      padding: '1.25rem', 
+                      cursor: 'pointer',
+                      border: isSelected ? '1px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.03)',
+                      transition: 'all 0.2s ease',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '0.25rem' }}>#{b.id.slice(0, 8).toUpperCase()}</div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>{b.customer?.full_name}</h3>
+                      </div>
+                      <div style={{ 
+                        padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: '900',
+                        background: `${getStatusColor(payment.status)}15`, color: getStatusColor(payment.status),
+                        border: `1px solid ${getStatusColor(payment.status)}33`
+                      }}>
+                        {payment.status.replace('_', ' ')}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', marginBottom: '0.25rem' }}>CAR DETAILS</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{b.vehicle_brand} {b.vehicle_model}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{b.plate_number}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', marginBottom: '0.25rem' }}>PAID AMOUNT</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fff' }}>₱{(payment.amount_paid || payment.total_amount || 0).toLocaleString()}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>VIA {payment.method}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.4rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-          {['ALL', 'PENDING', 'PROCESSED'].map(f => (
-            <button 
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{ 
-                padding: '0.6rem 1.25rem', borderRadius: '0.75rem', border: 'none', 
-                background: filter === f ? 'var(--primary-color)' : 'transparent', 
-                color: filter === f ? '#000' : 'rgba(255,255,255,0.5)', 
-                fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s' 
-              }}
-            >
-              {f}
-            </button>
-          ))}
+
+        {/* Right Side: Details View */}
+        <div style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
+          {selectedBooking ? (
+            <div style={{ ...panelStyle, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontWeight: '900', letterSpacing: '1px' }}>REFUND DETAILS</h3>
+                <button onClick={() => setSelectedBooking(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><XCircle size={20}/></button>
+              </div>
+
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.25rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(169, 27, 24, 0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <User size={20} color="var(--primary-color)" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>{selectedBooking.customer?.full_name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{selectedBooking.customer?.email}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{selectedBooking.customer?.phone_number}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem' }}>SERVICES CANCELLED</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {selectedBooking.booking_services?.map((s, i) => (
+                    <span key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700' }}>{s.service_name}</span>
+                  ))}
+                </div>
+              </div>
+
+              {selectedBooking.payments?.[0]?.receipt_url && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                    GCASH RECEIPT
+                    <a href={selectedBooking.payments[0].receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      VIEW <Download size={12} />
+                    </a>
+                  </div>
+                  <div 
+                    onClick={() => window.open(selectedBooking.payments[0].receipt_url, '_blank')}
+                    style={{ width: '100%', height: '200px', background: '#000', borderRadius: '1rem', overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    <img src={selectedBooking.payments[0].receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
+                <button 
+                  onClick={() => navigate(`/admin/bookings/${selectedBooking.id}`)}
+                  style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  <MessageCircle size={18} /> OPEN CHAT
+                </button>
+                {selectedBooking.payments?.[0]?.status !== 'REFUNDED' && (
+                  <button 
+                    onClick={() => handleProcessRefund(selectedBooking.id, selectedBooking.payments[0].id)}
+                    style={{ flex: 1, padding: '1rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
+                  >
+                    MARK REFUNDED
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ ...panelStyle, padding: '4rem 2rem', textAlign: 'center', color: 'rgba(255,255,255,0.15)', borderStyle: 'dashed' }}>
+              <Eye size={40} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+              <p style={{ fontSize: '0.9rem', fontWeight: '700' }}>Select a request to view details and process refund.</p>
+            </div>
+          )}
         </div>
+
       </div>
 
-      {/* Refunds Table/List */}
-      <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
-        {filteredBookings.length === 0 ? (
-          <div style={{ padding: '6rem 2rem', textAlign: 'center' }}>
-            <div style={{ background: 'rgba(255,255,255,0.02)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 1.5rem auto' }}>
-              <CheckCircle size={40} color="rgba(255,255,255,0.1)" />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)' }}>All caught up!</h3>
-            <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.9rem' }}>No refund requests found matching your criteria.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                  <th style={{ padding: '1.5rem', fontSize: '0.75rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Booking</th>
-                  <th style={{ padding: '1.5rem', fontSize: '0.75rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Customer</th>
-                  <th style={{ padding: '1.5rem', fontSize: '0.75rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Paid Amount</th>
-                  <th style={{ padding: '1.5rem', fontSize: '0.75rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Status</th>
-                  <th style={{ padding: '1.5rem', fontSize: '0.75rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBookings.map(b => {
-                  const payment = b.payments?.[0] || {};
-                  const isRefunded = payment.status === 'REFUNDED';
-                  return (
-                    <tr key={b.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
-                      <td style={{ padding: '1.5rem' }}>
-                        <div 
-                          onClick={() => navigate(`/admin/bookings/${b.id}`)}
-                          style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-                        >
-                          <span style={{ fontWeight: '800', color: 'var(--primary-color)', fontSize: '0.9rem' }}>#{b.id.slice(0, 8).toUpperCase()}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: '700' }}>{new Date(b.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '1.5rem' }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{b.customer?.full_name}</div>
-                      </td>
-                      <td style={{ padding: '1.5rem' }}>
-                        <div style={{ fontWeight: '900', fontSize: '1.1rem', color: '#fff' }}>₱{payment.amount_paid?.toLocaleString()}</div>
-                      </td>
-                      <td style={{ padding: '1.5rem' }}>
-                        <div style={{ 
-                          display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                          padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: '900',
-                          background: isRefunded ? 'rgba(52, 211, 153, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                          color: isRefunded ? '#10b981' : '#ef4444',
-                          border: `1px solid ${isRefunded ? '#10b98133' : '#ef444433'}`
-                        }}>
-                          {isRefunded ? <CheckCircle size={12} /> : <Clock size={12} />}
-                          {isRefunded ? 'REFUNDED' : 'PENDING'}
-                        </div>
-                      </td>
-                      <td style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          <button 
-                            onClick={() => navigate(`/admin/bookings/${b.id}`)}
-                            style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer' }}
-                            title="Open Chat"
-                          >
-                            <MessageCircle size={18} />
-                          </button>
-                          {!isRefunded && (
-                            <button 
-                              onClick={() => handleProcessRefund(b.id, payment.id)}
-                              style={{ background: 'var(--primary-color)', border: 'none', color: '#000', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
-                            >
-                              Process
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 };

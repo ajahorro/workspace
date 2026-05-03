@@ -4,10 +4,12 @@ import { supabase } from '../../lib/supabase';
 import { Calendar, ChevronLeft, ChevronRight, Clock, User, Tag, ArrowRight } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import LoadingState from '../../components/LoadingState';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import toast from 'react-hot-toast';
 
 const AdminSchedule = () => {
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ const AdminSchedule = () => {
     background: 'var(--bg-secondary)',
     borderRadius: '1.25rem',
     border: '1px solid rgba(255,255,255,0.03)',
-    padding: '1.75rem',
+    padding: isMobile ? '1rem' : '1.75rem',
     boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
   };
 
@@ -80,10 +82,10 @@ const AdminSchedule = () => {
       <PageHeader 
         badge="TIMELINE OVERVIEW"
         title="SCHEDULE"
-        subtitle={`${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'} scheduled for this date.`}
+        subtitle={`${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'} today.`}
         onRefresh={() => { fetchDailyBookings(); toast.success('Refreshing schedule...'); }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.03)', padding: '0.6rem 1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button 
             onClick={() => {
               const d = new Date(selectedDate);
@@ -92,27 +94,25 @@ const AdminSchedule = () => {
             }}
             style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} />
           </button>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', position: 'relative' }}>
-            <Calendar size={18} color="var(--primary-color)" />
-            <input 
-              type="date" 
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{ 
-                background: 'transparent', 
-                border: 'none', 
-                color: '#fff', 
-                fontWeight: '800', 
-                fontSize: '0.9rem', 
-                outline: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit'
-              }}
-            />
-          </div>
+          <input 
+            type="date" 
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: '#fff', 
+              fontWeight: '800', 
+              fontSize: '0.8rem', 
+              outline: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              width: '120px'
+            }}
+          />
 
           <button 
             onClick={() => {
@@ -122,33 +122,31 @@ const AdminSchedule = () => {
             }}
             style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={18} />
           </button>
         </div>
       </PageHeader>
 
-      {/* Schedule Container */}
-      <div style={{ ...panelStyle, padding: '1rem', minHeight: '600px', position: 'relative' }}>
+      <div style={{ ...panelStyle, minHeight: '600px', position: 'relative' }}>
         {loading ? (
           <LoadingState message="Generating timeline..." />
         ) : (
           hours.map((hour) => {
             const booking = getBookingForHour(hour);
             const isOccupied = isHourOccupied(hour);
-            const displayHour = hour > 12 ? `${hour - 12}:00 PM` : hour === 12 ? '12:00 PM' : `${hour}:00 AM`;
+            const displayHour = hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`;
 
             return (
               <div key={hour} style={{ 
                 display: 'flex', 
                 borderBottom: hour === 18 ? 'none' : '1px solid rgba(255,255,255,0.03)',
-                minHeight: '100px',
+                minHeight: isMobile ? '80px' : '100px',
                 position: 'relative'
               }}>
-                {/* Time Label */}
                 <div style={{ 
-                  width: '90px', 
-                  padding: '2rem 0', 
-                  fontSize: '0.8rem', 
+                  width: isMobile ? '60px' : '90px', 
+                  padding: '1.5rem 0', 
+                  fontSize: '0.7rem', 
                   fontWeight: '900', 
                   color: 'rgba(255,255,255,0.2)',
                   display: 'flex',
@@ -158,10 +156,9 @@ const AdminSchedule = () => {
                   {displayHour}
                 </div>
 
-                {/* Slot Content */}
-                <div style={{ flex: 1, padding: '1.5rem', position: 'relative' }}>
+                <div style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
                   {!isOccupied && (
-                    <span style={{ color: 'rgba(255,255,255,0.03)', fontSize: '0.85rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px' }}>Available</span>
+                    <span style={{ color: 'rgba(255,255,255,0.02)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
                   )}
 
                   {booking && (
@@ -169,65 +166,43 @@ const AdminSchedule = () => {
                       onClick={() => navigate(`/admin/bookings/${booking.id}`)}
                       style={{ 
                         position: 'absolute',
-                        top: '0.5rem',
-                        left: '0.5rem',
-                        right: '0.5rem',
-                        height: `calc(${getDuration(booking.scheduled_start, booking.scheduled_end) * 100}px - 1rem)`,
-                        background: 'rgba(169, 27, 24, 0.08)',
+                        top: '0.25rem',
+                        left: '0.25rem',
+                        right: '0.25rem',
+                        height: `calc(${getDuration(booking.scheduled_start, booking.scheduled_end) * (isMobile ? 80 : 100)}px - 0.5rem)`,
+                        background: 'rgba(169, 27, 24, 0.1)',
                         border: '1px solid rgba(169, 27, 24, 0.2)',
-                        borderRadius: '1rem',
-                        padding: '1.5rem',
+                        borderRadius: '0.75rem',
+                        padding: isMobile ? '0.75rem' : '1.25rem',
                         zIndex: 10,
                         cursor: 'pointer',
-                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'all 0.2s ease',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '0.5rem',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(169, 27, 24, 0.12)';
-                        e.currentTarget.style.borderColor = 'rgba(169, 27, 24, 0.4)';
-                        e.currentTarget.style.transform = 'scale(1.01)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(169, 27, 24, 0.08)';
-                        e.currentTarget.style.borderColor = 'rgba(169, 27, 24, 0.2)';
-                        e.currentTarget.style.transform = 'scale(1)';
+                        gap: '0.25rem',
+                        overflow: 'hidden'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ color: 'var(--primary-color)', fontSize: '0.7rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                          <Clock size={14} /> {getDuration(booking.scheduled_start, booking.scheduled_end)}H SERVICE
+                        <div style={{ color: 'var(--primary-color)', fontSize: '0.6rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.3rem', textTransform: 'uppercase' }}>
+                          <Clock size={12} /> {getDuration(booking.scheduled_start, booking.scheduled_end)}H
                         </div>
-                        <ArrowRight size={16} color="var(--primary-color)" opacity={0.3} />
                       </div>
                       
-                      <h3 style={{ margin: '0.5rem 0', fontSize: '1.4rem', fontWeight: '900', color: '#fff', letterSpacing: '-1px' }}>{booking.customer?.full_name}</h3>
+                      <h3 style={{ margin: 0, fontSize: isMobile ? '0.9rem' : '1.2rem', fontWeight: '900', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{booking.customer?.full_name}</h3>
                       
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
-                        {booking.booking_services?.map((item, i) => (
-                          <span key={i} style={{ 
-                            background: 'rgba(169, 27, 24, 0.1)', 
-                            padding: '0.4rem 0.8rem', 
-                            borderRadius: '0.5rem', 
-                            fontSize: '0.75rem', 
-                            color: '#fff',
-                            fontWeight: '800',
-                            letterSpacing: '0.5px'
-                          }}>
-                            {item.service_name}
-                          </span>
-                        ))}
-                      </div>
+                      {!isMobile && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
+                          {booking.booking_services?.slice(0, 2).map((item, i) => (
+                            <span key={i} style={{ background: 'rgba(169, 27, 24, 0.1)', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', fontSize: '0.65rem', color: '#fff', fontWeight: '800' }}>
+                              {item.service_name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
-                      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-                        <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>
-                          REVENUE: <span style={{ color: '#10b981', fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</span>
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', fontWeight: '800' }}>
-                          {new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(booking.scheduled_end || booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</div>
                       </div>
                     </div>
                   )}
@@ -238,29 +213,8 @@ const AdminSchedule = () => {
         )}
       </div>
 
-      {/* Legend */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '2.5rem', 
-        padding: '1.25rem 1.75rem', 
-        background: 'rgba(255,255,255,0.02)', 
-        borderRadius: '1rem', 
-        border: '1px solid rgba(255,255,255,0.03)',
-        marginTop: '0.5rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.05)' }}></div>
-          Available Slots
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary-color)' }}></div>
-          Confirmed Bookings
-        </div>
-      </div>
-
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

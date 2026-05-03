@@ -21,12 +21,25 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const sessionUser = session?.user || null;
-        setUser(sessionUser);
-
-        if (sessionUser) {
-          // Silently refresh profile in background
-          fetchProfile(sessionUser.id, sessionUser.email);
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(session.user.id, session.user.email);
+          
+          // Sync OneSignal ID
+          try {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            window.OneSignalDeferred.push(async function(OneSignal) {
+              const pushId = OneSignal.User.PushSubscription.id;
+              if (pushId) {
+                await supabase
+                  .from('profiles')
+                  .update({ onesignal_id: pushId })
+                  .eq('id', session.user.id);
+              }
+            });
+          } catch (err) {
+            console.warn('OneSignal sync failed:', err);
+          }
         } else {
           setProfile(null);
           localStorage.removeItem('speedway_profile');

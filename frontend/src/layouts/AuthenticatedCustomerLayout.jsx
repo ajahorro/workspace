@@ -230,7 +230,7 @@ const AuthenticatedCustomerLayout = () => {
         <main style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem 2.5rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
-        <AiChatbot />
+        {/* <AiChatbot /> */}
       </div>
     </div>
   );

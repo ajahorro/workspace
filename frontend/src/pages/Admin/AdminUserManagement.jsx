@@ -15,7 +15,8 @@ import {
   Calendar,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -199,36 +200,83 @@ const AdminUserManagement = () => {
                 </div>
               </div>
 
-              {/* Action Button */}
-              <button 
-                onClick={() => handleSeeHistory(user)}
-                style={{ 
-                    padding: '0.85rem 1.5rem', 
-                    borderRadius: '0.85rem', 
-                    background: 'rgba(169, 27, 24, 0.1)', 
-                    color: 'var(--primary-color)', 
-                    fontSize: '0.9rem', 
-                    fontWeight: '700', 
-                    border: '1px solid rgba(169, 27, 24, 0.2)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.65rem',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--primary-color)';
-                    e.currentTarget.style.color = '#000';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(169, 27, 24, 0.1)';
-                    e.currentTarget.style.color = 'var(--primary-color)';
-                }}
-              >
-                <History size={18} />
-                See history of bookings
-              </button>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button 
+                  onClick={() => handleSeeHistory(user)}
+                  style={{ 
+                      padding: '0.85rem 1.5rem', 
+                      borderRadius: '0.85rem', 
+                      background: 'rgba(169, 27, 24, 0.1)', 
+                      color: 'var(--primary-color)', 
+                      fontSize: '0.9rem', 
+                      fontWeight: '700', 
+                      border: '1px solid rgba(169, 27, 24, 0.2)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--primary-color)';
+                      e.currentTarget.style.color = '#000';
+                  }}
+                  onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(169, 27, 24, 0.1)';
+                      e.currentTarget.style.color = 'var(--primary-color)';
+                  }}
+                >
+                  <History size={18} />
+                  See history
+                </button>
+
+                <button 
+                  onClick={async () => {
+                    if (!window.confirm(`Are you sure you want to PERMANENTLY delete ${user.full_name}?`)) return;
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session?.access_token}`
+                        },
+                        body: JSON.stringify({ action: 'delete-user', userId: user.id })
+                      });
+                      const result = await res.json();
+                      if (result.error) throw new Error(result.error);
+                      toast.success('User deleted permanently');
+                      fetchUsers();
+                    } catch (err) {
+                      toast.error(`Delete failed: ${err.message}`);
+                    }
+                  }}
+                  style={{ 
+                      padding: '0.85rem', 
+                      borderRadius: '0.85rem', 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      color: '#ef4444', 
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#ef4444';
+                      e.currentTarget.style.color = '#fff';
+                  }}
+                  onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                      e.currentTarget.style.color = '#ef4444';
+                  }}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
           ))
         ) : (
