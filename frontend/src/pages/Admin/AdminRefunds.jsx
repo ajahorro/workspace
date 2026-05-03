@@ -87,11 +87,14 @@ const AdminRefunds = () => {
   if (loading) return <LoadingState message="Loading refund requests..." />;
 
   const panelStyle = {
-    background: 'var(--bg-secondary)',
+    background: 'var(--glass-red)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    border: '1px solid var(--glass-border)',
     borderRadius: '1rem',
-    border: '1px solid rgba(255,255,255,0.03)',
     overflow: 'hidden',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   return (
@@ -109,24 +112,24 @@ const AdminRefunds = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ ...panelStyle, padding: '1rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1, width: '100%' }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
               <input 
                 type="text" 
                 placeholder="Search customer, ID or plate..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '0.85rem 1rem 0.85rem 3rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', color: '#fff', fontSize: '0.9rem' }}
+                style={{ width: '100%', padding: '0.85rem 1rem 0.85rem 3rem', background: 'var(--bg-input)', border: 'var(--border-color)', borderRadius: '0.75rem', color: 'var(--text-primary)', fontSize: '0.9rem' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(0,0,0,0.2)', padding: '0.25rem', borderRadius: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-input)', padding: '0.25rem', borderRadius: '0.75rem', border: 'var(--border-color)' }}>
               {['PENDING', 'PROCESSED', 'ALL'].map(f => (
                 <button 
                   key={f}
                   onClick={() => setFilter(f)}
                   style={{ 
                     padding: '0.5rem 1rem', borderRadius: '0.6rem', border: 'none', 
-                    background: filter === f ? 'var(--primary-color)' : 'transparent', 
-                    color: filter === f ? '#000' : 'rgba(255,255,255,0.4)', 
+                    background: filter === f ? 'var(--red-shade)' : 'transparent', 
+                    color: filter === f ? '#fff' : 'var(--text-secondary)', 
                     fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' 
                   }}
                 >
@@ -160,28 +163,28 @@ const AdminRefunds = () => {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '0.25rem' }}>#{b.id.slice(0, 8).toUpperCase()}</div>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>{b.customer?.full_name}</h3>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#fff', opacity: 0.8, marginBottom: '0.25rem' }}>#{b.id.slice(0, 8).toUpperCase()}</div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#fff' }}>{b.customer?.full_name}</h3>
                       </div>
                       <div style={{ 
                         padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: '900',
-                        background: `${getStatusColor(payment.status)}15`, color: getStatusColor(payment.status),
-                        border: `1px solid ${getStatusColor(payment.status)}33`
+                        background: 'rgba(255,255,255,0.2)', color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.3)'
                       }}>
                         {payment.status.replace('_', ' ')}
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
                       <div>
-                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', marginBottom: '0.25rem' }}>CAR DETAILS</div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{b.vehicle_brand} {b.vehicle_model}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>{b.plate_number}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: '800', marginBottom: '0.25rem' }}>CAR DETAILS</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#fff' }}>{b.vehicle_brand} {b.vehicle_model}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>{b.plate_number}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800', marginBottom: '0.25rem' }}>PAID AMOUNT</div>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: '800', marginBottom: '0.25rem' }}>PAID AMOUNT</div>
                         <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fff' }}>₱{(payment.amount_paid || payment.total_amount || 0).toLocaleString()}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>VIA {payment.method}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>VIA {payment.method}</div>
                       </div>
                     </div>
                   </div>
@@ -200,33 +203,33 @@ const AdminRefunds = () => {
                 <button onClick={() => setSelectedBooking(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><XCircle size={20}/></button>
               </div>
 
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.25rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'var(--bg-input)', padding: '1.25rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: 'var(--border-color)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(169, 27, 24, 0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <User size={20} color="var(--primary-color)" />
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <User size={20} color="#fff" />
                   </div>
                   <div>
-                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>{selectedBooking.customer?.full_name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{selectedBooking.customer?.email}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{selectedBooking.customer?.phone_number}</div>
+                    <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>{selectedBooking.customer?.full_name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{selectedBooking.customer?.email}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{selectedBooking.customer?.phone_number}</div>
                   </div>
                 </div>
               </div>
 
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem' }}>SERVICES CANCELLED</div>
+                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>SERVICES CANCELLED</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {selectedBooking.booking_services?.map((s, i) => (
-                    <span key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700' }}>{s.service_name}</span>
+                    <span key={i} style={{ background: 'var(--bg-input)', border: 'var(--border-color)', padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-primary)' }}>{s.service_name}</span>
                   ))}
                 </div>
               </div>
 
               {selectedBooking.payments?.[0]?.receipt_url && (
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
                     GCASH RECEIPT
-                    <a href={selectedBooking.payments[0].receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <a href={selectedBooking.payments[0].receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--red-shade)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       VIEW <Download size={12} />
                     </a>
                   </div>
@@ -242,14 +245,14 @@ const AdminRefunds = () => {
               <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
                 <button 
                   onClick={() => navigate(`/admin/bookings/${selectedBooking.id}`)}
-                  style={{ flex: 1, padding: '1rem', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  style={{ flex: 1, padding: '1rem', background: 'var(--bg-input)', border: 'var(--border-color)', color: 'var(--text-primary)', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                 >
                   <MessageCircle size={18} /> OPEN CHAT
                 </button>
                 {selectedBooking.payments?.[0]?.status !== 'REFUNDED' && (
                   <button 
                     onClick={() => handleProcessRefund(selectedBooking.id, selectedBooking.payments[0].id)}
-                    style={{ flex: 1, padding: '1rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
+                    style={{ flex: 1, padding: '1rem', background: 'var(--red-shade)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
                   >
                     MARK REFUNDED
                   </button>

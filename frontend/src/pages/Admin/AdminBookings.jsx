@@ -79,12 +79,15 @@ const AdminBookings = () => {
     return { label: 'UNPAID', color: '#f59e0b' };
   };
 
-  const containerStyle = {
-    background: 'var(--bg-secondary)',
+  const panelStyle = {
+    background: 'var(--glass-red)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    border: '1px solid var(--glass-border)',
     borderRadius: '1rem',
-    border: '1px solid rgba(255,255,255,0.03)',
     overflow: 'hidden',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   return (
@@ -100,17 +103,17 @@ const AdminBookings = () => {
       {/* Filter & Search Bar */}
       <div style={{ ...containerStyle, padding: '1rem' }}>
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
-            <Search size={18} color="rgba(255,255,255,0.3)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: 'var(--border-color)' }}>
+            <Search size={18} color="var(--text-secondary)" />
             <input 
               type="text"
               placeholder="Search by customer, vehicle, plate..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ border: 'none', background: 'transparent', color: '#fff', width: '100%', outline: 'none', fontSize: '0.9rem', fontWeight: '500' }} 
+              style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', width: '100%', outline: 'none', fontSize: '0.9rem', fontWeight: '500' }} 
             />
           </div>
-          <button style={{ padding: '0.85rem 1.5rem', background: 'rgba(169, 27, 24, 0.1)', color: 'var(--primary-color)', border: '1px solid rgba(169, 27, 24, 0.2)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+          <button style={{ padding: '0.85rem 1.5rem', background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
             <Filter size={16} /> FILTERS
           </button>
         </div>
@@ -133,8 +136,8 @@ const AdminBookings = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   <div>
-                    <span style={{ color: 'var(--primary-color)', fontWeight: '900', fontSize: '0.7rem', letterSpacing: '0.5px' }}>#{booking.id.substring(0, 8).toUpperCase()}</span>
-                    <h3 style={{ margin: '0.25rem 0 0 0', fontSize: '1.1rem', fontWeight: '800' }}>{booking.customer?.full_name || 'Unknown'}</h3>
+                    <span style={{ color: '#ffffff', fontWeight: '900', fontSize: '0.7rem', opacity: 0.8, letterSpacing: '0.5px' }}>#{booking.id.substring(0, 8).toUpperCase()}</span>
+                    <h3 style={{ margin: '0.25rem 0 0 0', fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>{booking.customer?.full_name || 'Unknown'}</h3>
                   </div>
                   <div style={{ 
                     background: 'rgba(255,255,255,0.03)', color: '#fff', padding: '0.4rem 0.8rem', 
@@ -149,12 +152,12 @@ const AdminBookings = () => {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem 0', borderTop: '1px solid rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <div>
-                    <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Vehicle</p>
-                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700' }}>{booking.vehicle_type} ({booking.plate_number})</p>
+                    <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: '800', color: 'var(--gray-shade)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Vehicle</p>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700', color: 'var(--white-shade)' }}>{booking.vehicle_type} ({booking.plate_number})</p>
                   </div>
                   <div>
-                    <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Schedule</p>
-                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</p>
+                    <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: '800', color: 'var(--gray-shade)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Schedule</p>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700', color: 'var(--white-shade)' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</p>
                   </div>
                 </div>
 
@@ -174,13 +177,13 @@ const AdminBookings = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>ID</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Customer</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Vehicle</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Schedule</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Status</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Payment</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Actions</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>ID</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Customer</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Vehicle</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Schedule</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Status</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Payment</th>
+                <th style={{ padding: '1.25rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -188,32 +191,32 @@ const AdminBookings = () => {
                 const pStatus = getPaymentStatus(booking.payments);
                 const initial = booking.customer?.full_name?.charAt(0).toUpperCase() || 'U';
                 return (
-                  <tr key={booking.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <tr key={booking.id} style={{ borderBottom: 'var(--border-color)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: '900', fontSize: '0.65rem' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '900', fontSize: '0.65rem' }}>
                         #{filteredBookings.length - filteredBookings.indexOf(booking)}
                       </span>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(169, 27, 24, 0.1)', color: 'var(--primary-color)', border: '1px solid rgba(169, 27, 24, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.7rem' }}>{initial}</div>
+                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.2)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.7rem' }}>{initial}</div>
                         <span style={{ fontWeight: '700', color: '#fff', fontSize: '0.9rem' }}>{booking.customer?.full_name || 'Unknown'}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.85rem' }}>{booking.vehicle_type}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: '700', textTransform: 'uppercase' }}>{booking.plate_number}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase' }}>{booking.plate_number}</div>
                     </td>
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ fontWeight: '800', color: '#fff', fontSize: '0.85rem' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--primary-color)', fontWeight: '900' }}>{new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#ffffff', fontWeight: '900', opacity: 0.8 }}>{new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ 
                         display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                        background: 'rgba(255,255,255,0.03)', color: '#fff', padding: '0.4rem 0.8rem', 
+                        background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '0.4rem 0.8rem', 
                         borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '900',
-                        border: '1px solid rgba(255,255,255,0.05)', textTransform: 'uppercase'
+                        border: '1px solid rgba(255,255,255,0.1)', textTransform: 'uppercase'
                       }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status) }}></div>
                         {(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status).replace('_', ' ')}
@@ -233,12 +236,12 @@ const AdminBookings = () => {
                         onClick={() => navigate(`/admin/bookings/${booking.id}`)}
                         style={{ 
                           display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                          background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', 
+                          background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', 
                           color: '#fff', padding: '0.6rem 1.25rem', borderRadius: '0.6rem', 
                           fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
                       >
                         DETAILS <ArrowRight size={14} />
                       </button>

@@ -1,36 +1,36 @@
 :root {
-  /* THE ONLY SOURCE OF TRUTH: NEW PALETTE */
-  --tuscan-red: #A91B18;
-  --pale-cerulean: #CEE7F3;
-  --noir-black: #181717;
-  --satin-linen: #F8FAED;
+  /* NEW PALETTE FROM IMAGE */
+  --red-shade: #a83d49;
+  --gray-shade: #9a9c97;
+  --white-shade: #ece7e9;
+  --dark-gray-shade: #4c4951;
 
-  --bg-primary: var(--noir-black);
-  --bg-secondary: #1c1b1b; /* Matching the darker gray in the photo */
-  --bg-input: #1f1e1e;
+  /* Theme: Dark/System Mode Aesthetics */
+  --bg-primary: var(--dark-gray-shade); /* SOLID Dark Gray Background */
+  --bg-input: rgba(255, 255, 255, 0.05);
   
-  --text-primary: var(--satin-linen);
-  --text-secondary: var(--pale-cerulean);
+  --text-primary: var(--white-shade); /* White Shade for text */
+  --text-secondary: var(--gray-shade); /* Gray Shade for secondary text */
+  --card-text: #ffffff;
   
-  --primary-color: var(--tuscan-red);
-  --primary-color-hover: #8a1614;
+  --primary-color: var(--red-shade);
+  --primary-color-hover: #c94b58; /* More vibrant hover */
   
-  --border-color: rgba(206, 231, 243, 0.1); /* Pale Cerulean at 10% */
-  --card-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  
+  /* Unified Glassy Red */
+  --glass-red: rgba(168, 61, 73, 0.5); /* Unified and slightly more opaque for consistency */
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --blur-amount: blur(20px) saturate(1.5) brightness(1.1); /* Advanced glass effect */
+  
+  --bg-secondary: var(--glass-red);
 }
 
 [data-theme="dark"] {
-  --bg-primary: var(--noir-black);
-  --bg-secondary: #1c1b1b;
-  --bg-input: #1f1e1e;
-  
-  --text-primary: var(--satin-linen);
-  --text-secondary: var(--pale-cerulean);
-  
-  --primary-color: var(--tuscan-red);
-  --primary-color-hover: #8a1614;
-  
-  --border-color: rgba(206, 231, 243, 0.1);
+  --bg-primary: var(--dark-gray-shade);
+  --bg-secondary: var(--glass-red);
+  --bg-input: rgba(0, 0, 0, 0.3);
 }
 
 body {

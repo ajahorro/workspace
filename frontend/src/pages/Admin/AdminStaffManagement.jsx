@@ -145,25 +145,29 @@ const AdminStaffManagement = () => {
         
         {/* Left: Registration Form */}
         <div style={{ 
-          background: 'var(--bg-secondary)', 
-          border: '1px solid rgba(255,255,255,0.03)',
+          background: 'var(--glass-bg)', 
+          backdropFilter: 'blur(var(--blur-amount))',
+          WebkitBackdropFilter: 'blur(var(--blur-amount))',
+          border: '1px solid var(--glass-border)',
           borderRadius: '1.5rem',
           padding: '2rem',
           position: 'sticky',
-          top: '100px'
+          top: '100px',
+          color: 'var(--card-text)',
+          boxShadow: 'var(--card-shadow)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{ padding: '0.5rem', background: 'rgba(169, 27, 24, 0.1)', borderRadius: '0.75rem', color: 'var(--primary-color)' }}>
+            <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
               <UserPlus size={20} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Register New Employee</h2>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>Register New Employee</h2>
           </div>
 
           <form onSubmit={handleAddStaff} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Full Name</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Full Name</label>
               <div style={{ position: 'relative' }}>
-                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input 
                   type="text" 
                   name="fullName"
@@ -173,10 +177,10 @@ const AdminStaffManagement = () => {
                   style={{ 
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 3rem', 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid rgba(255,255,255,0.05)', 
+                    background: 'var(--bg-input)', 
+                    border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: '#fff', 
+                    color: 'var(--text-primary)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -185,9 +189,9 @@ const AdminStaffManagement = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Email Address</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input 
                   type="email" 
                   name="email"
@@ -197,10 +201,10 @@ const AdminStaffManagement = () => {
                   style={{ 
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 3rem', 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid rgba(255,255,255,0.05)', 
+                    background: 'var(--bg-input)', 
+                    border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: '#fff', 
+                    color: 'var(--text-primary)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -209,9 +213,9 @@ const AdminStaffManagement = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Temporary Password</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Temporary Password</label>
               <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input 
                   type="password" 
                   name="password"
@@ -222,10 +226,10 @@ const AdminStaffManagement = () => {
                   style={{ 
                     width: '100%', 
                     padding: '0.875rem 1rem 0.875rem 3rem', 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid rgba(255,255,255,0.05)', 
+                    background: 'var(--bg-input)', 
+                    border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: '#fff', 
+                    color: 'var(--text-primary)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -241,8 +245,8 @@ const AdminStaffManagement = () => {
                 width: '100%', 
                 padding: '1rem', 
                 borderRadius: '0.75rem', 
-                background: 'var(--primary-color)', 
-                color: '#000', 
+                background: '#fff', 
+                color: 'var(--red-shade)', 
                 fontWeight: '800', 
                 border: 'none', 
                 cursor: 'pointer',
@@ -254,11 +258,11 @@ const AdminStaffManagement = () => {
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(56, 189, 248, 0.3)';
+                e.currentTarget.style.opacity = '0.9';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.opacity = '1';
               }}
             >
               {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <UserPlus size={20} />}
@@ -268,22 +272,17 @@ const AdminStaffManagement = () => {
         </div>
 
         {/* Right: Team List */}
-        <div style={{ 
-          background: 'var(--bg-secondary)', 
-          border: '1px solid rgba(255,255,255,0.03)',
-          borderRadius: '1.5rem',
-          padding: '2rem'
-        }}>
+        <div style={panelStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ padding: '0.5rem', background: 'rgba(14, 165, 233, 0.1)', borderRadius: '0.75rem', color: '#0ea5e9' }}>
+              <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
                 <Users size={20} />
               </div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>Active Team ({staff.length})</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>Active Team ({staff.length})</h2>
             </div>
 
             <div style={{ position: 'relative', width: isMobile ? '100%' : '250px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
               <input 
                 type="text" 
                 placeholder="Search staff..."
@@ -292,10 +291,10 @@ const AdminStaffManagement = () => {
                 style={{ 
                   width: '100%', 
                   padding: '0.65rem 1rem 0.65rem 2.5rem', 
-                  background: 'rgba(0,0,0,0.2)', 
-                  border: '1px solid rgba(255,255,255,0.05)', 
+                  background: 'var(--bg-input)', 
+                  border: 'var(--border-color)', 
                   borderRadius: '0.5rem', 
-                  color: '#fff', 
+                  color: 'var(--text-primary)', 
                   fontSize: '0.85rem',
                   outline: 'none'
                 }}
@@ -316,11 +315,12 @@ const AdminStaffManagement = () => {
                     padding: '1.25rem', 
                     background: 'var(--bg-secondary)', 
                     borderRadius: '1.25rem', 
-                    border: '1px solid rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.1)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1.25rem',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    color: '#fff'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'}
@@ -329,11 +329,11 @@ const AdminStaffManagement = () => {
                     width: '48px', 
                     height: '48px', 
                     borderRadius: '1rem', 
-                    background: 'rgba(56, 189, 248, 0.1)', 
+                    background: 'rgba(255, 255, 255, 0.2)', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    color: 'var(--primary-color)',
+                    color: '#fff',
                     fontSize: '1.25rem',
                     fontWeight: '900'
                   }}>
@@ -342,7 +342,7 @@ const AdminStaffManagement = () => {
 
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '1rem', fontWeight: '700', color: '#fff', marginBottom: '0.2rem' }}>{member.full_name}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <Mail size={12} /> {member.email}
                     </div>
                   </div>
@@ -353,11 +353,11 @@ const AdminStaffManagement = () => {
                       style={{ 
                         padding: '0.5rem 1rem', 
                         borderRadius: '0.5rem', 
-                        background: 'rgba(239, 68, 68, 0.1)', 
-                        color: '#ef4444', 
+                        background: 'rgba(255, 255, 255, 0.1)', 
+                        color: '#fff', 
                         fontSize: '0.75rem', 
                         fontWeight: '700', 
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -365,12 +365,12 @@ const AdminStaffManagement = () => {
                         transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#ef4444';
-                        e.currentTarget.style.color = '#fff';
+                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.color = 'var(--red-shade)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                        e.currentTarget.style.color = '#ef4444';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                        e.currentTarget.style.color = '#fff';
                       }}
                     >
                       <Ban size={14} /> Deactivate

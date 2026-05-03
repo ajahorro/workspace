@@ -132,11 +132,14 @@ const AdminDashboard = () => {
   };
 
   const panelStyle = {
-    background: 'var(--bg-secondary)',
-    borderRadius: '1.25rem',
-    border: '1px solid rgba(255,255,255,0.03)',
+    background: 'var(--glass-red)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '1.5rem',
     padding: '1.75rem',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   if (loading) {
@@ -169,21 +172,21 @@ const AdminDashboard = () => {
             style={{ ...panelStyle, cursor: 'pointer', transition: 'all 0.3s ease' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.borderColor = 'rgba(169, 27, 24, 0.3)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
+              e.currentTarget.style.borderColor = 'var(--border-color)';
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-              <div style={{ background: `${stat.color}15`, color: stat.color, padding: '0.75rem', borderRadius: '1rem' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.2)', color: '#fff', padding: '0.75rem', borderRadius: '1rem' }}>
                 <stat.icon size={22} />
               </div>
               <ArrowRight size={18} style={{ opacity: 0.15 }} />
             </div>
-            <p style={{ margin: '0 0 0.25rem 0', color: 'rgba(255,255,255,0.4)', fontSize: isMobile ? '0.65rem' : '0.8rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>{stat.label}</p>
-            <h2 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2.5rem', fontWeight: '900', letterSpacing: '-1.5px' }}>{stat.value}</h2>
+            <p style={{ margin: '0 0 0.25rem 0', color: 'var(--gray-shade)', fontSize: isMobile ? '0.65rem' : '0.8rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>{stat.label}</p>
+            <h2 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2.5rem', fontWeight: '900', letterSpacing: '-1.5px', color: 'var(--card-text)' }}>{stat.value}</h2>
           </div>
         ))}
       </div>
@@ -193,7 +196,7 @@ const AdminDashboard = () => {
         
         {/* Simple Workflow Status List */}
         <div style={panelStyle}>
-          <h3 style={{ margin: '0 0 2rem 0', fontSize: '0.9rem', fontWeight: '900', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Workflow Status</h3>
+          <h3 style={{ margin: '0 0 2rem 0', fontSize: '0.9rem', fontWeight: '900', color: 'var(--card-text)', opacity: 0.9, letterSpacing: '2px', textTransform: 'uppercase' }}>Workflow Status</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {Object.entries(bookingStats).map(([status, count]) => (
               <div 
@@ -205,7 +208,7 @@ const AdminDashboard = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'rgba(255,255,255,0.8)', letterSpacing: '0.5px' }}>{status}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--white-shade)', letterSpacing: '0.5px' }}>{status}</span>
                 </div>
                 <span style={{ fontSize: '1.1rem', fontWeight: '900' }}>{count}</span>
               </div>
@@ -221,18 +224,18 @@ const AdminDashboard = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--gray-shade)', letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
                 </div>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'rgba(255,255,255,0.4)' }}>{count}</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--gray-shade)' }}>{count}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Recent Activity */}
-        <div style={{ ...panelStyle, padding: 0, overflow: 'hidden', background: 'var(--bg-secondary)' }}>
+        <div style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '1.75rem 1.75rem 1.25rem 1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Bookings</h3>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'var(--white-shade)', opacity: 0.8, letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Bookings</h3>
             <ArrowRight size={18} style={{ opacity: 0.2 }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -242,19 +245,19 @@ const AdminDashboard = () => {
                 onClick={() => navigate(`/admin/bookings/${activity.id}`)}
                 style={{ 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  padding: '1.25rem 1.75rem', borderTop: '1px solid rgba(255,255,255,0.03)',
+                  padding: '1.25rem 1.75rem', borderTop: '1px solid rgba(255,255,255,0.1)',
                   cursor: 'pointer', transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>{activity.customer}</h4>
-                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.5px' }}>#{activity.shortId.toUpperCase()}</p>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--white-shade)' }}>{activity.customer}</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: 'var(--gray-shade)', letterSpacing: '0.5px' }}>#{activity.shortId.toUpperCase()}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: '#10b981' }}>₱{activity.amount.toLocaleString()}</p>
-                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '900', color: activity.status === 'COMPLETED' ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>{activity.status}</p>
+                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '900', color: activity.status === 'COMPLETED' ? '#10b981' : '#ffb347', textTransform: 'uppercase' }}>{activity.status}</p>
                 </div>
               </div>
             ))}
@@ -264,8 +267,8 @@ const AdminDashboard = () => {
         {/* Action Required */}
         <div style={panelStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 2s infinite' }}></div>
-            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: '#ef4444', letterSpacing: '2px', textTransform: 'uppercase' }}>Needs Assignment</h3>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffb347', animation: 'pulse 2s infinite' }}></div>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: '#ffb347', letterSpacing: '2px', textTransform: 'uppercase' }}>Needs Assignment</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {needsAssignment.map((item, i) => (
@@ -273,22 +276,25 @@ const AdminDashboard = () => {
                 key={i} 
                 onClick={() => navigate(`/admin/bookings/${item.id}`)}
                 style={{ 
-                  background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.1)', 
+                  background: 'var(--glass-red)',
+                  backdropFilter: 'var(--blur-amount)',
+                  WebkitBackdropFilter: 'var(--blur-amount)',
+                  border: '1px solid var(--glass-border)',
                   padding: '1.25rem', borderRadius: '1rem', cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--glass-red)'}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800' }}>{item.customer}</h4>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', background: item.type === 'PAYMENT' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(169, 27, 24, 0.2)', color: item.type === 'PAYMENT' ? '#f59e0b' : 'var(--primary-color)' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--card-text)' }}>{item.customer}</h4>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', background: item.type === 'PAYMENT' ? 'rgba(255, 179, 71, 0.2)' : 'rgba(255, 255, 255, 0.2)', color: item.type === 'PAYMENT' ? '#ffb347' : '#ffffff' }}>
                     {item.type}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'rgba(255,255,255,0.4)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'var(--gray-shade)' }}>
                   <span>{item.date}</span>
-                  <span style={{ color: item.type === 'PAYMENT' ? '#f59e0b' : 'var(--primary-color)' }}>₱{item.amount.toLocaleString()}</span>
+                  <span style={{ color: item.type === 'PAYMENT' ? '#ffb347' : '#ffffff' }}>₱{item.amount.toLocaleString()}</span>
                 </div>
               </div>
             ))}

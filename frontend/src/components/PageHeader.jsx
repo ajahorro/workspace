@@ -31,16 +31,17 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '0.4rem', 
-              background: 'rgba(169, 27, 24, 0.08)', 
-              color: 'var(--primary-color)', 
-              padding: '0.35rem 0.85rem', 
+              background: 'var(--red-shade)', 
+              color: '#fff', 
+              padding: '0.35rem 1rem', 
               borderRadius: '5rem', 
               marginBottom: '0.75rem', 
-              border: '1px solid rgba(169, 27, 24, 0.12)', 
+              border: '1px solid rgba(255,255,255,0.1)', 
               fontSize: '0.65rem', 
               fontWeight: '900', 
               letterSpacing: '1px',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              boxShadow: 'var(--card-shadow)'
             }}>
               {badge}
             </div>
@@ -53,7 +54,8 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               margin: 0, 
               letterSpacing: '-1.5px', 
               textTransform: 'uppercase', 
-              lineHeight: 1.1 
+              lineHeight: 1.1,
+              color: 'var(--text-primary)'
             }}>
               {title}
             </h1>
@@ -62,9 +64,9 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               onClick={handleRefresh}
               title="Refresh Page"
               style={{ 
-                background: 'rgba(255,255,255,0.03)', 
-                border: '1px solid rgba(255,255,255,0.05)', 
-                color: 'rgba(255,255,255,0.3)', 
+                background: 'var(--bg-secondary)', 
+                border: 'var(--border-color)', 
+                color: 'var(--text-secondary)', 
                 width: '32px', 
                 height: '32px', 
                 borderRadius: '0.5rem', 
@@ -76,14 +78,14 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
                 padding: 0
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--primary-color)';
-                e.currentTarget.style.background = 'rgba(169, 27, 24, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(169, 27, 24, 0.2)';
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.background = 'var(--red-shade)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'rgba(255,255,255,0.3)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.background = 'var(--bg-secondary)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
             >
               <RefreshCw 
@@ -95,11 +97,11 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               />
             </button>
           </div>
-
+ 
           {subtitle && (
             <p style={{ 
               margin: '0.25rem 0 0 0', 
-              color: 'rgba(255,255,255,0.4)', 
+              color: 'var(--text-secondary)', 
               fontSize: isMobile ? '0.85rem' : '1rem', 
               fontWeight: '500',
               maxWidth: '600px',

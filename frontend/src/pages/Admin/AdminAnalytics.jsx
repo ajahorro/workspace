@@ -71,20 +71,24 @@ const AdminAnalytics = () => {
   };
 
   const cardStyle = {
-    background: 'var(--bg-secondary)',
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(var(--blur-amount))',
+    WebkitBackdropFilter: 'blur(var(--blur-amount))',
     borderRadius: '1rem',
-    border: '1px solid rgba(255,255,255,0.03)',
+    border: '1px solid var(--glass-border)',
     padding: '1.25rem',
     position: 'relative',
     overflow: 'hidden',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    color: 'var(--card-text)',
+    boxShadow: 'var(--card-shadow)'
   };
 
   const sectionTitleStyle = {
     fontSize: '0.85rem',
     fontWeight: '900',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.8)',
     textTransform: 'uppercase',
     letterSpacing: '1px',
     margin: '0 0 1.25rem 0'
@@ -93,7 +97,7 @@ const AdminAnalytics = () => {
   const statLabelStyle = {
     fontSize: '0.7rem',
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   };
@@ -129,10 +133,11 @@ const AdminAnalytics = () => {
             background: 'var(--bg-secondary)', 
             padding: '0.4rem 0.85rem', 
             borderRadius: '5rem',
-            border: '1px solid rgba(169, 27, 24, 0.15)'
+            border: 'var(--border-color)',
+            color: '#fff'
           }}>
-            <Sparkles size={12} color="var(--primary-color)" />
-            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--primary-color)' }}>AI Revenue Forecast: <span style={{ color: '#fff' }}>₱0.00</span></span>
+            <Sparkles size={12} color="#fff" />
+            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#fff' }}>AI Revenue Forecast: <span style={{ color: '#fff' }}>₱0.00</span></span>
             <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#10b981', marginLeft: '0.25rem' }}>+0%</span>
           </div>
 
@@ -140,9 +145,9 @@ const AdminAnalytics = () => {
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               style={{ 
-                background: 'var(--bg-secondary)', 
-                border: '1px solid rgba(255,255,255,0.1)', 
-                borderRadius: '0.5rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' 
+                background: 'var(--bg-input)', 
+                border: 'var(--border-color)', 
+                borderRadius: '0.5rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' 
               }}>
                 <Calendar size={14} />
                 <span style={{ fontSize: '0.8rem', fontWeight: '600' }}>{timeRange}</span>
@@ -151,9 +156,9 @@ const AdminAnalytics = () => {
             {isDropdownOpen && (
               <div style={{ 
                 position: 'absolute', top: '120%', right: 0, width: '150px', 
-                background: 'var(--bg-secondary)', 
-                border: '1px solid rgba(255,255,255,0.1)', 
-                borderRadius: '0.5rem', overflow: 'hidden', zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' 
+                background: 'var(--bg-primary)', 
+                border: 'var(--border-color)', 
+                borderRadius: '0.5rem', overflow: 'hidden', zIndex: 100, boxShadow: 'var(--card-shadow)' 
               }}>
                 {['Today', 'This Week', 'This Month', 'All Time'].map((range) => (
                   <button 
@@ -161,7 +166,7 @@ const AdminAnalytics = () => {
                     onClick={() => { setTimeRange(range); setIsDropdownOpen(false); }}
                     style={{ 
                       width: '100%', padding: '0.65rem 1rem', background: timeRange === range ? 'var(--primary-color)' : 'transparent', 
-                      border: 'none', color: '#fff', textAlign: 'left', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' 
+                      border: 'none', color: timeRange === range ? '#fff' : 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' 
                     }}
                   >
                     {range}
@@ -179,8 +184,8 @@ const AdminAnalytics = () => {
           <div key={i} style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                <span style={bigValueStyle}>{stat.value}</span>
-               <div style={{ background: `${stat.color}15`, padding: '0.45rem', borderRadius: '0.5rem' }}>
-                <stat.icon size={18} color={stat.color} />
+               <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.45rem', borderRadius: '0.5rem' }}>
+                <stat.icon size={18} color="#ffffff" />
               </div>
             </div>
             <span style={statLabelStyle}>{stat.label}</span>
@@ -213,8 +218,8 @@ const AdminAnalytics = () => {
                   <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{service.name}</span>
                   <span style={midValueStyle}>{service.count}</span>
                 </div>
-                <div style={{ height: '6px', background: 'var(--bg-primary)', borderRadius: '10px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '100%', background: 'var(--primary-color)', borderRadius: '10px' }}></div>
+                <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: '100%', background: '#ffffff', borderRadius: '10px' }}></div>
                 </div>
               </div>
             ))}
@@ -237,15 +242,15 @@ const AdminAnalytics = () => {
         <div style={cardStyle}>
           <h3 style={sectionTitleStyle}>Payment Methods</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Smartphone size={20} color="var(--primary-color)" />
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <Smartphone size={20} color="#fff" />
               <div>
                 <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
                 <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>GCash</p>
               </div>
             </div>
-            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Wallet size={20} color="#10b981" />
+            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <Wallet size={20} color="#fff" />
               <div>
                 <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
                 <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>Cash</p>
@@ -261,9 +266,9 @@ const AdminAnalytics = () => {
               <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>Unpaid Bookings</span>
               <span style={{ ...midValueStyle, color: '#ef4444' }}>1</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
               <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Pending Revenue</span>
-              <span style={{ ...midValueStyle, color: '#f59e0b' }}>₱2,200.00</span>
+              <span style={{ ...midValueStyle, color: '#fff' }}>₱2,200.00</span>
             </div>
           </div>
         </div>
@@ -275,14 +280,14 @@ const AdminAnalytics = () => {
             {peakHours.map((peak, i) => (
               <div key={i} style={{ 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.15rem', 
-                borderRadius: '0.65rem', border: '1px solid rgba(255,255,255,0.03)' 
+                background: 'rgba(255,255,255,0.1)', padding: '0.85rem 1.15rem', 
+                borderRadius: '0.65rem', border: '1px solid rgba(255,255,255,0.15)' 
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <span style={{ color: 'var(--primary-color)', fontWeight: '950', fontSize: '0.75rem' }}>#1</span>
+                  <span style={{ color: '#fff', fontWeight: '950', fontSize: '0.75rem' }}>#1</span>
                   <span style={{ fontWeight: '800', fontSize: '0.9rem' }}>{peak.time}</span>
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)' }}>{peak.count} bookings</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.6)' }}>{peak.count} bookings</span>
               </div>
             ))}
           </div>
@@ -298,8 +303,8 @@ const AdminAnalytics = () => {
             {statusList.map((status, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: status.color }}></div>
-                  <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)' }}>{status.label}</span>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: status.label === 'Completed' ? '#10b981' : '#fff' }}></div>
+                  <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)' }}>{status.label}</span>
                 </div>
                 <span style={midValueStyle}>{status.count}</span>
               </div>
@@ -312,14 +317,14 @@ const AdminAnalytics = () => {
           <h3 style={sectionTitleStyle}>Operational Metrics</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', flex: 1 }}>
             <div style={{ 
-              background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)',
+              background: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.15)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem'
             }}>
               <span style={{ fontSize: '2.25rem', fontWeight: '950', color: '#fff', lineHeight: 1 }}>0%</span>
               <span style={{ ...statLabelStyle, marginTop: '0.5rem' }}>Cancellation Rate</span>
             </div>
             <div style={{ 
-              background: 'rgba(0,0,0,0.2)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.03)',
+              background: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.15)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem'
             }}>
               <span style={{ fontSize: '2.25rem', fontWeight: '950', color: '#fff', lineHeight: 1 }}>1</span>

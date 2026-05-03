@@ -69,19 +69,20 @@ const AdminSettings = () => {
   const sectionStyle = {
     background: 'var(--bg-secondary)',
     borderRadius: '1.25rem',
-    border: '1px solid rgba(255,255,255,0.03)',
+    border: 'var(--border-color)',
     padding: '1.75rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '1.5rem',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   const labelStyle = {
     display: 'block',
     fontSize: '0.75rem',
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
     letterSpacing: '1.5px',
     marginBottom: '0.6rem'
@@ -90,10 +91,10 @@ const AdminSettings = () => {
   const inputStyle = {
     width: '100%',
     padding: '0.85rem 1.25rem',
-    background: 'rgba(0,0,0,0.2)',
-    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'var(--bg-input)',
+    border: 'var(--border-color)',
     borderRadius: '0.75rem',
-    color: '#fff',
+    color: 'var(--text-primary)',
     fontSize: '0.9rem',
     outline: 'none',
     transition: 'all 0.2s ease',
@@ -114,8 +115,8 @@ const AdminSettings = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
         {/* Business Information */}
         <div style={sectionStyle}>
-          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.8)' }}>
-            <MapPin size={18} color="var(--primary-color)" /> BUSINESS INFORMATION
+          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: '#fff' }}>
+            <MapPin size={18} color="#fff" /> BUSINESS INFORMATION
           </h2>
           <div>
             <label style={labelStyle}>Business Name</label>
@@ -153,8 +154,8 @@ const AdminSettings = () => {
 
         {/* Operating Hours */}
         <div style={sectionStyle}>
-          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.8)' }}>
-            <Clock size={18} color="var(--primary-color)" /> OPERATING HOURS
+          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: '#fff' }}>
+            <Clock size={18} color="#fff" /> OPERATING HOURS
           </h2>
           <div>
             <label style={labelStyle}>Opening Time</label>
@@ -185,16 +186,16 @@ const AdminSettings = () => {
               <option value="120 minutes">120 minutes</option>
             </select>
           </div>
-          <div style={{ marginTop: 'auto', padding: '1.25rem', background: 'rgba(169, 27, 24, 0.05)', borderRadius: '1rem', border: '1px solid rgba(169, 27, 24, 0.1)' }}>
-             <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>Configured Range:</p>
-             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--primary-color)', fontWeight: '900' }}>{settings.opening_hour} - {settings.closing_hour} ({settings.slot_duration} blocks)</p>
+          <div style={{ marginTop: 'auto', padding: '1.25rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '1rem', border: '1px solid rgba(255, 255, 255, 0.2)' }}>
+             <p style={{ margin: '0 0 0.4rem 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', fontWeight: '700' }}>Configured Range:</p>
+             <p style={{ margin: 0, fontSize: '0.85rem', color: '#fff', fontWeight: '900' }}>{settings.opening_hour} - {settings.closing_hour} ({settings.slot_duration} blocks)</p>
           </div>
         </div>
 
         {/* Payment Settings */}
         <div style={sectionStyle}>
-          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.8)' }}>
-            <CreditCard size={18} color="var(--primary-color)" /> PAYMENT SETTINGS
+          <h2 style={{ fontSize: '1rem', fontWeight: '900', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', letterSpacing: '1.5px', color: '#fff' }}>
+            <CreditCard size={18} color="#fff" /> PAYMENT SETTINGS
           </h2>
           <div>
             <label style={labelStyle}>GCash Number</label>
@@ -215,19 +216,19 @@ const AdminSettings = () => {
           <div>
             <label style={labelStyle}>GCash QR Code</label>
             <div style={{ 
-              border: '2px dashed rgba(255,255,255,0.05)', 
+              border: '2px dashed rgba(255,255,255,0.2)', 
               borderRadius: '1.25rem', 
               padding: '1.5rem', 
               textAlign: 'center',
-              background: 'rgba(0,0,0,0.1)'
+              background: 'rgba(255,255,255,0.1)'
             }}>
-              <div style={{ width: '100px', height: '100px', background: 'var(--bg-primary)', borderRadius: '1rem', margin: '0 auto 1.25rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.7rem', fontWeight: '800' }}>
+              <div style={{ width: '100px', height: '100px', background: 'var(--bg-primary)', borderRadius: '1rem', margin: '0 auto 1.25rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: '800', border: 'var(--border-color)' }}>
                 QR PREVIEW
               </div>
               <button style={{ 
-                background: 'rgba(169, 27, 24, 0.1)', 
-                border: '1px solid rgba(169, 27, 24, 0.2)', 
-                color: 'var(--primary-color)', 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                border: '1px solid rgba(255, 255, 255, 0.2)', 
+                color: '#fff', 
                 padding: '0.6rem 1.25rem', 
                 borderRadius: '0.75rem', 
                 fontSize: '0.8rem', 
@@ -239,8 +240,8 @@ const AdminSettings = () => {
                 margin: '0 auto',
                 transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(169, 27, 24, 0.15)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(169, 27, 24, 0.1)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
               >
                 <Upload size={14} /> UPDATE QR
               </button>
@@ -254,7 +255,7 @@ const AdminSettings = () => {
           onClick={handleSave}
           disabled={loading}
           style={{ 
-            background: 'var(--primary-color)', 
+            background: 'var(--red-shade)', 
             color: '#fff', 
             border: 'none', 
             padding: '0.85rem 2.5rem', 
@@ -265,7 +266,7 @@ const AdminSettings = () => {
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
-            boxShadow: '0 10px 20px rgba(169, 27, 24, 0.2)',
+            boxShadow: 'var(--card-shadow)',
             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
           onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}

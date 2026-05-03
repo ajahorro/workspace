@@ -88,14 +88,16 @@ const AdminLayout = () => {
       borderRadius: '50%',
       zIndex: 0,
       pointerEvents: 'none',
-      opacity: 0.6
+      opacity: 0.4
     }} />
   );
 
   const sidebarStyle = {
     width: '280px',
-    background: 'var(--bg-secondary)',
-    borderRight: '1px solid rgba(255,255,255,0.03)',
+    background: 'var(--glass-red)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    borderRight: '1px solid var(--glass-border)',
     display: 'flex',
     flexDirection: 'column',
     padding: '2rem 1.5rem',
@@ -121,21 +123,19 @@ const AdminLayout = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
-      <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
-      <BlurGlow top="10%" right="5%" size="450px" color="rgba(206, 231, 243, 0.3)" />
-      <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.25)" />
-      <BlurGlow bottom="10%" left="5%" size="400px" color="rgba(206, 231, 243, 0.3)" />
-      <BlurGlow bottom="-5%" right="-5%" size="550px" color="rgba(169, 27, 24, 0.3)" />
+      {/* Subtle background glow for depth, but mostly solid */}
+      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '40%', height: '40%', background: 'rgba(168, 61, 73, 0.05)', filter: 'blur(150px)', borderRadius: '50%', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '40%', height: '40%', background: 'rgba(168, 61, 73, 0.05)', filter: 'blur(150px)', borderRadius: '50%', pointerEvents: 'none' }} />
       
       {/* Mobile Overlay */}
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
       <aside style={sidebarStyle}>
         <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '900', color: '#fff', opacity: 0.9, letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
             SpeedWay AutoxMoto Detail Studio
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'rgba(255,255,255,0.4)' }}><X /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'rgba(255,255,255,0.7)' }}><X /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
@@ -148,23 +148,23 @@ const AdminLayout = () => {
                 key={link.name}
                 to={link.path}
                 end={link.exact}
-                style={({ isActive: linkActive }) => ({
+                  style={({ isActive: linkActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '0.85rem 1.25rem',
                   borderRadius: '0.5rem',
                   textDecoration: 'none',
-                  color: linkActive ? 'var(--primary-color)' : 'rgba(255,255,255,0.4)',
-                  background: linkActive ? 'rgba(169, 27, 24, 0.05)' : 'transparent',
-                  fontWeight: linkActive ? '700' : '500',
+                  color: linkActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                  background: linkActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                  fontWeight: linkActive ? '800' : '500',
                   transition: 'all 0.2s ease',
-                  borderLeft: linkActive ? '3px solid var(--primary-color)' : '3px solid transparent',
+                  borderLeft: linkActive ? '3px solid #fff' : '3px solid transparent',
                   fontSize: '0.9rem'
                 })}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <Icon size={18} color={isActive ? "var(--primary-color)" : "currentColor"} />
+                  <Icon size={18} color={isActive ? "#fff" : "currentColor"} />
                   {link.name}
                 </div>
               </NavLink>
@@ -182,7 +182,7 @@ const AdminLayout = () => {
               padding: '0.85rem 1.25rem',
               borderRadius: '0.5rem',
               textDecoration: 'none',
-              color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
+              color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
               fontWeight: isActive ? '700' : '500',
               fontSize: '0.9rem'
             })}
@@ -195,8 +195,8 @@ const AdminLayout = () => {
             onClick={handleLogout}
             style={{
               display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1.25rem',
-              borderRadius: '0.5rem', color: '#ef4444', fontWeight: '700',
-              fontSize: '0.9rem', width: '100%', textAlign: 'left'
+              borderRadius: '0.5rem', color: '#fff', opacity: 0.8, fontWeight: '700',
+              fontSize: '0.9rem', width: '100%', textAlign: 'left', cursor: 'pointer'
             }}
           >
             <LogOut size={18} />
@@ -211,20 +211,22 @@ const AdminLayout = () => {
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: isMobile ? '0.75rem 1.25rem' : '1.25rem 2.5rem',
-          borderBottom: '1px solid rgba(255,255,255,0.03)',
-          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--glass-border)',
+          background: 'var(--glass-red)',
+          backdropFilter: 'var(--blur-amount)',
+          WebkitBackdropFilter: 'var(--blur-amount)',
           position: 'sticky',
           top: 0,
           zIndex: 50
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '2rem' }}>
             {isMobile && (
-              <button onClick={() => setIsSidebarOpen(true)} style={{ color: '#fff' }}>
+              <button onClick={() => setIsSidebarOpen(true)} style={{ color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <Menu size={24} />
               </button>
             )}
             <div
-              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer' }}
+              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer', color: '#fff' }}
               onClick={() => navigate('/admin')}
             >
               ADMIN
@@ -235,7 +237,7 @@ const AdminLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
             <div
               onClick={() => setShowNotifPopover(!showNotifPopover)}
-              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6 }}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.8, color: '#fff' }}
             >
               <Bell size={20} />
               {unreadCount > 0 && (
@@ -263,7 +265,7 @@ const AdminLayout = () => {
         </header>
 
         {isMobile && (
-          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(5, 10, 21, 0.2)' }}>
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: 'var(--border-color)', background: 'var(--bg-secondary)' }}>
             <AdminSearch />
           </div>
         )}

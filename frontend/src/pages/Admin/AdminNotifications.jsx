@@ -94,11 +94,11 @@ const AdminNotifications = () => {
 
   const getIcon = (title, message) => {
     const text = (title + ' ' + message).toLowerCase();
-    if (text.includes('booking')) return <Calendar size={18} color="var(--primary-color)" />;
-    if (text.includes('payment')) return <CreditCard size={18} color="#f59e0b" />;
-    if (text.includes('refund')) return <AlertTriangle size={18} color="#ef4444" />;
-    if (text.includes('completed')) return <CheckCircle size={18} color="#10b981" />;
-    return <Info size={18} color="rgba(255,255,255,0.4)" />;
+    if (text.includes('booking')) return <Calendar size={18} color="#fff" />;
+    if (text.includes('payment')) return <CreditCard size={18} color="#fff" />;
+    if (text.includes('refund')) return <AlertTriangle size={18} color="#fff" />;
+    if (text.includes('completed')) return <CheckCircle size={18} color="#fff" />;
+    return <Info size={18} color="#fff" />;
   };
 
   return (
@@ -115,17 +115,15 @@ const AdminNotifications = () => {
             onClick={handleMarkAllRead}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem 1.5rem', 
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', 
-              color: 'rgba(255,255,255,0.6)', borderRadius: '5rem', cursor: 'pointer', 
+              background: 'var(--bg-secondary)', border: 'var(--border-color)', 
+              color: '#fff', borderRadius: '5rem', cursor: 'pointer', 
               fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.2s', textTransform: 'uppercase'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.opacity = '0.9';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-              e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+              e.currentTarget.style.opacity = '1';
             }}
           >
             <CheckCheck size={16} /> Mark all read
@@ -135,19 +133,21 @@ const AdminNotifications = () => {
 
       {/* Search Bar */}
       <div style={{ 
-        background: 'var(--bg-secondary)', 
+        background: 'var(--glass-bg)', 
+        backdropFilter: 'blur(var(--blur-amount))',
+        WebkitBackdropFilter: 'blur(var(--blur-amount))',
         borderRadius: '1rem', 
-        border: '1px solid rgba(255,255,255,0.03)', 
+        border: '1px solid var(--glass-border)', 
         padding: '1rem',
-        boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+        boxShadow: 'var(--card-shadow)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
-          <Search size={18} color="rgba(255,255,255,0.3)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: 'var(--border-color)' }}>
+          <Search size={18} color="var(--text-secondary)" />
           <input 
             placeholder="Search notifications..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ border: 'none', background: 'transparent', color: '#fff', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
+            style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
           />
         </div>
       </div>
@@ -159,11 +159,11 @@ const AdminNotifications = () => {
           <div style={{ 
             textAlign: 'center', padding: '6rem 2rem', 
             background: 'var(--bg-secondary)', borderRadius: '1.5rem', 
-            border: '1px solid rgba(255,255,255,0.03)'
+            border: 'var(--border-color)', color: '#fff', boxShadow: 'var(--card-shadow)'
           }}>
-            <Bell size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'rgba(255,255,255,0.4)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
+            <Bell size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: '1.5rem' }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'rgba(255,255,255,0.8)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
           </div>
         ) : (
           filteredNotifications.map(n => (
@@ -171,55 +171,58 @@ const AdminNotifications = () => {
               key={n.id}
               onClick={() => handleNotificationClick(n)}
               style={{ 
-                background: n.is_read ? 'var(--bg-secondary)' : 'rgba(169, 27, 24, 0.04)', 
+                background: n.is_read ? 'var(--glass-bg)' : 'rgba(255, 255, 255, 0.1)', 
+                backdropFilter: 'blur(var(--blur-amount))',
+                WebkitBackdropFilter: 'blur(var(--blur-amount))',
                 padding: '1.5rem', borderRadius: '1rem', 
-                border: '1px solid',
-                borderColor: n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(169, 27, 24, 0.2)',
+                border: '1px solid var(--glass-border)',
                 display: 'flex', gap: '1.5rem', cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                position: 'relative'
+                position: 'relative',
+                color: '#fff',
+                boxShadow: 'var(--card-shadow)'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateX(8px)';
-                e.currentTarget.style.background = n.is_read ? 'rgba(28, 27, 27, 0.8)' : 'rgba(169, 27, 24, 0.08)';
+                e.currentTarget.style.opacity = '0.9';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateX(0)';
-                e.currentTarget.style.background = n.is_read ? 'var(--bg-secondary)' : 'rgba(169, 27, 24, 0.04)';
+                e.currentTarget.style.opacity = '1';
               }}
             >
               <div style={{ 
                 width: '48px', height: '48px', borderRadius: '0.75rem', 
-                background: 'rgba(0,0,0,0.2)', display: 'flex', 
+                background: 'rgba(255,255,255,0.2)', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.05)', flexShrink: 0
+                border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0
               }}>
                 {getIcon(n.title, n.message)}
               </div>
 
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: n.is_read ? 'rgba(255,255,255,0.6)' : '#fff' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: '#fff' }}>
                     {n.title}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: '800' }}>
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <button 
                       onClick={(e) => deleteNotification(e, n.id)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.1)', cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.1)'}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: n.is_read ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
                   {n.message}
                 </p>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
@@ -227,8 +230,8 @@ const AdminNotifications = () => {
               {!n.is_read && (
                 <div style={{ 
                   position: 'absolute', top: '1.5rem', right: '1.5rem', 
-                  width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary-color)',
-                  boxShadow: '0 0 10px var(--primary-color)'
+                  width: '6px', height: '6px', borderRadius: '50%', background: '#fff',
+                  boxShadow: '0 0 10px #fff'
                 }}></div>
               )}
             </div>

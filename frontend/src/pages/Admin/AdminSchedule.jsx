@@ -69,11 +69,14 @@ const AdminSchedule = () => {
   };
 
   const panelStyle = {
-    background: 'var(--bg-secondary)',
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(var(--blur-amount))',
+    WebkitBackdropFilter: 'blur(var(--blur-amount))',
     borderRadius: '1.25rem',
-    border: '1px solid rgba(255,255,255,0.03)',
+    border: '1px solid var(--glass-border)',
     padding: isMobile ? '1rem' : '1.75rem',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.1)'
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   return (
@@ -85,14 +88,14 @@ const AdminSchedule = () => {
         subtitle={`${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'} today.`}
         onRefresh={() => { fetchDailyBookings(); toast.success('Refreshing schedule...'); }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', padding: '0.4rem 0.75rem', borderRadius: '0.75rem', border: 'var(--border-color)' }}>
           <button 
             onClick={() => {
               const d = new Date(selectedDate);
               d.setDate(d.getDate() - 1);
               setSelectedDate(d.toISOString().split('T')[0]);
             }}
-            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
             <ChevronLeft size={18} />
           </button>
@@ -104,7 +107,7 @@ const AdminSchedule = () => {
             style={{ 
               background: 'transparent', 
               border: 'none', 
-              color: '#fff', 
+              color: 'var(--text-primary)', 
               fontWeight: '800', 
               fontSize: '0.8rem', 
               outline: 'none',
@@ -120,7 +123,7 @@ const AdminSchedule = () => {
               d.setDate(d.getDate() + 1);
               setSelectedDate(d.toISOString().split('T')[0]);
             }}
-            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
             <ChevronRight size={18} />
           </button>
@@ -139,7 +142,7 @@ const AdminSchedule = () => {
             return (
               <div key={hour} style={{ 
                 display: 'flex', 
-                borderBottom: hour === 18 ? 'none' : '1px solid rgba(255,255,255,0.03)',
+                borderBottom: hour === 18 ? 'none' : '1px solid rgba(255,255,255,0.1)',
                 minHeight: isMobile ? '80px' : '100px',
                 position: 'relative'
               }}>
@@ -148,7 +151,7 @@ const AdminSchedule = () => {
                   padding: '1.5rem 0', 
                   fontSize: '0.7rem', 
                   fontWeight: '900', 
-                  color: 'rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.6)',
                   display: 'flex',
                   alignItems: 'flex-start',
                   letterSpacing: '0.5px'
@@ -158,7 +161,7 @@ const AdminSchedule = () => {
 
                 <div style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
                   {!isOccupied && (
-                    <span style={{ color: 'rgba(255,255,255,0.02)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
+                    <span style={{ color: 'rgba(var(--text-primary-rgb), 0.1)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
                   )}
 
                   {booking && (
@@ -170,8 +173,8 @@ const AdminSchedule = () => {
                         left: '0.25rem',
                         right: '0.25rem',
                         height: `calc(${getDuration(booking.scheduled_start, booking.scheduled_end) * (isMobile ? 80 : 100)}px - 0.5rem)`,
-                        background: 'rgba(169, 27, 24, 0.1)',
-                        border: '1px solid rgba(169, 27, 24, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
                         borderRadius: '0.75rem',
                         padding: isMobile ? '0.75rem' : '1.25rem',
                         zIndex: 10,
@@ -180,11 +183,12 @@ const AdminSchedule = () => {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '0.25rem',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        color: '#fff'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ color: 'var(--primary-color)', fontSize: '0.6rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.3rem', textTransform: 'uppercase' }}>
+                        <div style={{ color: '#fff', opacity: 0.9, fontSize: '0.6rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.3rem', textTransform: 'uppercase' }}>
                           <Clock size={12} /> {getDuration(booking.scheduled_start, booking.scheduled_end)}H
                         </div>
                       </div>
@@ -194,7 +198,7 @@ const AdminSchedule = () => {
                       {!isMobile && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
                           {booking.booking_services?.slice(0, 2).map((item, i) => (
-                            <span key={i} style={{ background: 'rgba(169, 27, 24, 0.1)', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', fontSize: '0.65rem', color: '#fff', fontWeight: '800' }}>
+                            <span key={i} style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', fontSize: '0.65rem', color: '#fff', fontWeight: '800' }}>
                               {item.service_name}
                             </span>
                           ))}
@@ -202,7 +206,7 @@ const AdminSchedule = () => {
                       )}
 
                       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#fff', opacity: 0.9, fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</div>
                       </div>
                     </div>
                   )}

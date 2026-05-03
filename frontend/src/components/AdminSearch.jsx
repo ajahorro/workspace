@@ -80,7 +80,7 @@ const AdminSearch = () => {
       <div style={{ position: 'relative' }}>
         <Search 
           size={18} 
-          style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} 
+          style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} 
         />
         <input 
           type="text"
@@ -91,10 +91,12 @@ const AdminSearch = () => {
           style={{
             width: '100%',
             padding: '0.75rem 1rem 0.75rem 2.75rem',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.05)',
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(var(--blur-amount))',
+            WebkitBackdropFilter: 'blur(var(--blur-amount))',
+            border: '1px solid var(--glass-border)',
             borderRadius: '5rem',
-            color: '#fff',
+            color: 'var(--text-primary)',
             fontSize: '0.9rem',
             outline: 'none',
             transition: 'all 0.3s ease'
@@ -108,13 +110,16 @@ const AdminSearch = () => {
           top: 'calc(100% + 0.5rem)',
           left: 0,
           right: 0,
-          background: 'var(--bg-secondary)',
-          border: '1px solid rgba(255,255,255,0.05)',
+          background: 'var(--glass-header)',
+          backdropFilter: 'blur(var(--blur-amount))',
+          WebkitBackdropFilter: 'blur(var(--blur-amount))',
+          border: '1px solid var(--glass-border)',
           borderRadius: '1rem',
           padding: '0.5rem',
           zIndex: 1000,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-          animation: 'fadeIn 0.2s ease'
+          boxShadow: 'var(--card-shadow)',
+          animation: 'fadeIn 0.2s ease',
+          color: '#fff'
         }}>
           {suggestions.map((item) => (
             <div 
@@ -129,11 +134,11 @@ const AdminSearch = () => {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <span style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.8 }}>{item.name}</span>
-              <ChevronRight size={14} opacity={0.3} />
+              <span style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.9 }}>{item.name}</span>
+              <ChevronRight size={14} opacity={0.5} />
             </div>
           ))}
         </div>

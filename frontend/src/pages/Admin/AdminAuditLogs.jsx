@@ -124,10 +124,10 @@ const AdminAuditLogs = () => {
             style={{ 
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
-              background: 'var(--bg-secondary)', 
-              border: '1px solid rgba(255,255,255,0.05)', 
+              background: 'var(--bg-input)', 
+              border: 'var(--border-color)', 
               borderRadius: '0.75rem', 
-              color: '#fff', 
+              color: 'var(--text-primary)', 
               fontSize: '0.9rem',
               outline: 'none'
             }}
@@ -141,10 +141,10 @@ const AdminAuditLogs = () => {
             style={{ 
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
-              background: 'var(--bg-secondary)', 
-              border: '1px solid rgba(255,255,255,0.05)', 
+              background: 'var(--bg-input)', 
+              border: 'var(--border-color)', 
               borderRadius: '0.75rem', 
-              color: '#fff', 
+              color: 'var(--text-primary)', 
               fontSize: '0.9rem',
               outline: 'none',
               appearance: 'none'
@@ -173,36 +173,37 @@ const AdminAuditLogs = () => {
                 key={log.id}
                 onClick={() => handleOpenDetail(log)}
                 style={{ 
-                  background: 'var(--bg-secondary)', 
-                  border: '1px solid rgba(255,255,255,0.03)', 
+                  background: 'var(--glass-bg)', 
+                  backdropFilter: 'blur(var(--blur-amount))',
+                  WebkitBackdropFilter: 'blur(var(--blur-amount))',
+                  border: '1px solid var(--glass-border)', 
                   borderRadius: '1rem', 
                   padding: '1.25rem',
                   display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: '1.25rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  boxShadow: 'var(--card-shadow)'
                 }}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(28, 27, 27, 0.8)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                     e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.opacity = '0.9';
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-secondary)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
                     e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.opacity = '1';
                 }}
               >
                 <div style={{ 
                   width: '44px', 
                   height: '44px', 
-                  background: 'rgba(255,255,255,0.03)', 
+                  background: 'rgba(255,255,255,0.2)', 
                   borderRadius: '0.75rem', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: 'rgba(255,255,255,0.4)'
+                  color: '#fff'
                 }}>
                   {getEventIcon(log.event_type)}
                 </div>
@@ -220,7 +221,7 @@ const AdminAuditLogs = () => {
                     }}>
                       {log.event_type}
                     </span>
-                    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', fontWeight: '500' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
                       Performed by <span style={{ color: '#fff', fontWeight: '700' }}>{log.profiles?.full_name || 'System'}</span>
                     </span>
                   </div>
@@ -231,14 +232,14 @@ const AdminAuditLogs = () => {
 
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'rgba(255,255,255,0.6)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff' }}>
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
                       {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <ChevronRight size={18} color="rgba(255,255,255,0.2)" />
+                  <ChevronRight size={18} color="rgba(255,255,255,0.4)" />
                 </div>
               </div>
             );
@@ -267,49 +268,50 @@ const AdminAuditLogs = () => {
           <div style={{ 
             width: '100%', 
             maxWidth: '600px', 
-            background: '#181717', 
+            background: 'var(--bg-primary)', 
             borderRadius: '1.5rem', 
-            border: '1px solid rgba(255,255,255,0.05)', 
+            border: 'var(--border-color)', 
             overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            boxShadow: 'var(--card-shadow)',
             animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
-            <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900' }}>Activity Detail</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={24} /></button>
+            <div style={{ padding: '1.5rem 2rem', borderBottom: 'var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>Activity Detail</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={24} /></button>
             </div>
 
             <div style={{ padding: '2rem' }}>
               <div style={{ 
-                background: 'var(--bg-secondary)', 
+                background: 'var(--bg-input)', 
                 borderRadius: '1rem', 
                 padding: '1.5rem',
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
                 gap: '2rem',
-                marginBottom: '2rem'
+                marginBottom: '2rem',
+                border: 'var(--border-color)'
               }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Action</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: getBadgeColor(selectedLog.event_type).text }}>{selectedLog.event_type}</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Action</label>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--red-shade)' }}>{selectedLog.event_type}</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Entity</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700' }}>Booking (#{selectedLog.booking_id?.slice(0, 8)})</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Entity</label>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Booking (#{selectedLog.booking_id?.slice(0, 8)})</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Performer</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700' }}>{selectedLog.profiles?.full_name} ({selectedLog.profiles?.role})</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Performer</label>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{selectedLog.profiles?.full_name} ({selectedLog.profiles?.role})</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Time</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700' }}>{new Date(selectedLog.created_at).toLocaleString()}</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Time</label>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{new Date(selectedLog.created_at).toLocaleString()}</span>
                 </div>
               </div>
 
               <div style={{ marginBottom: '2.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '1px' }}>Full Description</label>
-                <p style={{ margin: 0, fontSize: '1.1rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
+                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '1px' }}>Full Description</label>
+                <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
                   {formatDescription(selectedLog)}
                 </p>
               </div>
@@ -317,7 +319,7 @@ const AdminAuditLogs = () => {
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button 
                   onClick={() => setIsModalOpen(false)}
-                  style={{ flex: 1, padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '1rem', borderRadius: '0.75rem', border: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-input)', fontWeight: '700', cursor: 'pointer' }}
                 >
                   Close
                 </button>
@@ -331,8 +333,8 @@ const AdminAuditLogs = () => {
                         flex: 2, 
                         padding: '1rem', 
                         borderRadius: '0.75rem', 
-                        background: 'var(--primary-color)', 
-                        color: '#000', 
+                        background: 'var(--red-shade)', 
+                        color: '#fff', 
                         border: 'none', 
                         fontWeight: '800', 
                         cursor: 'pointer',

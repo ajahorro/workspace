@@ -118,10 +118,10 @@ const AdminUserManagement = () => {
           style={{ 
             width: '100%', 
             padding: '1.25rem 1.25rem 1.25rem 3.5rem', 
-            background: 'var(--bg-secondary)', 
-            border: '1px solid rgba(255,255,255,0.05)', 
+            background: 'var(--bg-input)', 
+            border: 'var(--border-color)', 
             borderRadius: '1rem', 
-            color: '#fff', 
+            color: 'var(--text-primary)', 
             fontSize: '1rem',
             outline: 'none'
           }}
@@ -139,25 +139,26 @@ const AdminUserManagement = () => {
             <div 
               key={user.id}
               style={{ 
-                background: 'var(--bg-secondary)', 
-                border: '1px solid rgba(255,255,255,0.03)', 
+                background: 'var(--glass-bg)', 
+                backdropFilter: 'blur(var(--blur-amount))',
+                WebkitBackdropFilter: 'blur(var(--blur-amount))',
+                border: '1px solid var(--glass-border)', 
                 borderRadius: '1.25rem', 
                 padding: '1.5rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '2rem',
                 flexWrap: isMobile ? 'wrap' : 'nowrap',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                color: 'var(--card-text)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(28, 27, 27, 0.8)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                 e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = 'var(--card-shadow)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--bg-secondary)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)';
                 e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
               {/* Profile Info */}
@@ -166,34 +167,34 @@ const AdminUserManagement = () => {
                   width: '56px', 
                   height: '56px', 
                   borderRadius: '1.25rem', 
-                  background: user.role === 'ADMIN' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(169, 27, 24, 0.1)', 
+                  background: 'rgba(255,255,255,0.15)', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: user.role === 'ADMIN' ? '#ef4444' : 'var(--primary-color)',
+                  color: '#ffffff',
                   fontSize: '1.5rem',
                   fontWeight: '900',
-                  border: '1px solid rgba(255,255,255,0.05)'
+                  border: '1px solid rgba(255,255,255,0.1)'
                 }}>
                   {user.full_name?.charAt(0) || <User size={28} />}
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800' }}>{user.full_name || 'Anonymous User'}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--card-text)' }}>{user.full_name || 'Anonymous User'}</h3>
                     <span style={{ 
                         fontSize: '0.65rem', 
                         fontWeight: '900', 
                         padding: '0.2rem 0.6rem', 
                         borderRadius: '0.5rem', 
-                        background: 'rgba(255,255,255,0.05)', 
-                        color: 'rgba(255,255,255,0.4)',
+                        background: 'rgba(255,255,255,0.1)', 
+                        color: 'rgba(255,255,255,0.8)',
                         textTransform: 'uppercase',
                         letterSpacing: '1px'
                     }}>
                         {user.role}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Mail size={14} /> {user.email}</span>
                     {user.phone_number && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Phone size={14} /> {user.phone_number}</span>}
                   </div>
@@ -207,11 +208,11 @@ const AdminUserManagement = () => {
                   style={{ 
                       padding: '0.85rem 1.5rem', 
                       borderRadius: '0.85rem', 
-                      background: 'rgba(169, 27, 24, 0.1)', 
-                      color: 'var(--primary-color)', 
+                      background: 'rgba(255, 255, 255, 0.1)', 
+                      color: '#ffffff', 
                       fontSize: '0.9rem', 
                       fontWeight: '700', 
-                      border: '1px solid rgba(169, 27, 24, 0.2)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -220,12 +221,12 @@ const AdminUserManagement = () => {
                       whiteSpace: 'nowrap'
                   }}
                   onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--primary-color)';
-                      e.currentTarget.style.color = '#000';
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.color = 'var(--red-shade)';
                   }}
                   onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(169, 27, 24, 0.1)';
-                      e.currentTarget.style.color = 'var(--primary-color)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.color = '#ffffff';
                   }}
                 >
                   <History size={18} />
@@ -256,9 +257,9 @@ const AdminUserManagement = () => {
                   style={{ 
                       padding: '0.85rem', 
                       borderRadius: '0.85rem', 
-                      background: 'rgba(239, 68, 68, 0.1)', 
-                      color: '#ef4444', 
-                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      background: 'rgba(255, 255, 255, 0.1)', 
+                      color: '#ffffff', 
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -270,8 +271,8 @@ const AdminUserManagement = () => {
                       e.currentTarget.style.color = '#fff';
                   }}
                   onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                      e.currentTarget.style.color = '#ef4444';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.color = '#ffffff';
                   }}
                 >
                   <Trash2 size={18} />
@@ -280,7 +281,7 @@ const AdminUserManagement = () => {
             </div>
           ))
         ) : (
-          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--bg-secondary)', borderRadius: '1.25rem', color: 'rgba(255,255,255,0.2)' }}>
+          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', color: 'rgba(255,255,255,0.4)' }}>
             <Users size={64} strokeWidth={1} style={{ marginBottom: '1rem' }} />
             <p style={{ fontSize: '1.1rem' }}>No users found matching your search</p>
           </div>
@@ -304,24 +305,24 @@ const AdminUserManagement = () => {
             width: '100%', 
             maxWidth: '800px', 
             maxHeight: '90vh',
-            background: '#181717', 
+            background: 'var(--bg-primary)', 
             borderRadius: '2rem', 
-            border: '1px solid rgba(255,255,255,0.05)', 
+            border: 'var(--border-color)', 
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            boxShadow: 'var(--card-shadow)',
             animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
             {/* Modal Header */}
-            <div style={{ padding: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '2rem', borderBottom: 'var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900' }}>Booking History</h2>
-                <p style={{ margin: '0.25rem 0 0 0', color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>
-                  Reviewing activity for <span style={{ color: '#fff', fontWeight: '700' }}>{selectedUser.full_name}</span>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>Booking History</h2>
+                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Reviewing activity for <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>{selectedUser.full_name}</span>
                 </p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'rgba(255,255,255,0.3)', cursor: 'pointer', background: 'none', border: 'none' }}><X size={28} /></button>
+              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)', cursor: 'pointer', background: 'none', border: 'none' }}><X size={28} /></button>
             </div>
 
             {/* Modal Content */}
@@ -340,38 +341,39 @@ const AdminUserManagement = () => {
                         key={booking.id}
                         style={{ 
                             padding: '1.25rem', 
-                            background: 'rgba(255,255,255,0.02)', 
+                            background: 'var(--bg-secondary)', 
                             borderRadius: '1rem', 
-                            border: '1px solid rgba(255,255,255,0.05)',
+                            border: 'var(--border-color)',
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            color: 'var(--card-text)'
                         }}
                       >
                         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                             <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' }}>
                                     {new Date(booking.scheduled_start).toLocaleDateString(undefined, { month: 'short' })}
                                 </div>
                                 <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fff' }}>
                                     {new Date(booking.scheduled_start).getDate()}
                                 </div>
                             </div>
-                            <div style={{ width: '1px', height: '40px', background: 'rgba(255,255,255,0.05)' }}></div>
-                            <div>
+                            <div style={{ width: '1px', height: '40px', background: 'rgba(255,255,255,0.2)' }}></div>
+                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                                    <span style={{ fontSize: '1rem', fontWeight: '800' }}>Booking #{booking.id.slice(0, 8).toUpperCase()}</span>
+                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: '#fff' }}>Booking #{booking.id.slice(0, 8).toUpperCase()}</span>
                                     <span style={{ 
                                         padding: '0.2rem 0.5rem', 
                                         borderRadius: '0.4rem', 
-                                        background: status.bg, 
-                                        color: status.text, 
+                                        background: 'rgba(255,255,255,0.15)', 
+                                        color: '#fff', 
                                         fontSize: '0.6rem', 
                                         fontWeight: '900',
                                         textTransform: 'uppercase'
                                     }}>{booking.booking_status.replace('_', ' ')}</span>
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', display: 'flex', gap: '1rem' }}>
+                                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', gap: '1rem' }}>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Calendar size={14} /> {new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Clock size={14} /> {booking.services?.[0]?.service_name}{booking.services?.length > 1 ? ` +${booking.services.length - 1}` : ''}</span>
                                 </div>
@@ -385,11 +387,11 @@ const AdminUserManagement = () => {
                             style={{ 
                                 padding: '0.6rem 1rem', 
                                 borderRadius: '0.65rem', 
-                                background: 'rgba(255,255,255,0.05)', 
+                                background: 'rgba(255,255,255,0.1)', 
                                 color: '#fff', 
                                 fontSize: '0.8rem', 
                                 fontWeight: '700', 
-                                border: '1px solid rgba(255,255,255,0.1)',
+                                border: '1px solid rgba(255,255,255,0.2)',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
