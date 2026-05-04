@@ -61,43 +61,62 @@ const BookAppointment = () => {
   useEffect(() => {
     const fetchSlots = async () => {
       if (!date) return;
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0,0,0,0);
-      const { data } = await supabase
+
+      // Use admin settings with safe fallbacks
+      const openingHour  = parseInt(businessSettings?.opening_hour?.split(':')[0] ?? '8');
+      const openingMin   = parseInt(businessSettings?.opening_hour?.split(':')[1] ?? '0');
+      const closingHour  = parseInt(businessSettings?.closing_hour?.split(':')[0] ?? '18');
+      const closingMin   = parseInt(businessSettings?.closing_hour?.split(':')[1] ?? '0');
+      // Always use 60-min (hourly) intervals — service duration is tracked per-service, not per slot
+      const slotDuration = 60;
+
+      // Generate all expected slots for the day from open to close
+      const generatedSlots = [];
+      const cursor = new Date(`${date}T00:00:00`);
+      cursor.setHours(openingHour, openingMin, 0, 0);
+      const closingCursor = new Date(`${date}T00:00:00`);
+      closingCursor.setHours(closingHour, closingMin, 0, 0);
+
+      while (cursor < closingCursor) {
+        generatedSlots.push(new Date(cursor));
+        cursor.setTime(cursor.getTime() + slotDuration * 60000);
+      }
+
+      // Fetch already-booked slots from DB to exclude them
+      const startOfDay = new Date(`${date}T00:00:00`);
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data: bookedData } = await supabase
         .from('resource_time_slots')
-        .select('slot_start, is_available')
+        .select('slot_start')
         .gte('slot_start', startOfDay.toISOString())
         .lte('slot_start', new Date(startOfDay.getTime() + 86400000).toISOString())
-        .eq('is_available', true);
-      if (data) {
-        const now = new Date();
-        const selectedDate = new Date(date);
-        
-        // Normalize both to YYYY-MM-DD for comparison
-        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        const isToday = date === todayStr;
+        .eq('is_available', false);
 
-        let filteredData = data;
-        if (isToday) {
-          // Only show slots that start at least 1 hour from now for same-day bookings
-          const bufferTime = new Date(now.getTime() + 60 * 60000);
-          filteredData = data.filter(d => new Date(d.slot_start) > bufferTime);
-        }
+      const bookedTimes = new Set((bookedData || []).map(d => {
+        // Normalize to local hour+minute to avoid UTC vs local mismatch
+        const s = new Date(d.slot_start);
+        return `${s.getHours()}:${s.getMinutes()}`;
+      }));
 
-        const times = [...new Set(filteredData.map(d => {
-          const slotDate = new Date(d.slot_start);
-          return slotDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-        }))];
-        
-        setAvailableSlots(times.sort((a, b) => {
-          const timeA = new Date('1970/01/01 ' + a);
-          const timeB = new Date('1970/01/01 ' + b);
-          return timeA - timeB;
-        }));
-      }
+      // Filter out booked slots and apply same-day 1-hour buffer
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const isToday = date === todayStr;
+      const bufferTime = new Date(now.getTime() + 60 * 60000);
+
+      const available = generatedSlots.filter(slot => {
+        const key = `${slot.getHours()}:${slot.getMinutes()}`;
+        if (bookedTimes.has(key)) return false;
+        if (isToday && slot <= bufferTime) return false;
+        return true;
+      });
+
+      setAvailableSlots(available.map(slot =>
+        slot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+      ));
     };
     fetchSlots();
-  }, [date]);
+  }, [date, businessSettings]);
 
   const availableServices = services.filter(s => s.pricing?.some(p => p.vehicle_type === vehicle.type));
   const getServicePrice = (s) => s.pricing?.find(p => p.vehicle_type === vehicle.type)?.price || 0;
@@ -152,12 +171,13 @@ const BookAppointment = () => {
         p_customer_id: user.id,
         p_vehicle_type: vehicle.type,
         p_service_ids: selectedServiceIds,
-        p_payment_method: paymentMethod, // NEW
+        p_payment_method: paymentMethod,
         p_start_datetime: scheduledStart.toISOString(),
-        p_plate_number: vehicle.plateNumber,
-        p_vehicle_brand: vehicle.brand,
-        p_vehicle_model: vehicle.model,
-        p_customer_notes: vehicle.notes || ''
+        p_plate_number: vehicle.plateNumber || null,
+        p_vehicle_brand: vehicle.brand || null,
+        p_vehicle_model: vehicle.model || null,
+        p_customer_notes: vehicle.notes || null,
+        p_customer_phone: vehicle.contactNumber || null
       });
 
       if (error) {
@@ -197,6 +217,60 @@ const BookAppointment = () => {
         }
       }
       
+      // 1. Create In-App Notification for Customer
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        title: 'Booking Confirmed',
+        message: `Your booking for ${new Date(scheduledStart).toLocaleDateString()} has been successfully scheduled.`,
+        type: 'success',
+        action_url: `/my-bookings/${bookingId}`
+      });
+
+      // 1b. Notify Admins about the new booking
+      try {
+        const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+        if (admins && admins.length > 0) {
+          const adminNotifications = admins.map(admin => ({
+            user_id: admin.id,
+            title: 'New Booking Received',
+            message: `${vehicle.brand || ''} ${vehicle.model || ''} (${vehicle.type}) booked by ${user.email}`,
+            type: 'info',
+            action_url: `/admin/bookings/${bookingId}`
+          }));
+
+          // Add payment verification notification if GCash was used
+          if (paymentMethod === 'GCASH' && receipt) {
+            admins.forEach(admin => {
+              adminNotifications.push({
+                user_id: admin.id,
+                title: 'Payment Verification Required',
+                message: `New GCash payment received for booking ${bookingId}. Please verify the receipt.`,
+                type: 'warning',
+                action_url: `/admin/bookings/${bookingId}`
+              });
+            });
+          }
+
+          await supabase.from('notifications').insert(adminNotifications);
+        }
+      } catch (adminNotifErr) {
+        console.error('Failed to notify admins:', adminNotifErr);
+      }
+
+      // 2. Send Email Confirmation
+      supabase.functions.invoke('send-email', {
+        body: {
+          type: 'booking_confirmed',
+          to: user.email,
+          data: {
+            date: new Date(scheduledStart).toLocaleDateString(),
+            time: formattedTime,
+            totalPrice: totalAmount,
+            serviceName: `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || vehicle.type || 'Vehicle'
+          }
+        }
+      }).catch(err => console.error('Email trigger failed:', err));
+
       toast.success('Booking Successful!', {
         style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
       });
@@ -211,20 +285,77 @@ const BookAppointment = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '5rem' }}>
-      <PageHeader badge="OFFICIAL BOOKING PORTAL" title="SCHEDULE SERVICE" subtitle="Select your vehicle and preferred time slot below." />
-      
-      {step > 0 && (
-        <button onClick={() => setStep(step - 1)} style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', padding: '0.5rem 1rem', borderRadius: '0.5rem', cursor: 'pointer', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: '800' }}>
-          <ChevronLeft size={16} /> BACK
-        </button>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '5rem', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
+      {/* STICKY HEADER & STEP INDICATOR */}
+      <div style={{ 
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 500, 
+        background: 'rgba(var(--admin-bg-rgb), 0.9)', 
+        backdropFilter: 'blur(20px)',
+        margin: isMobile ? '0 -1rem 1rem -1rem' : '0 0 2rem 0',
+        padding: isMobile ? '1rem' : '0 0 1.5rem 0',
+        borderBottom: '1px solid var(--admin-border)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <PageHeader badge="OFFICIAL BOOKING PORTAL" title="SCHEDULE SERVICE" subtitle="Select your vehicle and preferred time slot below." />
+        
+        {/* STEP INDICATOR */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          gap: isMobile ? '0.35rem' : '1rem', 
+          padding: isMobile ? '0' : '0 2rem',
+          maxWidth: '500px',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          marginTop: isMobile ? '1rem' : '1.5rem',
+          marginBottom: '0'
+        }}>
+          {[
+            { id: 0, label: 'MACHINE' },
+            { id: 1, label: 'SERVICES' },
+            { id: 2, label: 'REVIEW' }
+          ].map((s, i) => (
+            <React.Fragment key={s.id}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <div style={{ 
+                  width: isMobile ? '28px' : '44px', height: isMobile ? '28px' : '44px', borderRadius: '50%', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: step === s.id ? 'var(--admin-brand)' : (step > s.id ? 'var(--admin-brand)' : 'var(--admin-card)'),
+                  color: step >= s.id ? '#fff' : 'var(--admin-text-secondary)',
+                  border: `2px solid ${step >= s.id ? 'var(--admin-brand)' : 'var(--admin-border)'}`,
+                  fontWeight: '900', fontSize: isMobile ? '0.7rem' : '1rem',
+                  boxShadow: step === s.id ? '0 0 20px rgba(153, 27, 27, 0.4)' : 'none',
+                  transition: 'all 0.3s ease',
+                  zIndex: 2
+                }}>
+                  {step > s.id ? <Check size={isMobile ? 14 : 20} strokeWidth={3} /> : s.id + 1}
+                </div>
+                <span style={{ fontSize: isMobile ? '0.55rem' : '0.7rem', fontWeight: '900', color: step >= s.id ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', letterSpacing: '1px' }}>{s.label}</span>
+              </div>
+              {i < 2 && (
+                <div style={{ 
+                  flex: 1,
+                  minWidth: isMobile ? '15px' : '60px',
+                  height: '2px', 
+                  background: step > i ? 'var(--admin-brand)' : 'var(--admin-border)', 
+                  marginTop: isMobile ? '-0.65rem' : '-1rem', 
+                  transition: 'all 0.3s ease',
+                  zIndex: 1
+                }} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
 
       {/* STEP 0: MACHINE SELECTION */}
       {step === 0 && (
         <div style={{ animation: 'fadeIn 0.5s' }}>
-          <h2 style={{ textAlign: 'center', fontWeight: '900', marginBottom: '3rem', fontSize: '2rem', color: 'var(--admin-text-primary)' }}>CHOOSE YOUR MACHINE</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: '1.5rem' }}>
+          <h2 style={{ textAlign: 'center', fontWeight: '900', marginBottom: isMobile ? '1.5rem' : '3rem', fontSize: isMobile ? '1.25rem' : '2rem', color: 'var(--admin-text-primary)' }}>What is your vehicle?</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: isMobile ? '0.75rem' : '1.5rem' }}>
             {[
               { id: 'SEDAN', label: 'Sedan', icon: <Car size={48} /> },
               { id: 'SUV', label: 'SUV', icon: <Car size={48} /> },
@@ -235,82 +366,145 @@ const BookAppointment = () => {
               <div 
                 key={v.id} 
                 onClick={() => { setVehicle({...vehicle, type: v.id}); setStep(1); }} 
-                className="action-btn"
                 style={{ 
                   background: 'var(--admin-card)', 
                   border: '1px solid var(--admin-border)', 
-                  borderRadius: '1.5rem', 
-                  padding: '3rem 1rem', 
-                  textAlign: 'center', 
+                  borderRadius: '1.25rem', 
+                  padding: isMobile ? '1.5rem' : '2.5rem', 
                   cursor: 'pointer', 
-                  boxShadow: 'var(--admin-card-shadow)' 
+                  textAlign: 'center',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: 'var(--admin-card-shadow)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-8px)';
+                  e.currentTarget.style.borderColor = 'var(--admin-brand)';
+                  e.currentTarget.style.boxShadow = '0 15px 30px rgba(169, 27, 24, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'var(--admin-border)';
+                  e.currentTarget.style.boxShadow = 'var(--admin-card-shadow)';
                 }}
               >
-                <div style={{ color: 'var(--admin-brand)', marginBottom: '1.5rem' }}>{v.icon}</div>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '900', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>{v.label}</h3>
+                <div style={{ color: 'var(--admin-brand)', marginBottom: isMobile ? '1rem' : '1.5rem', transform: isMobile ? 'scale(0.8)' : 'scale(1)' }}>{v.icon}</div>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: '900', textTransform: 'uppercase', color: 'var(--admin-text-primary)', letterSpacing: '0.5px' }}>{v.label}</h3>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* STEP 1: SERVICES & DETAILS */}
+      {/* STEP 1: SERVICES + DETAILS combined */}
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1fr', gap: '2.5rem', animation: 'fadeIn 0.5s' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '2rem', color: 'var(--admin-text-primary)' }}>Available Services for {vehicle.type}</h2>
-            {Object.entries(groupedServices).map(([cat, list]) => (
-              <div key={cat} style={{ marginBottom: '3rem' }}>
-                <h3 style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '1px', opacity: 0.6 }}>{cat}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                  {list.map(s => {
-                    const isSelected = selectedServiceIds.includes(s.id);
-                    return (
-                      <div key={s.id} onClick={() => setSelectedServiceIds(isSelected ? selectedServiceIds.filter(id => id !== s.id) : [...selectedServiceIds, s.id])} style={{ background: isSelected ? 'rgba(169, 27, 24, 0.1)' : 'var(--admin-card)', border: isSelected ? '1px solid var(--admin-brand)' : '1px solid var(--admin-border)', borderRadius: '1.25rem', padding: '1.5rem', cursor: 'pointer', boxShadow: isSelected ? '0 0 20px rgba(169, 27, 24, 0.1)' : 'none' }}>
-                        <h4 style={{ margin: '0 0 0.5rem 0', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{s.name}</h4>
-                        {s.description && <p style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', marginBottom: '1rem', opacity: 0.6 }}>{s.description}</p>}
-                        <span style={{ fontSize: '1.1rem', fontWeight: '900', color: isSelected ? 'var(--admin-brand)' : 'var(--admin-text-primary)' }}>₱{getServicePrice(s)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+        <div style={{ animation: 'fadeIn 0.5s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.35rem' : '1rem', marginBottom: isMobile ? '1.25rem' : '2.5rem', padding: isMobile ? '0 0.5rem' : '0' }}>
+            <button onClick={() => setStep(0)} className="bare-back-btn" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.6, color: 'var(--admin-text-primary)', padding: isMobile ? '0.15rem' : '0.5rem' }} title="Back to Machine Selection">
+              <ChevronLeft size={isMobile ? 22 : 32} />
+            </button>
+            <h2 style={{ 
+              fontSize: isMobile ? 'min(1.1rem, 4vw)' : '1.75rem', 
+              fontWeight: '950', 
+              margin: 0, 
+              color: 'var(--admin-text-primary)', 
+              lineHeight: '1.2',
+              wordBreak: 'break-word',
+              maxWidth: '100%'
+            }}>
+              Available Services for <span style={{ color: 'var(--admin-brand)', display: isMobile ? 'block' : 'inline' }}>{vehicle.type?.replace('_', ' ')}</span>
+            </h2>
           </div>
+          <div className="booking-grid">
+            {/* LEFT: service cards */}
+            <div>
+              {Object.entries(groupedServices).map(([cat, list]) => (
+                <div key={cat} style={{ marginBottom: isMobile ? '2rem' : '3rem' }}>
+                  <h3 style={{ fontSize: isMobile ? '0.65rem' : '0.8rem', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '1px', opacity: 0.6 }}>{cat}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: isMobile ? '0.75rem' : '1rem' }}>
+                    {list.map(s => {
+                      const isSelected = selectedServiceIds.includes(s.id);
+                      return (
+                        <div key={s.id} onClick={() => setSelectedServiceIds(isSelected ? selectedServiceIds.filter(id => id !== s.id) : [...selectedServiceIds, s.id])} style={{ background: isSelected ? 'rgba(153, 27, 27, 0.08)' : 'var(--admin-card)', border: isSelected ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)', borderRadius: '1.25rem', padding: isMobile ? '1.25rem' : '1.5rem', cursor: 'pointer', boxShadow: isSelected ? '0 8px 20px rgba(153, 27, 27, 0.15)' : 'var(--admin-card-shadow)', display: 'flex', flexDirection: 'column', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)', minWidth: 0 }}>
+                          <h4 style={{ margin: '0 0 0.5rem 0', fontWeight: '950', fontSize: isMobile ? '0.95rem' : '1.05rem', color: isSelected ? 'var(--admin-brand)' : 'var(--admin-text-primary)', lineHeight: '1.3', wordBreak: 'break-word' }}>{s.name}</h4>
+                          {s.description ? (
+                            <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '600', lineHeight: '1.5', opacity: 0.85 }}>{s.description}</p>
+                          ) : (
+                            <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '600', lineHeight: '1.5', opacity: 0.85 }}>Standard exterior wash and dry</p>
+                          )}
+                          <span style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)', marginTop: 'auto' }}>₱{getServicePrice(s)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          <div>
-            <div style={{ background: 'var(--admin-card)', padding: '2rem', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', position: 'sticky', top: '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
-              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Booking Summary</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* RIGHT: selected services + booking details */}
+            <div>
+              <div className="booking-summary-card">
+                {/* Selected Services Summary */}
                 <div>
-                  <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>DATE & TIME</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)', marginTop: '0.5rem', colorScheme: 'dark' }} />
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    {availableSlots.map(t => <button key={t} onClick={() => setTime(t)} style={{ padding: '0.5rem', background: time === t ? 'var(--admin-brand)' : 'var(--admin-bg)', color: time === t ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer' }}>{t}</button>)}
+                  <h3 style={{ marginBottom: '1.25rem', fontSize: '1.15rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Selected Services</h3>
+                  {selectedServicesData.length === 0 ? (
+                    <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.95rem', opacity: 0.6 }}>No services selected yet.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {selectedServicesData.map(s => (
+                        <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: 'var(--admin-text-primary)', fontWeight: '700' }}>
+                          <span>{s.name}</span>
+                          <span>₱{getServicePrice(s)}</span>
+                        </div>
+                      ))}
+                      <div style={{ borderTop: '1px solid var(--admin-border)', paddingTop: '1rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '800', color: 'var(--admin-text-secondary)', fontSize: '0.9rem' }}>TOTAL</span>
+                        <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{totalAmount}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--admin-border)' }} />
+
+                {/* Date & Time */}
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', display: 'block', letterSpacing: '1px' }}>WHEN WILL YOU COME?</label>
+                  <input type="date" min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]} value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', colorScheme: 'dark', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  {date && (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '1rem' }}>
+                      {availableSlots.map(t => <button key={t} onClick={() => setTime(t)} style={{ padding: '0.75rem 0.5rem', background: time === t ? 'var(--admin-brand)' : 'var(--admin-bg)', color: time === t ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: '900', cursor: 'pointer' }}>{t}</button>)}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', display: 'block', letterSpacing: '1px' }}>VEHICLE SPECS</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
+                      <input placeholder="Brand" value={vehicle.brand} onChange={e => setVehicle({...vehicle, brand: e.target.value})} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                      <input placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                    </div>
+                    <input placeholder="Plate Number" value={vehicle.plateNumber} onChange={e => setVehicle({...vehicle, plateNumber: e.target.value})} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
                   </div>
                 </div>
 
+                {/* Contact */}
                 <div>
-                  <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>VEHICLE PROFILE</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <input placeholder="Brand" value={vehicle.brand} onChange={e => setVehicle({...vehicle, brand: e.target.value})} style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)' }} />
-                    <input placeholder="Model" value={vehicle.model} onChange={e => setVehicle({...vehicle, model: e.target.value})} style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)' }} />
-                  </div>
-                  <input placeholder="Plate Number" value={vehicle.plateNumber} onChange={e => setVehicle({...vehicle, plateNumber: e.target.value})} style={{ width: '100%', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)', marginTop: '0.5rem' }} />
+                  <label style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', display: 'block', letterSpacing: '1px' }}>CONTACT</label>
+                  <input placeholder="Phone Number" value={vehicle.contactNumber} onChange={e => setVehicle({...vehicle, contactNumber: e.target.value})} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  <textarea placeholder="Notes or location details..." value={vehicle.notes} onChange={e => setVehicle({...vehicle, notes: e.target.value})} style={{ width: '100%', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', padding: '1rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', marginTop: '0.75rem', height: '90px', resize: 'none', fontWeight: '700', fontSize: '0.95rem', boxSizing: 'border-box' }} />
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>CONTACT & NOTES</label>
-                  <input placeholder="Contact Number" value={vehicle.contactNumber} onChange={e => setVehicle({...vehicle, contactNumber: e.target.value})} style={{ width: '100%', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)', marginTop: '0.5rem' }} />
-                  <textarea placeholder="Special instructions (optional)" value={vehicle.notes} onChange={e => setVehicle({...vehicle, notes: e.target.value})} style={{ width: '100%', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--admin-text-primary)', marginTop: '0.5rem', height: '80px', resize: 'none' }} />
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--admin-border)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: '800', color: 'var(--admin-text-secondary)' }}>TOTAL</span>
-                  <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{totalAmount}</span>
-                </div>
-
-                <button onClick={() => { if(!date || !time || !vehicle.plateNumber || selectedServiceIds.length === 0) return toast.error('Please complete all fields.'); setStep(2); }} style={{ background: 'var(--admin-brand)', color: '#FFFFFF', padding: '1rem', borderRadius: '0.5rem', fontWeight: '900', cursor: 'pointer', border: 'none' }}>REVIEW & PAY →</button>
+                <button onClick={() => {
+                  if (selectedServiceIds.length === 0) return toast.error('Select at least one service.');
+                  if (!date || !time) return toast.error('Please select a date and time.');
+                  if (!vehicle.plateNumber || !vehicle.brand || !vehicle.model) return toast.error('Please complete vehicle info.');
+                  setStep(2);
+                }} style={{ width: '100%', background: 'var(--admin-brand)', color: '#FFFFFF', padding: '1rem', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', border: 'none' }}>PROCEED TO REVIEW →</button>
               </div>
             </div>
           </div>
@@ -319,86 +513,176 @@ const BookAppointment = () => {
 
       {/* STEP 2: REVIEW & PAYMENT */}
       {step === 2 && (
-        <div style={{ maxWidth: '700px', margin: '0 auto', animation: 'fadeIn 0.5s' }}>
-          <h2 style={{ textAlign: 'center', fontWeight: '900', marginBottom: '2.5rem', color: 'var(--admin-text-primary)' }}>FINAL REVIEW</h2>
-          <div style={{ background: 'var(--admin-card)', padding: '2.5rem', borderRadius: '2rem', border: '1px solid var(--admin-border)', boxShadow: 'var(--admin-card-shadow)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-              <div>
-                <label style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>SCHEDULE</label>
-                <p style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{date} at {time}</p>
+        <div style={{ animation: 'fadeIn 0.5s' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginBottom: isMobile ? '1.5rem' : '3rem' }}>
+            <button onClick={() => setStep(1)} className="bare-back-btn" style={{ position: 'absolute', left: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.6, color: 'var(--admin-text-primary)', padding: isMobile ? '0.25rem' : '0.5rem' }} title="Back to Services">
+              <ChevronLeft size={isMobile ? 24 : 32} />
+            </button>
+            <h2 style={{ fontWeight: '900', margin: 0, color: 'var(--admin-text-primary)', fontSize: isMobile ? '1.25rem' : '2rem' }}>FINAL REVIEW</h2>
+          </div>
+
+          {/* Two-column layout */}
+          <div className="review-grid">
+
+            {/* LEFT: Booking Summary */}
+            <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', boxShadow: 'var(--admin-card-shadow)', overflow: 'hidden' }}>
+              <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--admin-border)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '900', letterSpacing: '2px', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Booking Summary</span>
               </div>
-              <div>
-                <label style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>VEHICLE</label>
-                <p style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{vehicle.brand} {vehicle.model} ({vehicle.plateNumber})</p>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>SELECTED SERVICES</label>
-              {selectedServicesData.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginTop: '0.5rem', color: 'var(--admin-text-primary)', fontWeight: '600' }}><span>{s.name}</span><span>₱{getServicePrice(s)}</span></div>)}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', color: 'var(--admin-text-primary)', marginTop: '1rem', fontSize: '1.25rem' }}><span>TOTAL</span><span>₱{totalAmount}</span></div>
-            </div>
-
-            <div style={{ height: '1px', background: 'var(--admin-border)', margin: '2rem 0' }} />
-
-            <h3 style={{ marginBottom: '1rem', fontSize: '1rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>Payment Method</h3>
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-              <button onClick={() => setPaymentMethod('GCASH')} style={{ flex: 1, padding: '1rem', background: paymentMethod === 'GCASH' ? 'var(--admin-brand)' : 'var(--admin-bg)', color: paymentMethod === 'GCASH' ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}>GCASH</button>
-              <button 
-                onClick={() => totalAmount < 1000 && setPaymentMethod('CASH')} 
-                disabled={totalAmount >= 1000}
-                style={{ 
-                  flex: 1, padding: '1rem', 
-                  background: paymentMethod === 'CASH' ? 'var(--admin-brand)' : 'var(--admin-bg)', 
-                  color: paymentMethod === 'CASH' ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', fontWeight: '900',
-                  opacity: totalAmount >= 1000 ? 0.3 : 1,
-                  cursor: totalAmount >= 1000 ? 'not-allowed' : 'pointer'
-                }}
-              >CASH</button>
-            </div>
-
-            {totalAmount >= 1000 && (
-              <p style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', textAlign: 'center', marginBottom: '1.5rem', fontWeight: '800', opacity: 0.8 }}>
-                <Info size={12} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} /> 
-                HIGH-VALUE BOOKINGS (₱1,000+) REQUIRE GCASH DOWNPAYMENT
-              </p>
-            )}
-
-            {paymentMethod === 'GCASH' && (
-              <div style={{ background: 'var(--admin-bg)', padding: '2rem', borderRadius: '1.5rem', textAlign: 'center', marginBottom: '2rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                   <button onClick={() => setPaymentOption('DOWNPAYMENT')} style={{ padding: '0.4rem 0.8rem', fontSize: '0.65rem', borderRadius: '2rem', border: '1px solid var(--admin-brand)', background: paymentOption === 'DOWNPAYMENT' ? 'var(--admin-brand)' : 'transparent', color: paymentOption === 'DOWNPAYMENT' ? '#FFFFFF' : 'var(--admin-brand)', fontWeight: '900', cursor: 'pointer' }}>DOWNPAYMENT (30%)</button>
-                   <button onClick={() => setPaymentOption('FULL')} style={{ padding: '0.4rem 0.8rem', fontSize: '0.65rem', borderRadius: '2rem', border: '1px solid var(--admin-brand)', background: paymentOption === 'FULL' ? 'var(--admin-brand)' : 'transparent', color: paymentOption === 'FULL' ? '#FFFFFF' : 'var(--admin-brand)', fontWeight: '900', cursor: 'pointer' }}>FULL PAYMENT</button>
+              <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+                {/* Schedule */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                  <div>
+                    <p style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1px', marginBottom: '0.4rem' }}>SCHEDULE</p>
+                    <p style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--admin-text-primary)', margin: 0 }}>{date}</p>
+                    <p style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--admin-brand)', margin: '0.25rem 0 0 0' }}>{time}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1px', marginBottom: '0.4rem' }}>VEHICLE</p>
+                    <p style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--admin-text-primary)', margin: 0 }}>{vehicle.brand} {vehicle.model}</p>
+                    <p style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--admin-text-secondary)', margin: '0.25rem 0 0 0', opacity: 0.7 }}>{vehicle.plateNumber} · {vehicle.type}</p>
+                  </div>
                 </div>
 
-                <p style={{ opacity: 0.5, fontSize: '0.75rem', color: 'var(--admin-text-primary)' }}>Send {paymentOption === 'DOWNPAYMENT' ? 'Downpayment (30%)' : 'Full Payment'} To:</p>
-                <h4 style={{ fontSize: '2rem', color: 'var(--admin-brand)', fontWeight: '900' }}>₱{paymentOption === 'DOWNPAYMENT' ? (totalAmount * 0.3).toFixed(0) : totalAmount}</h4>
-                <img src={businessSettings?.gcash_qr_url} style={{ width: '150px', margin: '1rem auto', borderRadius: '1rem', border: '2px solid var(--admin-border)' }} alt="QR" />
-                <p style={{ fontWeight: '900', color: 'var(--admin-text-primary)' }}>{businessSettings?.gcash_number}</p>
-                <p style={{ opacity: 0.6, color: 'var(--admin-text-secondary)' }}>{businessSettings?.gcash_name}</p>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--admin-card)', padding: '1.25rem', borderRadius: '1rem', cursor: 'pointer', border: '1px dashed var(--admin-brand)', marginTop: '2rem' }}>
-                  <Upload size={20} color="var(--admin-brand)" />
-                  <span style={{ fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '700' }}>{receipt ? receipt.name : 'UPLOAD GCASH RECEIPT'}</span>
-                  <input type="file" hidden accept="image/*" onChange={handleReceiptUpload} />
-                </label>
-                {isOCRProcessing && <p style={{ fontSize: '0.7rem', color: 'var(--admin-text-primary)', marginTop: '0.5rem', fontWeight: '800' }}>AI SCANNING... {ocrProgress}%</p>}
-                {ocrError && <p style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '0.5rem', fontWeight: '800' }}>{ocrError}</p>}
+                <div style={{ height: '1px', background: 'var(--admin-border)' }} />
+
+                {/* Services */}
+                <div>
+                  <p style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1px', marginBottom: '1rem' }}>SELECTED SERVICES</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {selectedServicesData.map(s => (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{s.name}</span>
+                        <span style={{ fontSize: '0.95rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{getServicePrice(s)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--admin-border)' }} />
+
+                {/* Total */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '900', fontSize: '1rem', color: 'var(--admin-text-secondary)', letterSpacing: '1px' }}>TOTAL</span>
+                  <span style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{totalAmount}</span>
+                </div>
+
+                {/* Contact / Notes if present */}
+                {(vehicle.contactNumber || vehicle.notes) && (
+                  <>
+                    <div style={{ height: '1px', background: 'var(--admin-border)' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {vehicle.contactNumber && <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>📞 {vehicle.contactNumber}</p>}
+                      {vehicle.notes && <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', fontWeight: '600', fontStyle: 'italic' }}>"{vehicle.notes}"</p>}
+                    </div>
+                  </>
+                )}
               </div>
-            )}
+            </div>
 
-            <label style={{ display: 'flex', gap: '0.75rem', marginBottom: '2rem', cursor: 'pointer', alignItems: 'center' }}>
-              <input type="checkbox" checked={agreedToPolicy} onChange={e => setAgreedToPolicy(e.target.checked)} />
-              <span style={{ fontSize: '0.8rem', opacity: 0.7, color: 'var(--admin-text-primary)', fontWeight: '600' }}>I agree to the cancellation and shop policies.</span>
-            </label>
+            {/* RIGHT: Payment */}
+            <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', boxShadow: 'var(--admin-card-shadow)', overflow: 'hidden' }}>
+              <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--admin-border)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '900', letterSpacing: '2px', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Payment</span>
+              </div>
+              <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Method Toggle */}
+                <div>
+                  <p style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1px', marginBottom: '0.75rem' }}>PAYMENT METHOD</p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={() => setPaymentMethod('GCASH')} style={{ flex: 1, padding: '1rem', background: paymentMethod === 'GCASH' ? 'var(--admin-brand)' : 'var(--admin-bg)', color: paymentMethod === 'GCASH' ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.9rem' }}>GCASH</button>
+                    <button onClick={() => totalAmount < 1000 && setPaymentMethod('CASH')} disabled={totalAmount >= 1000} style={{ flex: 1, padding: '1rem', background: paymentMethod === 'CASH' ? 'var(--admin-brand)' : 'var(--admin-bg)', color: paymentMethod === 'CASH' ? '#FFFFFF' : 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', fontWeight: '900', fontSize: '0.9rem', opacity: totalAmount >= 1000 ? 0.35 : 1, cursor: totalAmount >= 1000 ? 'not-allowed' : 'pointer' }}>CASH</button>
+                  </div>
+                  {totalAmount >= 1000 && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--admin-brand)', marginTop: '0.5rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Info size={13} /> High-value bookings (₱1,000+) require GCash downpayment.
+                    </p>
+                  )}
+                </div>
 
-            <button onClick={processBooking} disabled={submitting || (paymentMethod === 'GCASH' && !ocrVerified) || !agreedToPolicy} style={{ width: '100%', background: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-bg)' : 'var(--admin-brand)', color: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-text-secondary)' : '#FFFFFF', padding: '1.5rem', borderRadius: '1.25rem', fontWeight: '900', border: 'none', cursor: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'not-allowed' : 'pointer', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-              {submitting ? 'PROCESSING...' : 'SECURE BOOKING NOW'}
-            </button>
+                {/* GCash Section */}
+                {paymentMethod === 'GCASH' && (
+                  <div style={{ background: 'var(--admin-bg)', padding: '1.5rem', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => setPaymentOption('DOWNPAYMENT')} style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', borderRadius: '2rem', border: '1px solid var(--admin-brand)', background: paymentOption === 'DOWNPAYMENT' ? 'var(--admin-brand)' : 'transparent', color: paymentOption === 'DOWNPAYMENT' ? '#FFFFFF' : 'var(--admin-brand)', fontWeight: '900', cursor: 'pointer' }}>DOWNPAYMENT (30%)</button>
+                      <button onClick={() => setPaymentOption('FULL')} style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', borderRadius: '2rem', border: '1px solid var(--admin-brand)', background: paymentOption === 'FULL' ? 'var(--admin-brand)' : 'transparent', color: paymentOption === 'FULL' ? '#FFFFFF' : 'var(--admin-brand)', fontWeight: '900', cursor: 'pointer' }}>FULL PAYMENT</button>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', opacity: 0.5, color: 'var(--admin-text-primary)' }}>Send {paymentOption === 'DOWNPAYMENT' ? 'Downpayment (30%)' : 'Full Payment'} To:</p>
+                      <p style={{ fontSize: '2.25rem', fontWeight: '900', color: 'var(--admin-brand)', margin: 0 }}>₱{paymentOption === 'DOWNPAYMENT' ? (totalAmount * 0.3).toFixed(0) : totalAmount}</p>
+                    </div>
+                    <img src={businessSettings?.gcash_qr_url} style={{ width: '140px', borderRadius: '1rem', border: '2px solid var(--admin-border)' }} alt="QR" />
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontWeight: '900', color: 'var(--admin-text-primary)', margin: '0 0 0.25rem 0' }}>{businessSettings?.gcash_number}</p>
+                      <p style={{ opacity: 0.6, color: 'var(--admin-text-secondary)', margin: 0, fontSize: '0.85rem' }}>{businessSettings?.gcash_name}</p>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--admin-card)', padding: '1rem 1.25rem', borderRadius: '1rem', cursor: 'pointer', border: '1px dashed var(--admin-brand)', width: '100%', boxSizing: 'border-box' }}>
+                      <Upload size={18} color="var(--admin-brand)" />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '700' }}>{receipt ? receipt.name : 'UPLOAD GCASH RECEIPT'}</span>
+                      <input type="file" hidden accept="image/*" onChange={handleReceiptUpload} />
+                    </label>
+                    {isOCRProcessing && <p style={{ fontSize: '0.8rem', color: 'var(--admin-text-primary)', fontWeight: '800', margin: 0 }}>AI SCANNING... {ocrProgress}%</p>}
+                    {ocrError && <p style={{ fontSize: '0.8rem', color: '#ef4444', fontWeight: '800', margin: 0 }}>{ocrError}</p>}
+                    {ocrVerified && <p style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '800', margin: 0 }}>✓ Receipt Verified</p>}
+                  </div>
+                )}
+
+                {/* Policy + Submit */}
+                <label style={{ display: 'flex', gap: '0.75rem', cursor: 'pointer', alignItems: 'flex-start' }}>
+                  <input type="checkbox" checked={agreedToPolicy} onChange={e => setAgreedToPolicy(e.target.checked)} style={{ marginTop: '3px', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.85rem', opacity: 0.7, color: 'var(--admin-text-primary)', fontWeight: '600', lineHeight: '1.5' }}>I agree to the cancellation and shop policies.</span>
+                </label>
+
+                <button onClick={processBooking} disabled={submitting || (paymentMethod === 'GCASH' && !ocrVerified) || !agreedToPolicy} style={{ width: '100%', background: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-input-bg)' : 'var(--admin-brand)', color: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-text-secondary)' : '#FFFFFF', padding: '1.25rem', borderRadius: '1rem', fontWeight: '900', fontSize: '1rem', border: 'none', cursor: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'not-allowed' : 'pointer', letterSpacing: '1px' }}>
+                  {submitting ? 'PROCESSING...' : 'SECURE BOOKING NOW'}
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
       <style>{`
+        .booking-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 2.5rem;
+          align-items: start;
+        }
+        .booking-summary-card {
+          background: var(--admin-card);
+          padding: 2rem;
+          border-radius: 1.5rem;
+          border: 1px solid var(--admin-border);
+          position: sticky;
+          top: 2rem;
+          box-shadow: var(--admin-card-shadow);
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+        .review-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2rem;
+          align-items: start;
+        }
+        @media (max-width: 1024px) {
+          .review-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+          .booking-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1.5rem !important;
+          }
+          .booking-summary-card {
+            position: static !important;
+            padding: 1.25rem !important;
+            top: auto !important;
+          }
+        }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -411,8 +695,18 @@ const BookAppointment = () => {
           border-color: var(--admin-brand) !important;
           box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
-        input, select, button {
+        input, select, button, textarea {
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          box-sizing: border-box;
+        }
+        .bare-back-btn {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        .bare-back-btn:hover {
+          opacity: 1 !important;
+          transform: translateX(-4px);
         }
       `}</style>
     </div>

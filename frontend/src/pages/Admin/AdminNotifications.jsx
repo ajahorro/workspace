@@ -17,6 +17,8 @@ const AdminNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -64,6 +66,26 @@ const AdminNotifications = () => {
     }
   };
 
+  const handleDeleteAllNotifications = async () => {
+    if (!user) return;
+    setIsDeleting(true);
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (!error) {
+      toast.success('All notifications deleted', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
+      setNotifications([]);
+      setShowDeleteModal(false);
+    } else {
+      toast.error('Failed to delete notifications');
+    }
+    setIsDeleting(false);
+  };
+
   const handleNotificationClick = async (n) => {
     if (!n.is_read) {
       await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
@@ -106,7 +128,7 @@ const AdminNotifications = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
       <PageHeader 
         badge="SYSTEM UPDATES"
@@ -116,18 +138,32 @@ const AdminNotifications = () => {
         onRefresh={() => { fetchNotifications(); toast.success('Refreshing...', { style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' } }); }}
       >
         {notifications.length > 0 && (
-          <button 
-            onClick={handleMarkAllRead}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1.25rem', 
-              background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', 
-              color: 'var(--admin-text-primary)', borderRadius: '0.75rem', cursor: 'pointer', 
-              fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-            }}
-          >
-            <CheckCheck size={16} /> Mark all read
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button 
+              onClick={handleMarkAllRead}
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1.25rem', 
+                background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', 
+                color: 'var(--admin-text-primary)', borderRadius: '0.75rem', cursor: 'pointer', 
+                fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              <CheckCheck size={16} /> Mark all read
+            </button>
+            <button 
+              onClick={() => setShowDeleteModal(true)}
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1.25rem', 
+                background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', 
+                color: '#ef4444', borderRadius: '0.75rem', cursor: 'pointer', 
+                fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              <Trash2 size={16} /> Delete All
+            </button>
+          </div>
         )}
       </PageHeader>
 
@@ -229,6 +265,25 @@ const AdminNotifications = () => {
           ))
         )}
       </div>
+
+      {showDeleteModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: 'var(--admin-card)', padding: '2.5rem', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: 'var(--admin-card-shadow)', animation: 'fadeIn 0.3s ease' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 1.5rem auto' }}>
+              <Trash2 size={32} color="#ef4444" />
+            </div>
+            <h2 style={{ fontSize: '1.25rem', margin: '0 0 1rem 0', fontWeight: '900', color: 'var(--admin-text-primary)' }}>DELETE ALL NOTIFICATIONS?</h2>
+            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: '1.6', fontWeight: '500', opacity: 0.6 }}>
+              Are you sure you want to clear your entire notification history? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => setShowDeleteModal(false)} style={{ flex: 1, padding: '1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}>CANCEL</button>
+              <button onClick={handleDeleteAllNotifications} disabled={isDeleting} style={{ flex: 1, padding: '1rem', background: '#ef4444', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}>{isDeleting ? '...' : 'YES, DELETE'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .admin-notification-card {

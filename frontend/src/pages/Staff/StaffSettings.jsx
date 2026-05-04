@@ -109,10 +109,10 @@ const StaffSettings = () => {
     WebkitBackdropFilter: 'blur(10px)',
     border: '1px solid var(--admin-border)',
     borderRadius: '1.25rem',
-    padding: isMobile ? '1.5rem' : '2.5rem',
+    padding: '1.5rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '2rem',
+    gap: '1.5rem',
     boxShadow: 'var(--admin-card-shadow)',
     color: 'var(--admin-text-primary)'
   };
@@ -145,14 +145,14 @@ const StaffSettings = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div style={{ maxWidth: '100%', margin: '0', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="STAFF PORTAL"
         title="Account Settings"
         subtitle="Manage your personal information, work profile, and security."
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
         
         {/* Profile Section */}
         <form onSubmit={handleUpdateProfile} style={cardStyle}>

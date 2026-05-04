@@ -41,8 +41,9 @@ const PublicHeader = ({ setShowLoginModal }) => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border-color)'
+        background: 'rgba(5, 10, 21, 0.8)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
       }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '1.2rem', fontWeight: '900', letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); navigate('/'); }}>SpeedWay AutoxMoto Detail Studio</div>

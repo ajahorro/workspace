@@ -17,6 +17,18 @@ const AdminBookings = () => {
 
   useEffect(() => {
     fetchData();
+
+    // Real-time subscription — re-fetch on any bookings_v2 change
+    const channel = supabase
+      .channel('admin-bookings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -105,7 +117,7 @@ const AdminBookings = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingLeft: isMobile ? '0.5rem' : 0, paddingRight: isMobile ? '0.5rem' : 0 }}>
       
       <PageHeader 
         badge="RECORDS MANAGEMENT"

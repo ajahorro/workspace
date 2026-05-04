@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
 import BookingChat from '../../components/BookingChat';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import PageHeader from '../../components/PageHeader';
 
 const BookingDetails = () => {
   const { id } = useParams();
@@ -183,16 +184,13 @@ const BookingDetails = () => {
   const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status);
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif', paddingBottom: isMobile ? '5rem' : '0' }}>
-      <button 
-        onClick={() => navigate('/my-bookings')}
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: isMobile ? '5rem' : '0' }}>
+      <PageHeader 
+        badge="BOOKING RECORD"
+        title="Details"
+        subtitle={`Summary for #${booking.id.slice(0, 8).toUpperCase()}`}
+        onRefresh={() => fetchBookingDetails()}
       >
-        <ArrowLeft size={16} /> Back to Bookings
-      </button>
-
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '2rem', gap: '1rem' }}>
-        <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Booking Details</h1>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
           <span style={{ padding: '0.45rem 1rem', background: status.bg, color: status.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', border: `1px solid ${status.color}33` }}>
             <span style={{ opacity: 0.7, fontWeight: '700' }}>BOOKING:</span>
@@ -207,9 +205,18 @@ const BookingDetails = () => {
             {paymentStatus.label.toUpperCase()}
           </span>
         </div>
-      </div>
+      </PageHeader>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? '1rem' : '2rem' }}>
+      <button 
+        onClick={() => navigate('/my-bookings')}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '800', fontSize: '0.85rem', padding: 0 }}
+      >
+        <ArrowLeft size={16} /> Back to Bookings
+      </button>
+
+
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem' }}>
         {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           

@@ -59,7 +59,7 @@ const AdminRefunds = () => {
 
       // Get customer profiles
       const { data: profiles } = customerIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name, email, phone_number').in('id', customerIds)
+        ? await supabase.from('profiles').select('id, full_name, phone_number').in('id', customerIds)
         : { data: [] };
 
       const profileMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
@@ -180,7 +180,7 @@ const AdminRefunds = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader
         badge="FINANCIAL RECONCILIATION"
         title="REFUND HUB"

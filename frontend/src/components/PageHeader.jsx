@@ -16,8 +16,25 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
     setTimeout(() => setIsRotating(false), 600);
   };
 
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isPortal = path.startsWith('/admin') || path.startsWith('/staff') || path.startsWith('/dashboard') || path.startsWith('/book') || path.startsWith('/my-bookings') || path.startsWith('/notifications') || path.startsWith('/settings') || path.startsWith('/profile');
+  
+  const bgColor = isPortal ? 'var(--admin-card)' : 'var(--bg-primary)';
+  const textColor = isPortal ? 'var(--admin-text-primary)' : 'var(--text-primary)';
+  const subColor = isPortal ? 'var(--admin-text-secondary)' : 'var(--text-secondary)';
+
   return (
-    <div style={{ marginBottom: isMobile ? '0.75rem' : '1.25rem', position: 'relative' }}>
+    <div style={{ 
+      position: 'relative', 
+      background: 'transparent',
+      margin: 0,
+      padding: 0,
+      borderBottom: 'none',
+      boxShadow: 'none',
+      backdropFilter: 'none',
+      width: '100%'
+    }}>
+      <div style={{ position: 'relative' }}>
       <div style={{ 
         display: 'flex', 
         flexDirection: isMobile ? 'column' : 'row',
@@ -37,7 +54,10 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               fontSize: '0.65rem', 
               fontWeight: '900', 
               letterSpacing: '1px',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              background: 'var(--admin-brand-light)',
+              color: 'var(--admin-brand)',
+              border: '1px solid var(--admin-brand)'
             }}>
               {badge}
             </div>
@@ -45,13 +65,14 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <h1 style={{ 
-              fontSize: isMobile ? '1.75rem' : '2.5rem', 
+              fontSize: isMobile ? '1.2rem' : '2.5rem', 
               fontWeight: '900', 
               margin: 0, 
-              letterSpacing: '-1.5px', 
+              letterSpacing: isMobile ? '-0.5px' : '-1.5px', 
               textTransform: 'uppercase', 
               lineHeight: 1.1,
-              color: 'var(--text-primary)'
+              color: textColor,
+              wordBreak: 'break-word'
             }}>
               {title}
             </h1>
@@ -93,7 +114,7 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
           {subtitle && (
             <p style={{ 
               margin: '0.25rem 0 0 0', 
-              color: 'var(--text-secondary)', 
+              color: subColor, 
               fontSize: isMobile ? '0.85rem' : '1rem', 
               fontWeight: '500',
               maxWidth: '600px',
@@ -112,7 +133,8 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
         )}
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default PageHeader;

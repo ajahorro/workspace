@@ -92,7 +92,7 @@ const LandingPage = () => {
   }, {});
 
   return (
-    <div style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', minHeight: '100vh', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", overflowX: 'hidden', position: 'relative' }}>
+    <div style={{ background: '#050A15', color: '#FBFFFE', minHeight: '100vh', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", overflowX: 'hidden', position: 'relative' }}>
       
       {/* Background Video */}
       <div style={{ 
@@ -214,7 +214,7 @@ const LandingPage = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.65rem' }}>
                 {teamRoles.map((role) => (
-                  <div key={role.title} style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+                  <div key={role.title} style={{ padding: '1.25rem', background: '#131926', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.03)' }}>
                     <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>{role.title}</h4>
                     <p style={{ margin: 0, fontSize: '1rem', opacity: 0.5, lineHeight: '1.4' }}>{role.description}</p>
                   </div>
@@ -237,7 +237,7 @@ const LandingPage = () => {
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', paddingTop: '0.75rem' }}>
-                <div style={{ padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', border: '1px solid rgba(169, 27, 24, 0.1)' }}>
+                <div style={{ padding: '1.5rem', background: '#131926', borderRadius: '0.5rem', border: '1px solid rgba(169, 27, 24, 0.1)' }}>
                   <Monitor size={18} color="var(--primary-color)" style={{ marginBottom: '1rem' }} />
                   <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: '900', color: '#fff', textTransform: 'uppercase' }}>ONLINE PROGRESS TRACKING</h5>
                   <p style={{ margin: 0, fontSize: '1rem', opacity: 0.5, lineHeight: 1.4 }}>
@@ -249,7 +249,7 @@ const LandingPage = () => {
                   { title: 'CONSECTETUR ADIPIS', icon: ShieldCheck, desc: 'Ut enim ad minim veniam, quis nostrud exercitation.' },
                   { title: 'TEMPOR INCIDIDUNT', icon: Sparkles, desc: 'Duis aute irure dolor in reprehenderit in voluptate.' }
                 ].map(stat => (
-                  <div key={stat.title} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.02)' }}>
+                  <div key={stat.title} style={{ padding: '1.5rem', background: '#131926', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.02)' }}>
                     <stat.icon size={18} color="#fff" style={{ marginBottom: '1rem', opacity: 0.4 }} />
                     <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: '900', color: '#fff', textTransform: 'uppercase' }}>{stat.title}</h5>
                     <p style={{ margin: 0, fontSize: '1rem', opacity: 0.4, lineHeight: 1.4 }}>{stat.desc}</p>
@@ -285,7 +285,7 @@ const LandingPage = () => {
                         const inCart = cart.some(item => item.id === service.id);
                         return (
                           <div key={service.id} style={{
-                            background: inCart ? 'rgba(169, 27, 24, 0.05)' : 'var(--bg-secondary)',
+                            background: inCart ? 'rgba(169, 27, 24, 0.05)' : '#131926',
                             borderRadius: '0.5rem', padding: '1.75rem',
                             border: `1px solid ${inCart ? 'var(--primary-color)' : 'rgba(255,255,255,0.02)'}`,
                             transition: 'all 0.3s ease', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
@@ -332,7 +332,7 @@ const LandingPage = () => {
       {cart.length > 0 && (
         <div style={{
           position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 1500, width: '92%', maxWidth: '450px',
-          background: 'var(--bg-secondary)', padding: '0.75rem 1.25rem', borderRadius: '1rem',
+          background: '#131926', padding: '0.75rem 1.25rem', borderRadius: '1rem',
           border: '1px solid rgba(169, 27, 24, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', animation: 'bagPop 0.3s'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

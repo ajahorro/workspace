@@ -166,7 +166,7 @@ const MyBookings = () => {
   if (loading) return <div style={{ padding: '2rem' }}>Loading bookings...</div>;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '0' : '0 1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="BOOKING HISTORY"
         title="MY BOOKINGS"

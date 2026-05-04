@@ -154,7 +154,7 @@ const AdminDashboard = () => {
     background: 'var(--admin-card)',
     border: '1px solid var(--admin-border)',
     borderRadius: '1rem',
-    padding: '1.75rem',
+    padding: '1.5rem',
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
     color: 'var(--admin-text-primary)',
     transition: 'all 0.3s ease'
@@ -165,7 +165,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem' }}>
       
       {/* Welcome Header Area */}
       <PageHeader 

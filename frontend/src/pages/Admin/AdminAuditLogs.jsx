@@ -104,7 +104,7 @@ const AdminAuditLogs = () => {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="SYSTEM SECURITY"
         title="System Audit Trail"
@@ -113,7 +113,7 @@ const AdminAuditLogs = () => {
       />
 
       {/* Search and Filters */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
           <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
           <input 

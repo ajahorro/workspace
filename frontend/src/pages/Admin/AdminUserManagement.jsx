@@ -46,11 +46,6 @@ const AdminUserManagement = () => {
         .eq('role', 'CUSTOMER')
         .order('full_name', { ascending: true });
 
-      if (data) {
-        console.log('Unique roles in directory:', [...new Set(data.map(u => u.role))]);
-      }
-
-      console.log('User directory debug:', { data, count, error });
       if (error) throw error;
       setUsers(data || []);
     } catch (err) {
@@ -131,7 +126,7 @@ const AdminUserManagement = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', padding: isMobile ? '1rem' : '2rem', background: 'var(--admin-bg)', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s ease' }}>
       <PageHeader 
         badge="ACCESS CONTROL"
         title={view === 'list' ? "User Directory" : "Customer History"}
@@ -142,8 +137,8 @@ const AdminUserManagement = () => {
 
 
       {view === 'list' ? (
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ position: 'relative', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+          <div style={{ position: 'relative' }}>
             <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
             <input 
               type="text" 
@@ -269,7 +264,8 @@ const AdminUserManagement = () => {
           </div>
         </div>
       ) : (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <button 
             onClick={handleBackToList}
             style={{ 
@@ -281,7 +277,6 @@ const AdminUserManagement = () => {
               color: 'var(--admin-brand)', 
               fontWeight: '800', 
               cursor: 'pointer',
-              marginBottom: '1.5rem',
               padding: '0.5rem 0',
               fontSize: '0.85rem'
             }}
@@ -297,7 +292,6 @@ const AdminUserManagement = () => {
             display: 'flex',
             flexWrap: 'wrap',
             gap: '2rem',
-            marginBottom: '2rem',
             alignItems: 'center',
             boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
           }}>
@@ -431,6 +425,7 @@ const AdminUserManagement = () => {
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
 

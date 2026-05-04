@@ -7,8 +7,11 @@ import {
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const BookingChat = ({ bookingId }) => {
   const { user, profile } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -142,10 +145,11 @@ const BookingChat = ({ bookingId }) => {
 
   return (
     <div style={{ 
-      display: 'flex', flexDirection: 'column', height: '600px', 
+      display: 'flex', flexDirection: 'column', height: isMobile ? '70vh' : '600px', 
       background: 'var(--bg-input)', borderRadius: '1.5rem', 
       border: '1px solid var(--glass-border)', overflow: 'hidden',
-      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.05)'
+      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.05)',
+      marginTop: isMobile ? '0.5rem' : '0'
     }}>
       {/* Redundant header removed */}
 

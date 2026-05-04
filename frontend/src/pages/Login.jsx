@@ -39,7 +39,6 @@ const Login = ({ isModal = false, onClose }) => {
       const routes = {
         ADMIN: '/admin',
         SUPER_ADMIN: '/admin',
-        STAFF: '/staff',
         CUSTOMER: '/dashboard'
       };
       navigate(routes[profile.role] || '/dashboard');
@@ -349,15 +348,15 @@ const Login = ({ isModal = false, onClose }) => {
           <form onSubmit={handleStartRegister}>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
               <User size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
-              <input type="text" placeholder="Full Name" required value={fullName} onChange={e => setFullName(e.target.value)} style={inputStyle} />
+              <input type="text" placeholder="Full Name" required value={fullName} onChange={e => setFullName(e.target.value)} style={inputStyle} autoComplete="name" />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
               <Mail size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
-              <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
+              <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
               <Phone size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
-              <input type="tel" placeholder="Phone Number" required value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} />
+              <input type="tel" placeholder="Phone Number" required value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} autoComplete="tel" />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
               <Lock size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
@@ -379,7 +378,7 @@ const Login = ({ isModal = false, onClose }) => {
             </p>
             <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
               <Mail size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
-              <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
+              <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending...' : 'Send Recovery Link'}</button>
             <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>

@@ -28,7 +28,7 @@ const ProfilePage = () => {
     background: 'var(--admin-card)',
     borderRadius: '1rem',
     border: '1px solid var(--admin-border)',
-    padding: isMobile ? '1.5rem' : '2rem',
+    padding: '1.5rem',
     boxShadow: 'var(--admin-card-shadow)',
     transition: 'all 0.3s ease'
   };
@@ -167,7 +167,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1rem' : '1.5rem' }}>
       
       {/* Header Area */}
       <PageHeader 

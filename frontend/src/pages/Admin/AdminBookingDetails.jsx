@@ -3,14 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
   ArrowLeft, Clock, CreditCard, User, Car, ClipboardList,
-  History, CheckCircle, XCircle, AlertCircle, Trash2
+  History, CheckCircle, XCircle, AlertCircle, MessageCircle,
+  Hash, Calendar, Phone, Shield, Activity, Play, CheckCircle2,
+  Package, Truck, Trash2, Banknote, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
 import BookingChat from '../../components/BookingChat';
-import { Eye, ExternalLink, MessageCircle } from 'lucide-react';
-import { sendStaffAssignmentNotification, sendPaymentReceiptNotification, sendStatusUpdateNotification } from '../../services/EmailService';
+import { sendStaffAssignmentNotification, sendStatusUpdateNotification } from '../../services/EmailService';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import PageHeader from '../../components/PageHeader';
+import LoadingState from '../../components/LoadingState';
 
 const AdminBookingDetails = () => {
   const { id } = useParams();
@@ -21,8 +24,9 @@ const AdminBookingDetails = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [bookingPayments, setBookingPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentModal, setPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
   const isMobile = useMediaQuery('(max-width: 1024px)');
 
   useEffect(() => {
@@ -34,51 +38,41 @@ const AdminBookingDetails = () => {
 
   const fetchBookingDetails = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('bookings_v2')
-      .select(`
-        *,
-        customer:profiles!customer_id(full_name, phone_number, email),
-        assigned_staff:profiles!staff_id(full_name)
-      `)
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase.from('bookings_v2').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (!data) { navigate('/admin/bookings'); return; }
 
-    if (data) {
-      setBooking(data);
-      // Fetch services for this booking
-      const { data: bsData } = await supabase
-        .from('booking_services_v2')
-        .select(`
-          *,
-          service:services_v2(description, name)
-        `)
-        .eq('booking_id', id);
-      
-      if (bsData) {
-        // Map to expected format
-        const mappedServices = bsData.map(s => ({
-          id: s.id,
-          service_name: s.service?.name,
-          service_price: s.price_at_booking,
-          service: { description: s.service?.description }
-        }));
-        setServices(mappedServices);
+      const profileIds = [data.customer_id, data.staff_id].filter(Boolean);
+      let profileMap = {};
+      if (profileIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('id, full_name, phone_number, email').in('id', profileIds);
+        if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
       }
-    }
-    if (error) {
-      toast.error('Booking not found');
-      navigate('/admin/bookings');
-    }
-    setLoading(false);
+
+      setBooking({
+        ...data,
+        customer: profileMap[data.customer_id] || { full_name: 'Walk-in Customer' },
+        assigned_staff: profileMap[data.staff_id]
+      });
+
+      const { data: bsData } = await supabase.from('booking_services_v2').select('*').eq('booking_id', id);
+      if (bsData && bsData.length > 0) {
+        const serviceIds = bsData.map(s => s.service_id);
+        const { data: sDetails } = await supabase.from('services_v2').select('id, name, description').in('id', serviceIds);
+        const sMap = (sDetails || []).reduce((acc, s) => ({ ...acc, [s.id]: s }), {});
+        setServices(bsData.map(s => ({
+          id: s.id,
+          service_name: sMap[s.service_id]?.name || 'Unknown Service',
+          service_price: s.price_at_booking,
+          description: sMap[s.service_id]?.description
+        })));
+      }
+    } catch (error) { toast.error('Sync failed'); } finally { setLoading(false); }
   };
 
   const fetchPayments = async () => {
-    const { data } = await supabase
-      .from('payments_v2')
-      .select('*')
-      .eq('booking_id', id)
-      .order('created_at', { ascending: true });
+    const { data } = await supabase.from('payments_v2').select('*').eq('booking_id', id).order('created_at', { ascending: true });
     if (data) setBookingPayments(data.filter(p => p.amount > 0));
   };
 
@@ -88,76 +82,84 @@ const AdminBookingDetails = () => {
   };
 
   const fetchAuditLogs = async () => {
-    const { data } = await supabase
-      .from('booking_events')
-      .select(`
-        *,
-        actor:profiles!actor_id(full_name, role)
-      `)
-      .eq('booking_id', id)
-      .order('created_at', { ascending: false });
-    if (data) setAuditLogs(data);
+    const { data } = await supabase.from('booking_events').select('*').eq('booking_id', id).order('created_at', { ascending: false });
+    if (data) {
+      const actorIds = [...new Set(data.map(log => log.actor_id).filter(Boolean))];
+      let profileMap = {};
+      if (actorIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', actorIds);
+        if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+      }
+      setAuditLogs(data.map(log => ({ ...log, actor: profileMap[log.actor_id] || { full_name: 'System' } })));
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from('bookings_v2').update({ status: newStatus }).eq('id', id);
+      if (error) throw error;
+
+      // Manual logging removed, now handled by DB trigger
+      toast.success(`Booking ${newStatus}`);
+      fetchBookingDetails();
+      fetchAuditLogs();
+
+      if (booking.customer?.email) {
+        sendStatusUpdateNotification(booking.customer.email, newStatus, {
+          date: new Date(booking.scheduled_at).toLocaleDateString(),
+          vehicle: booking.vehicle_type
+        });
+      }
+    } catch (error) { toast.error('Status update failed'); }
   };
 
   const handleAssignStaff = async (staffId) => {
     if (!staffId) return;
-    setIsProcessing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const { data: { user } } = await supabase.auth.getUser();
-      // Update staff_id and auto-confirm if it was pending assignment
-      const { error } = await supabase
-        .from('bookings_v2')
-        .update({ 
-          staff_id: staffId,
-          status: booking.status === 'scheduled' && !booking.staff_id ? 'scheduled' : booking.status
-        })
-        .eq('id', id);
+      
+      const { error } = await supabase.from('bookings_v2').update({ staff_id: staffId }).eq('id', id);
       if (error) throw error;
 
-      // Add audit log
-      const staff = staffList.find(s => s.id === staffId);
-      await supabase.from('booking_events').insert({
-        booking_id: id,
-        actor_id: user.id,
-        event_type: 'STAFF_ASSIGNED',
-        metadata: {
-          details: `Assigned staff member ${staff.full_name || staff.email} to booking.`,
-          description: `Staff assignment updated for booking #${id.slice(0, 4)}`
-        }
-      });
-
-      toast.success('Staff assigned successfully');
-      
-      // Notify Staff via Email
-      if (staff && staff.email) {
-        sendStaffAssignmentNotification(staff.email, {
-          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`,
-          plate: booking.plate_number,
-          services: services.map(s => s.service_name).join(', '),
-          date: new Date(booking.start_datetime).toLocaleDateString(),
-          time: new Date(booking.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }).catch(err => console.error('Staff email failed:', err));
-      }
-
+      // Manual logging removed, now handled by DB trigger
+      toast.success('Staff Updated');
       fetchBookingDetails();
       fetchAuditLogs();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setIsProcessing(false);
-    }
+      
+      if (staff?.email) {
+        sendStaffAssignmentNotification(staff.email, {
+          vehicle: booking.vehicle_type, 
+          plate: booking.plate_number || 'N/A',
+          date: booking.scheduled_at ? new Date(booking.scheduled_at).toLocaleDateString() : 'N/A',
+          time: booking.scheduled_at ? new Date(booking.scheduled_at).toLocaleTimeString() : 'N/A',
+          services: booking.services?.join(', ') || 'Auto Detailing'
+        });
+      }
+    } catch (error) { toast.error('Assignment error'); }
   };
 
   const handleRecordPayment = async () => {
-    const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
+    const amount = Number(paymentAmount);
+    if (!paymentAmount || isNaN(amount) || amount <= 0) {
+      return toast.error('Enter a valid amount');
+    }
+    
+    // Prevent overpayment at the UI level
+    const totalPaid = bookingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = Math.max(0, (booking.total_price || 0) - totalPaid);
+    
+    if (amount > balance) {
+      return toast.error(`Amount cannot exceed the remaining balance of ₱${balance}`);
     }
 
-    setIsProcessing(true);
+    setSubmittingPayment(true);
     try {
-      // Use record_payment_v2 RPC (overpayment-safe)
       const { error } = await supabase.rpc('record_payment_v2', {
         p_booking_id: id,
         p_amount: amount,
@@ -165,363 +167,191 @@ const AdminBookingDetails = () => {
       });
 
       if (error) throw error;
-
-      toast.success('Payment recorded');
       
-      // Notify Customer via Email
-      if (booking.customer?.email) {
-        sendPaymentReceiptNotification(booking.customer.email, amount, {
-          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`
-        }).catch(err => console.error('Receipt email failed:', err));
-      }
-
+      toast.success('Payment recorded successfully!');
+      setPaymentModal(false);
       setPaymentAmount('');
-      fetchBookingDetails();
       fetchPayments();
       fetchAuditLogs();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleVerifyPayment = async () => {
-    setIsProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Find the FOR_VERIFICATION payment
-      const pendingPayment = bookingPayments.find(p => p.status === 'FOR_VERIFICATION');
-      if (pendingPayment) {
-        const { error } = await supabase
-          .from('payments_v2')
-          .update({
-            status: 'PAID',
-            verified_by: user.id,
-            verified_at: new Date().toISOString()
-          })
-          .eq('id', pendingPayment.id);
-        if (error) throw error;
-      }
-
-      toast.success('Payment verified successfully');
-      
-      // Notify Customer via Email
-      if (booking.customer?.email) {
-        sendPaymentReceiptNotification(booking.customer.email, booking.total_price, {
-          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`
-        }).catch(err => console.error('Receipt email failed:', err));
-      }
-
       fetchBookingDetails();
-      fetchPayments();
-      fetchAuditLogs();
     } catch (err) {
-      toast.error(err.message);
+      console.error(err);
+      toast.error('Failed to record payment');
     } finally {
-      setIsProcessing(false);
+      setSubmittingPayment(false);
     }
   };
 
-  const handleCancelBooking = async () => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+  if (loading || !booking) return <LoadingState message="Retrieving appointment records..." />;
 
-    setIsProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('bookings_v2').update({
-        status: 'cancelled'
-      }).eq('id', id);
-      if (error) throw error;
+  const totalPaid = bookingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const balance = Math.max(0, (booking.total_price || 0) - totalPaid);
 
-      // Add audit log
-      await supabase.from('booking_events').insert({
-        booking_id: id,
-        actor_id: user.id,
-        event_type: 'APPROVE_CANCEL',
-        metadata: {
-          details: 'Booking cancelled by admin.',
-          description: `Booking #${id.slice(0, 4)} cancelled by admin`
-        }
-      });
-
-      toast.success('Booking cancelled');
-      fetchBookingDetails();
-      fetchAuditLogs();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (loading) return <div style={{ padding: '2rem', color: '#64748b' }}>Loading details...</div>;
-  if (!booking) return null;
-
-  // Derive balance from payments_v2 (not from booking columns)
-  const totalPaid = bookingPayments
-    .filter(p => p.status === 'PAID')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
-  const balance = (booking.total_price || 0) - totalPaid;
-  const hasPendingVerification = bookingPayments.some(p => p.status === 'FOR_VERIFICATION');
+  const cardStyle = { background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', display: 'flex', flexDirection: 'column', color: 'var(--admin-text-primary)', boxShadow: 'var(--admin-card-shadow)' };
+  const sectionTitleStyle = { fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem' };
+  const labelStyle = { fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.6 };
+  const valueStyle = { fontSize: '1rem', fontWeight: '900', color: 'var(--admin-text-primary)', marginTop: '0.25rem' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <button
-            onClick={() => navigate('/admin/bookings')}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '0.9rem', cursor: 'pointer', marginBottom: '1rem', padding: 0 }}
-          >
-            <ArrowLeft size={16} /> Back to Bookings
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: '900', margin: 0, color: 'var(--text-primary)' }}>
-              Booking for {booking.customer?.full_name || 'Guest'}
-            </h1>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <div className="badge" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '800' }}>
-                <Clock size={12} /> {(booking.service_status || 'NOT_STARTED').replace('_', ' ')}
-              </div>
-              <div className="badge" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '800' }}>
-                <CreditCard size={12} /> {(booking.payment_status || 'UNPAID').replace('_', ' ')}
-              </div>
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={handleCancelBooking}
-          disabled={booking.booking_status === 'CANCELLED'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            color: '#ef4444',
-            padding: '0.75rem 1.25rem',
-            borderRadius: '0.75rem',
-            fontSize: '0.85rem',
-            fontWeight: '700',
-            cursor: booking.booking_status === 'CANCELLED' ? 'not-allowed' : 'pointer'
-          }}
-        >
-          <XCircle size={18} /> Cancel Booking
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '4rem' }}>
+      <PageHeader badge={`REF: ${id.slice(0, 8).toUpperCase()}`} title="ADMIN CONTROL CENTER" subtitle="Full lifecycle management for this appointment.">
+        <button onClick={() => navigate('/admin/bookings')} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer' }}>
+          <ArrowLeft size={18} color="var(--admin-brand)" /> BACK
         </button>
+      </PageHeader>
+
+      {/* ADMIN LIFECYCLE CONTROLS (STICKY COMMAND BAR) */}
+      <div style={{ 
+        ...cardStyle, 
+        background: 'rgba(var(--admin-brand-rgb), 0.05)', 
+        border: '1px solid rgba(var(--admin-brand-rgb), 0.2)', 
+        position: 'sticky', 
+        top: '1rem', 
+        zIndex: 100,
+        backdropFilter: 'blur(16px)',
+        padding: isMobile ? '1rem' : '1.5rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+        marginTop: '-0.5rem'
+      }}>
+        <h3 style={{ ...sectionTitleStyle, margin: isMobile ? '0 0 1rem 0' : '0 0 1.5rem 0' }}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Activity size={18} color="var(--admin-brand)" /></div>SERVICE LIFECYCLE (ADMIN ONLY)</h3>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {booking.status === 'scheduled' && (
+            <button onClick={() => handleStatusUpdate('in_progress')} style={{ flex: 1, minWidth: isMobile ? '100%' : 'auto', padding: '1rem', borderRadius: '0.75rem', background: 'var(--admin-brand)', color: 'white', border: 'none', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <Play size={18} /> START SERVICE
+            </button>
+          )}
+          {booking.status === 'in_progress' && (
+            <button onClick={() => handleStatusUpdate('completed')} style={{ flex: 1, minWidth: isMobile ? '100%' : 'auto', padding: '1rem', borderRadius: '0.75rem', background: '#10b981', color: 'white', border: 'none', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <CheckCircle2 size={18} /> END SERVICE
+            </button>
+          )}
+          {booking.status === 'scheduled' && (
+            <button onClick={() => handleStatusUpdate('cancelled')} style={{ padding: '1rem 1.5rem', minWidth: isMobile ? '100%' : 'auto', borderRadius: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: '800', cursor: 'pointer', fontSize: '0.85rem' }}>
+              CANCEL SERVICE
+            </button>
+          )}
+          {(booking.status === 'completed' || booking.status === 'cancelled') && (
+            <div style={{ padding: '1rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', color: 'var(--admin-text-secondary)', fontWeight: '800', textAlign: 'center', flex: 1 }}>
+              THIS BOOKING IS CLOSED ({booking.status.toUpperCase()})
+            </div>
+          )}
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Service Details */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <ClipboardList size={22} color="var(--admin-brand)" />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Service Details</h2>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={cardStyle}>
+            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ClipboardList size={18} color="var(--admin-brand)" /></div>Service Particulars</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {services.map(s => (
-                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '1rem', background: 'var(--admin-input-bg)', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
+              {services.map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: i < services.length - 1 ? '1px solid var(--admin-border)' : 'none' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', marginBottom: '0.25rem' }}>{s.service_name}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', maxWidth: '400px' }}>{s.service?.description}</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{s.service_name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>{s.description || 'Professional detailing service'}</div>
                   </div>
-                  <div style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{Number(s.service_price).toLocaleString()}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--admin-brand)' }}>₱{s.service_price.toLocaleString()}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '600', color: 'var(--admin-text-secondary)' }}>Total Amount</span>
-              <span style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</span>
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Grand Total</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{booking.total_price?.toLocaleString()}</span>
+            </div>
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {balance > 0 ? (
+                <button 
+                  onClick={() => { setPaymentAmount(balance); setPaymentModal(true); }}
+                  style={{ background: 'var(--admin-brand)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Banknote size={16} /> RECORD PAYMENT
+                </button>
+              ) : <div />}
+              <div style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', background: balance === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: balance === 0 ? '#10b981' : '#f59e0b', fontSize: '0.7rem', fontWeight: '900' }}>{balance === 0 ? 'FULLY PAID' : `BALANCE: ₱${balance.toLocaleString()}`}</div>
             </div>
           </div>
-
-          {/* Staff Assignment */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <User size={22} color="var(--admin-brand)" />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Staff Assignment</h2>
-            </div>
+          <div style={cardStyle}>
+            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Shield size={18} color="#10b981" /></div>Operations Team</h3>
             {booking.staff_id ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-border)', borderRadius: '1rem' }}>
-                <CheckCircle size={24} color="#10b981" />
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Assigned Staff</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{booking.assigned_staff?.full_name}</div>
-                </div>
-                <button
-                  onClick={() => handleAssignStaff(null)}
-                  style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}
-                >
-                  <Trash2 size={18} />
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '0.75rem', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><User size={20} /></div><div><div style={labelStyle}>Assigned Lead</div><div style={valueStyle}>{booking.assigned_staff?.full_name}</div></div></div>
+                <button onClick={() => setBooking({ ...booking, staff_id: null })} style={{ background: 'var(--admin-card)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}>CHANGE</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--admin-text-secondary)', fontSize: '0.9rem' }}>
-                  <Clock size={20} /> No staff assigned yet
-                </div>
-                <select
-                  onChange={(e) => handleAssignStaff(e.target.value)}
-                  disabled={isProcessing}
-                  style={{ 
-                    width: '100%', padding: '1rem', borderRadius: '0.75rem', 
-                    background: 'var(--admin-input-bg)', border: '1px solid var(--admin-input-border)', 
-                    color: 'var(--admin-text-primary)', fontSize: '0.95rem', cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select staff to assign...</option>
-                  {staffList.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.full_name || s.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select onChange={(e) => handleAssignStaff(e.target.value)} style={{ width: '100%', padding: '1rem', borderRadius: '0.75rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', fontWeight: '800', fontSize: '0.95rem', appearance: 'none', cursor: 'pointer' }}>
+                <option value="">Select Technician...</option>
+                {staffList.map(s => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
+              </select>
             )}
           </div>
 
-          {/* Payment Verification */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <CreditCard size={22} color="var(--admin-brand)" />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Payment Verification</h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ padding: '1.25rem', background: '#F8FAFC', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', fontWeight: '700' }}>Total</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</div>
-              </div>
-              <div style={{ padding: '1.25rem', background: '#F8FAFC', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', fontWeight: '700' }}>Amount Paid</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#10b981' }}>₱{totalPaid.toLocaleString()}</div>
-              </div>
-              <div style={{ padding: '1.25rem', background: '#F8FAFC', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', fontWeight: '700' }}>Balance</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: balance > 0 ? 'var(--admin-brand)' : '#10b981' }}>₱{balance.toLocaleString()}</div>
-              </div>
-            </div>
-
-            {/* GCash Receipt View */}
-            {booking.payment_method === 'GCASH' && bookingPayments.some(p => p.receipt_url) && (
-              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1.25rem', border: '1px solid var(--glass-border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--card-text)', textTransform: 'uppercase' }}>GCash Receipt Upload</div>
-                  <a 
-                    href={bookingPayments.find(p => p.receipt_url)?.receipt_url} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    style={{ fontSize: '0.7rem', color: 'var(--card-text)', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}
-                  >
-                    <ExternalLink size={12} /> View Full
-                  </a>
-                </div>
-                <div 
-                  style={{ width: '100%', height: '200px', borderRadius: '0.75rem', overflow: 'hidden', background: '#000', cursor: 'pointer' }} 
-                  onClick={() => window.open(bookingPayments.find(p => p.receipt_url)?.receipt_url, '_blank')}
-                >
-                  <img src={bookingPayments.find(p => p.receipt_url)?.receipt_url} alt="GCash Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                </div>
-                {hasPendingVerification && (
-                  <button
-                    onClick={handleVerifyPayment}
-                    disabled={isProcessing}
-                    style={{ width: '100%', marginTop: '1rem', padding: '1rem', background: 'var(--card-text)', border: 'none', color: 'var(--bg-card)', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}
-                  >
-                    {isProcessing ? 'Verifying...' : 'Verify Receipt & Confirm Payment'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {balance > 0 && (
-              <div style={{ padding: '1.5rem', background: 'var(--admin-input-bg)', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Record Cash Payment</div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>₱</span>
-                    <input
-                      type="number"
-                      placeholder="Enter amount"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '0.75rem', background: '#FFFFFF', border: '1px solid var(--admin-input-border)', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
-                    />
-                  </div>
-                  <button
-                    onClick={handleRecordPayment}
-                    disabled={isProcessing}
-                    style={{ background: 'var(--admin-brand)', border: 'none', color: '#FFFFFF', padding: '0 2rem', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(153, 27, 27, 0.2)' }}
-                  >
-                    Record
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Communication Chat */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <MessageCircle size={22} color="var(--admin-brand)" />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Customer Communication</h2>
-            </div>
-            <BookingChat bookingId={id} />
-          </div>
+          <div style={cardStyle}><h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MessageCircle size={18} color="var(--admin-brand)" /></div>Live Communication</h3><BookingChat bookingId={id} /></div>
         </div>
 
-        {/* Right Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {/* Customer & Vehicle */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <Car size={22} color="var(--admin-brand)" />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Customer & Vehicle</h2>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Customer</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)' }}>{booking.customer?.full_name}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={cardStyle}><h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Car size={18} color="var(--admin-brand)" /></div>Client & Vehicle</h3><div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}><div><div style={labelStyle}>Owner & Contact</div><div style={valueStyle}>{booking.customer?.full_name} <span style={{ color: 'var(--admin-brand)', fontSize: '0.9rem', marginLeft: '0.5rem', fontWeight: '800' }}>({booking.customer_phone || booking.customer?.phone_number || 'No Phone'})</span></div></div><div><div style={labelStyle}>Vehicle / Plate</div><div style={valueStyle}>{booking.vehicle_type} - {booking.plate_number || 'N/A'}</div></div><div><div style={labelStyle}>Scheduled</div><div style={valueStyle}>{new Date(booking.start_datetime).toLocaleString()}</div></div></div></div>
+          
+          {/* PAYMENTS HISTORY */}
+          <div style={cardStyle}>
+            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CreditCard size={18} color="#f59e0b" /></div>Payments Log</h3>
+            {bookingPayments.length === 0 ? (
+              <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.8rem' }}>No payments recorded yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {bookingPayments.map((p, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--admin-bg)', borderRadius: '0.5rem', border: '1px solid var(--admin-border)' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.85rem' }}>{p.method}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)' }}>{new Date(p.created_at).toLocaleString()}</div>
+                    </div>
+                    <div style={{ fontWeight: '900', color: '#10b981' }}>+₱{Number(p.amount).toLocaleString()}</div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Contact</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)' }}>{booking.customer?.phone_number || 'N/A'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Vehicle Type</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)' }}>{booking.vehicle_type}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Plate Number</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)' }}>{booking.plate_number}</div>
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Appointment</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)' }}>{new Date(booking.start_datetime).toLocaleString()}</div>
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', fontWeight: '600' }}>Payment Method</div>
-                <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', textTransform: 'uppercase' }}>{booking.payment_method || 'CASH'}</div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Audit History */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <History size={22} color="var(--admin-brand)" />
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Secure Activity Trail</h2>
-              </div>
-            </div>
-            <BookingAuditTrail bookingId={id} isAdmin={true} />
-          </div>
+          <div style={cardStyle}><h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History size={18} color="var(--admin-brand)" /></div>Audit History</h3><BookingAuditTrail logs={auditLogs} /></div>
         </div>
       </div>
+
+      {paymentModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: 'var(--admin-card)', padding: '2.5rem', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', maxWidth: '400px', width: '90%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h2 style={{ fontSize: '1.5rem', margin: '0 0 1.5rem 0', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Record Payment</h2>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Amount to Pay</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)', fontWeight: '900' }}>₱</span>
+                <input 
+                  type="number" 
+                  value={paymentAmount} 
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  style={{ width: '100%', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '1rem 1rem 1rem 2.5rem', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '800', fontSize: '1.1rem', boxSizing: 'border-box' }}
+                  max={balance}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={() => setPaymentModal(false)}
+                disabled={submittingPayment}
+                style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '700' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleRecordPayment}
+                disabled={submittingPayment}
+                style={{ flex: 1, padding: '1rem', background: 'var(--admin-brand)', border: 'none', color: '#FFFFFF', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '800', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+              >
+                {submittingPayment ? <Loader2 size={18} className="spin" /> : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

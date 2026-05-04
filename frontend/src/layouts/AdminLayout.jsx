@@ -79,6 +79,10 @@ const AdminLayout = () => {
     { name: 'Notifications', path: '/admin/notifications', icon: Bell },
   ];
 
+  const bottomLinks = [
+    { name: 'Settings', path: '/admin/settings', icon: Settings },
+  ];
+
   const BlurGlow = ({ top, left, right, bottom, size, color }) => (
     <div style={{
       position: 'absolute',
@@ -123,7 +127,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="admin-theme" data-theme={theme} style={{ display: 'flex', minHeight: '100vh', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', position: 'relative', overflow: 'hidden' }}>
+    <div className="admin-theme" data-theme={theme} style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', position: 'relative', overflow: 'hidden' }}>
       
       {/* Mobile Overlay */}
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
@@ -148,27 +152,15 @@ const AdminLayout = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '0.6rem',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '0.75rem',
                   textDecoration: 'none',
                   color: isActive ? 'var(--admin-sidebar-active-text)' : 'var(--admin-text-secondary)',
                   background: isActive ? 'var(--admin-sidebar-active-bg)' : 'transparent',
-                  fontWeight: isActive ? '800' : '500',
-                  transition: 'all 0.2s ease',
-                  fontSize: '0.9rem'
+                  fontWeight: isActive ? '800' : '600',
+                  fontSize: '0.85rem',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 })}
-                onMouseEnter={(e) => {
-                  if (!location.pathname.startsWith(link.path)) {
-                    e.currentTarget.style.background = 'var(--admin-bg)';
-                    e.currentTarget.style.color = 'var(--admin-text-primary)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!location.pathname.startsWith(link.path)) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--admin-text-secondary)';
-                  }
-                }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <Icon size={18} color="currentColor" />
@@ -253,11 +245,23 @@ const AdminLayout = () => {
               <Bell size={20} />
               {unreadCount > 0 && (
                 <div style={{
-                  position: 'absolute', top: '-4px', right: '-4px',
-                  background: 'var(--admin-brand)', color: '#fff', fontSize: '0.6rem',
-                  fontWeight: 'bold', width: '16px', height: '16px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%', border: '2px solid var(--admin-card)'
+                  position: 'absolute', 
+                  top: '-5px', 
+                  right: '-8px',
+                  background: 'var(--admin-brand)', 
+                  color: '#fff', 
+                  fontSize: '0.65rem',
+                  fontWeight: '900', 
+                  minWidth: '18px', 
+                  height: '18px',
+                  padding: '0 4px',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  borderRadius: '10px', 
+                  border: '2px solid var(--admin-card)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  fontFamily: 'sans-serif'
                 }}>{unreadCount}</div>
               )}
             </div>
@@ -281,7 +285,7 @@ const AdminLayout = () => {
           </div>
         )}
 
-        <main style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem 2.5rem', overflowY: 'auto' }}>
+        <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
       </div>

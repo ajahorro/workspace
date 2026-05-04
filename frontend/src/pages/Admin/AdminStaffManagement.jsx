@@ -208,7 +208,7 @@ const AdminStaffManagement = () => {
     background: 'var(--admin-card)',
     border: '1px solid var(--admin-border)',
     borderRadius: '1.25rem',
-    padding: isMobile ? '1.5rem' : '2.5rem',
+    padding: isMobile ? '1.5rem' : '1.5rem',
     boxShadow: 'var(--admin-card-shadow)',
     color: 'var(--admin-text-primary)',
     position: 'sticky',
@@ -217,7 +217,7 @@ const AdminStaffManagement = () => {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="TEAM COORDINATION"
         title="Staff Management"
@@ -228,7 +228,7 @@ const AdminStaffManagement = () => {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', 
-        gap: '2rem',
+        gap: '1.5rem',
         alignItems: 'start'
       }}>
         

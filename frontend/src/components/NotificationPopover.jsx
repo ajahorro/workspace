@@ -90,7 +90,7 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
   return (
     <div ref={popoverRef} style={{
       ...(isMobile ? mobileStyles : desktopStyles),
-      background: '#FFFFFF',
+      background: 'var(--admin-card)',
       border: '1px solid var(--admin-border)',
       borderRadius: '1rem',
       boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
@@ -99,31 +99,52 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
       animation: 'popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       color: 'var(--admin-text-primary)'
     }}>
-      <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
+      <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--admin-sidebar)' }}>
         <h3 style={{ margin: 0, fontSize: '0.8rem', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>Recent Updates</h3>
         <button 
           onClick={onClose}
           style={{ 
-            background: 'transparent', 
+            background: 'none', 
             border: 'none', 
-            borderRadius: '0.5rem', 
             color: 'var(--admin-text-secondary)', 
-            opacity: 0.6,
-            padding: '0.4rem', 
+            padding: '0.5rem', 
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'all 0.2s'
+            borderRadius: '50%',
+            transition: 'background 0.2s'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-input-bg)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
         >
           <X size={18} />
         </button>
       </div>
 
-      <div style={{ maxHeight: isMobile ? '60vh' : '420px', overflowY: 'auto' }}>
+      <div style={{ maxHeight: isMobile ? '70vh' : '480px', overflowY: 'auto' }}>
+        <div style={{ 
+          padding: '0.75rem 1.5rem', 
+          borderBottom: '1px solid var(--admin-border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'rgba(var(--admin-brand-rgb), 0.02)'
+        }}>
+          <span style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '0.5px' }}>
+            {notifications.filter(n => !n.is_read).length} UNREAD
+          </span>
+          <button 
+            onClick={async () => {
+              await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
+              fetchRecent();
+              if (onRead) onRead();
+            }}
+            style={{ background: 'none', border: 'none', color: 'var(--admin-brand)', fontSize: '0.65rem', fontWeight: '800', cursor: 'pointer', padding: 0 }}
+          >
+            MARK ALL AS READ
+          </button>
+        </div>
         {loading ? (
           <div style={{ padding: '1rem 0' }}>
             <LoadingState message="Syncing..." />
@@ -147,24 +168,63 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
                 gap: '1rem',
                 background: n.is_read ? 'transparent' : 'var(--admin-brand-light)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-input-bg)'}
               onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? 'transparent' : 'var(--admin-brand-light)'}
             >
               <div style={{ 
                 width: '36px', height: '36px', borderRadius: '0.6rem', 
-                background: '#FFFFFF', display: 'flex', 
+                background: 'var(--admin-input-bg)', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
                 border: '1px solid var(--admin-border)', flexShrink: 0,
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}>
                 {getIcon(n.title, n.message)}
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)', opacity: n.is_read ? 0.6 : 1 }}>{n.title}</h4>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '500', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</p>
-                <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', opacity: 0.5, fontWeight: '800', marginTop: '0.5rem', display: 'block' }}>
-                  {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem', gap: '0.5rem' }}>
+                  <h4 style={{ 
+                    margin: 0, 
+                    fontSize: '0.85rem', 
+                    fontWeight: '800', 
+                    color: 'var(--admin-text-primary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {n.title}
+                  </h4>
+                  <span style={{ 
+                    fontSize: '0.6rem', 
+                    color: 'var(--admin-text-secondary)', 
+                    fontWeight: '700',
+                    flexShrink: 0,
+                    marginTop: '0.15rem'
+                  }}>
+                    {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '0.75rem', 
+                  color: 'var(--admin-text-secondary)', 
+                  lineHeight: 1.5, 
+                  fontWeight: '500',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>
+                  {n.message}
+                </p>
+                {!n.is_read && (
+                  <div style={{ 
+                    marginTop: '0.5rem', 
+                    width: '6px', 
+                    height: '6px', 
+                    borderRadius: '50%', 
+                    background: 'var(--admin-brand)' 
+                  }}></div>
+                )}
               </div>
             </div>
           ))
@@ -177,7 +237,7 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
           const path = getBasePath();
           navigate(path === '' ? '/notifications' : `${path}/notifications`); 
         }}
-        style={{ padding: '0.85rem', textAlign: 'center', background: '#FFFFFF', color: 'var(--admin-brand)', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', borderTop: '1px solid var(--admin-border)' }}
+        style={{ padding: '0.85rem', textAlign: 'center', background: 'var(--admin-sidebar)', color: 'var(--admin-brand)', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', borderTop: '1px solid var(--admin-border)' }}
       >
         VIEW ALL UPDATES <ArrowRight size={14} />
       </div>

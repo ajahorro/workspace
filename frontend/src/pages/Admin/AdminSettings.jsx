@@ -16,7 +16,6 @@ const AdminSettings = () => {
     business_address: '123 Main Street, Metro Manila, Philippines',
     opening_hour: '08:00:00',
     closing_hour: '18:00:00',
-    slot_duration_minutes: 60,
     gcash_number: '09123456789',
     gcash_name: 'SpeedWay AutoxMoto Detail Studio',
     gcash_qr_url: ''
@@ -34,7 +33,6 @@ const AdminSettings = () => {
         setSettings({
           ...settings,
           ...data,
-          slot_duration: `${data.slot_duration_minutes} minutes`
         });
       }
     } catch (err) {
@@ -50,7 +48,6 @@ const AdminSettings = () => {
       const updateData = {
         opening_hour: settings.opening_hour,
         closing_hour: settings.closing_hour,
-        slot_duration_minutes: parseInt(settings.slot_duration),
         gcash_number: settings.gcash_number,
         gcash_name: settings.gcash_name,
         gcash_qr_url: settings.gcash_qr_url,
@@ -75,10 +72,10 @@ const AdminSettings = () => {
     background: 'var(--admin-card)',
     borderRadius: '1rem',
     border: '1px solid var(--admin-border)',
-    padding: '2rem',
+    padding: '1.5rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.75rem',
+    gap: '1.5rem',
     boxShadow: 'var(--admin-card-shadow)',
     color: 'var(--admin-text-primary)',
     transition: 'all 0.3s ease'
@@ -109,7 +106,7 @@ const AdminSettings = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
       {/* Header Area */}
       <PageHeader 
@@ -244,22 +241,9 @@ const AdminSettings = () => {
                   onChange={e => setSettings({...settings, closing_hour: e.target.value})} 
                 />
               </div>
-              <div>
-                <label style={labelStyle}>Appointment Slot Duration</label>
-                <select 
-                  style={inputStyle} 
-                  value={settings.slot_duration} 
-                  onChange={e => setSettings({...settings, slot_duration: e.target.value})}
-                >
-                  <option value="30 minutes">30 minutes</option>
-                  <option value="60 minutes">60 minutes</option>
-                  <option value="90 minutes">90 minutes</option>
-                  <option value="120 minutes">120 minutes</option>
-                </select>
-              </div>
-              <div style={{ marginTop: '0.5rem', padding: '1rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--admin-card)', padding: '0.5rem', borderRadius: '1rem', border: '1px solid var(--admin-border)', width: 'fit-content' }}>
                  <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>Active Window:</p>
-                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>{settings.opening_hour} - {settings.closing_hour} ({settings.slot_duration} blocks)</p>
+                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>{settings.opening_hour} – {settings.closing_hour}</p>
               </div>
             </div>
           </div>

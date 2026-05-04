@@ -91,7 +91,7 @@ const AdminSearch = () => {
           style={{
             width: '100%',
             padding: '0.7rem 1rem 0.7rem 2.75rem',
-            background: '#F9FAFB',
+            background: 'var(--admin-input-bg)',
             border: '1px solid var(--admin-border)',
             borderRadius: '0.75rem',
             color: 'var(--admin-text-primary)',
@@ -112,7 +112,7 @@ const AdminSearch = () => {
           top: 'calc(100% + 0.5rem)',
           left: 0,
           right: 0,
-          background: '#FFFFFF',
+          background: 'var(--admin-card)',
           border: '1px solid var(--admin-border)',
           borderRadius: '0.75rem',
           padding: '0.4rem',
@@ -134,7 +134,7 @@ const AdminSearch = () => {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#F3F4F6'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-input-bg)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               <span style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{item.name}</span>

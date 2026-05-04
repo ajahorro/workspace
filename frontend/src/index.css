@@ -1,62 +1,79 @@
 :root {
   /* SPEEDWAY CUSTOMER/GLOBAL PALETTE */
-  --bg-primary: #F1F1EF; 
-  --bg-secondary: #FFFFFF;
-  --bg-panel: #EAEAEA;
-  --bg-card: #340505;
-  --bg-input: rgba(0, 0, 0, 0.05);
+  --bg-primary: #E3DBCC; 
+  --bg-secondary: #F3F0E9;
+  --bg-panel: #E3DBCC;
+  --bg-card: #101010;
+  --bg-input: rgba(16, 16, 16, 0.05);
   
-  --text-primary: #1A1A19;
+  --text-primary: #101010;
   --text-secondary: #555554;
-  --card-text: #FFFFFF;
-  --panel-text: #1A1A19;
+  --card-text: #FDFCF8;
+  --panel-text: #101010;
   
   --primary-color: #991B1B;
   --danger-color: #ef4444;
   --success-color: #10b981;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --card-shadow: 0 4px 20px rgba(0,0,0,0.05);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-bg: rgba(0, 0, 0, 0.04);
-  --glass-hover: rgba(0, 0, 0, 0.06);
+  --border-color: rgba(16, 16, 16, 0.1);
+  --card-shadow: 0 4px 20px rgba(16, 16, 16, 0.05);
+  --glass-border: rgba(16, 16, 16, 0.08);
+  --glass-bg: rgba(16, 16, 16, 0.04);
+  --glass-hover: rgba(16, 16, 16, 0.06);
   --blur-amount: blur(10px);
 
-  /* NEW ADMIN SYSTEM - Professional & Breathable */
-  --admin-bg: #F8FAFC;
-  --admin-card: #FFFFFF;
-  --admin-sidebar: #FFFFFF;
-  --admin-border: #E5E7EB;
-  --admin-text-primary: #111827;
-  --admin-text-secondary: #6B7280;
+  /* NEW ADMIN SYSTEM - Nude & Ivory Premium */
+  --admin-bg: #E3DBCC;
+  --admin-card: #F3F0E9;
+  --admin-sidebar: #F3F0E9;
+  --admin-border: rgba(16, 16, 16, 0.1);
+  --admin-text-primary: #101010;
+  --admin-text-secondary: #555554;
   --admin-brand: #991B1B;
   --admin-brand-light: #FEE2E2;
-  --admin-input-bg: #F9FAFB;
-  --admin-input-border: #D1D5DB;
+  --admin-input-bg: #FDFCF8;
+  --admin-input-border: rgba(16, 16, 16, 0.1);
+  --admin-sidebar-active-bg: rgba(153, 27, 27, 0.1);
+  --admin-sidebar-active-text: #991B1B;
+  --admin-card-shadow: 0 4px 12px rgba(16, 16, 16, 0.05);
 }
 
 [data-theme="dark"] {
   /* SPEEDWAY DARK PALETTE */
-  --bg-primary: #161616;
-  --bg-secondary: #232323;
-  --bg-panel: #340505; /* Wild Cherry Glassy */
-  --bg-card: #363636; /* User Requested Container Shade */
-  --bg-input: rgba(251, 255, 254, 0.05);
+  --bg-primary: #101010;
+  --bg-secondary: #1A1A1A;
+  --bg-panel: #1A1A1A;
+  --bg-card: #F3F0E9;
+  --bg-input: rgba(243, 240, 233, 0.05);
   
-  --text-primary: #FBFFFE; /* White text */
-  --text-secondary: rgba(251, 255, 254, 0.7);
-  --card-text: #FBFFFE; 
-  --panel-text: #FBFFFE;
+  --text-primary: #F3F0E9;
+  --text-secondary: #E3DBCC;
+  --card-text: #101010; 
+  --panel-text: #F3F0E9;
 
-  --primary-color: #340505;
+  --primary-color: #991B1B;
   --danger-color: #ef4444;
   --success-color: #10b981;
-  --border-color: rgba(251, 255, 254, 0.1);
-  --card-shadow: 0 10px 40px rgba(0,0,0,0.4);
-  --glass-border: rgba(251, 255, 254, 0.1);
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-hover: rgba(255, 255, 255, 0.1);
-  --glass-red: rgba(52, 5, 5, 0.9);
+  --border-color: rgba(227, 219, 204, 0.1);
+  --card-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  --glass-border: rgba(227, 219, 204, 0.1);
+  --glass-bg: rgba(227, 219, 204, 0.05);
+  --glass-hover: rgba(227, 219, 204, 0.1);
   --blur-amount: blur(20px);
+  
+  /* ADMIN DARK MODE */
+  --admin-bg: #101010;
+  --admin-card: #1A1A1A;
+  --admin-sidebar: #1A1A1A;
+  --admin-border: #333333;
+  --admin-text-primary: #F3F0E9;
+  --admin-text-secondary: #E3DBCC;
+  --admin-brand: #ef4444;
+  --admin-brand-light: rgba(239, 68, 68, 0.1);
+  --admin-input-bg: #101010;
+  --admin-input-border: #333333;
+  --admin-sidebar-active-bg: rgba(227, 219, 204, 0.2);
+  --admin-sidebar-active-text: #FDFCF8;
+  --admin-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 body {
@@ -98,9 +115,9 @@ body {
 /* Responsive Utilities */
 .container {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 1rem;
 }
 
 @media (max-width: 768px) {
@@ -143,23 +160,22 @@ button {
   font-family: inherit;
 }
 
-/* Admin Theme Scoped Styles */
 .admin-theme {
-  /* LIGHT THEME VARIABLES (Default) */
-  --admin-bg: #F8FAFC;
-  --admin-card: #FFFFFF;
-  --admin-sidebar: #FFFFFF;
-  --admin-border: #E5E7EB;
-  --admin-text-primary: #111827;
-  --admin-text-secondary: #6B7280;
+  /* LIGHT THEME VARIABLES - Ethereal Palette */
+  --admin-bg: #E3DBCC;
+  --admin-card: #D8DACA;
+  --admin-sidebar: #D8DACA;
+  --admin-border: #B1B09C;
+  --admin-text-primary: #2F2926;
+  --admin-text-secondary: #5A554C;
   --admin-brand: #991B1B;
-  --admin-brand-light: #FEE2E2;
+  --admin-brand-light: rgba(153, 27, 27, 0.1);
   --admin-brand-hover: #7F1D1D;
-  --admin-input-bg: #F9FAFB;
-  --admin-input-border: #D1D5DB;
-  --admin-sidebar-active-bg: #FEE2E2;
+  --admin-input-bg: #E8E6DF;
+  --admin-input-border: #B1B09C;
+  --admin-sidebar-active-bg: rgba(153, 27, 27, 0.12);
   --admin-sidebar-active-text: #991B1B;
-  --admin-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --admin-card-shadow: 0 2px 8px rgba(47, 41, 38, 0.1);
 }
 
 .admin-theme[data-theme="dark"] {
@@ -223,7 +239,7 @@ button {
 
 .admin-theme .badge {
   background: var(--admin-brand-light) !important;
-  color: var(--admin-sidebar-active-text) !important;
+  color: var(--admin-brand) !important;
   border: 1px solid var(--admin-brand) !important;
   box-shadow: none !important;
   font-weight: 800 !important;

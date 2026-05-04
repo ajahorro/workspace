@@ -5,9 +5,10 @@ import { supabase } from '../../lib/supabase';
 import { Calendar, FileText, Bell, ChevronRight, Clock, User, Phone, Car, CreditCard, CalendarPlus, History, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import PageHeader from '../../components/PageHeader';
 
 const CustomerDashboard = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 1024px)');
   const [activeBooking, setActiveBooking] = useState(null);
@@ -79,11 +80,16 @@ const CustomerDashboard = () => {
         action_url: `/my-bookings/${activeBooking.id}`
       });
 
+      const { data: { session } } = await supabase.auth.getSession();
+      
       supabase.functions.invoke('send-email', {
         body: {
           type: 'booking_cancelled',
           to: user.email,
           data: { date: new Date(activeBooking.start_datetime).toLocaleDateString() }
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
         }
       }).catch(err => console.error('Email trigger failed:', err));
 
@@ -100,15 +106,16 @@ const CustomerDashboard = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease' }}>
-      <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: '900', letterSpacing: '-1.5px', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
-        WELCOME BACK!
-      </h1>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <PageHeader 
+        badge="CUSTOMER PORTAL"
+        title="WELCOME BACK!"
+        subtitle={`Hello, ${profile?.full_name?.split(' ')[0] || 'Member'}. Track your Detailing appointments here.`}
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-
-        {/* Active Booking Widget */}
-        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.5rem' : '2rem', display: 'flex', flexDirection: 'column', boxShadow: 'var(--admin-card-shadow)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2.1fr 1fr', gap: '1.5rem', flex: 1 }}>
+        {/* Left Column: Active Booking */}
+        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.5rem' : '2rem', boxShadow: 'var(--admin-card-shadow)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>
           ) : activeBooking ? (() => {
@@ -136,14 +143,17 @@ const CustomerDashboard = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '1.5rem' : '2.5rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', opacity: 0.6, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800' }}><Calendar size={14} /> Appointment</h3>
-                  <p style={{ margin: '0 0 0.25rem 0', fontWeight: '800', fontSize: '1rem', color: 'var(--admin-text-primary)' }}>{new Date(activeBooking.start_datetime).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  <p style={{ margin: '0 0 1rem 0', color: 'var(--admin-brand)', fontSize: '0.9rem', fontWeight: '800' }}>{new Date(activeBooking.start_datetime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</p>
-
-                  <div style={{ background: 'var(--admin-bg)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
-                    <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.85rem' }}>
+                  <h3 style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', opacity: 0.6, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800' }}><Clock size={14} /> Schedule</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{new Date(activeBooking.start_datetime).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--admin-brand)' }}>{new Date(activeBooking.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <h3 style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', opacity: 0.6, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800' }}><FileText size={14} /> Services</h3>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.95rem' }}>
                       {activeBooking.booking_services_v2?.map((bs, i) => (
                         <li key={i} style={{ marginBottom: '0.25rem' }}>{bs.services_v2?.name}</li>
                       ))}

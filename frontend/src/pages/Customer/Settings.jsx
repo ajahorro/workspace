@@ -67,7 +67,7 @@ const Settings = () => {
   const isMobile = useMediaQuery('(max-width: 1024px)');
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="ACCOUNT SETTINGS"
         title="SETTINGS"
@@ -77,8 +77,8 @@ const Settings = () => {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
         
         {/* Profile Info Column */}
-        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.5rem' : '2.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-          <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--admin-text-primary)' }}>Personal Information</h2>
+        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
+          <h2 style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--admin-text-primary)' }}>Personal Information</h2>
           
           <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
@@ -139,7 +139,7 @@ const Settings = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
           {/* Appearance */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
             <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>Appearance</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {['system', 'light', 'dark'].map(t => (

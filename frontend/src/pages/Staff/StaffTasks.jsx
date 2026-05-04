@@ -103,6 +103,7 @@ const StaffTasks = () => {
       }
 
       if (title) {
+        // Notify Customer
         await supabase.from('notifications').insert({
           user_id: task.customer_id,
           title,
@@ -110,6 +111,23 @@ const StaffTasks = () => {
           type: 'info',
           action_url: `/my-bookings/${task.id}`
         });
+
+        // Notify Admins
+        try {
+          const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+          if (admins && admins.length > 0) {
+            const adminNotifs = admins.map(admin => ({
+              user_id: admin.id,
+              title: `Staff Action: ${title}`,
+              message: `Staff ${user.email} updated ${task.vehicle_brand} ${task.vehicle_model}: ${message}`,
+              type: 'info',
+              action_url: `/admin/bookings/${task.id}`
+            }));
+            await supabase.from('notifications').insert(adminNotifs);
+          }
+        } catch (adminErr) {
+          console.error('Failed to notify admins of staff action:', adminErr);
+        }
       }
 
       await fetchTasks();
@@ -168,7 +186,7 @@ const StaffTasks = () => {
   );
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="STAFF PORTAL"
         title="My Assigned Tasks"

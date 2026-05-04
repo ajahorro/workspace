@@ -141,8 +141,7 @@ const AdminAnalytics = () => {
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
-    animation: 'fadeIn 0.5s ease'
+    gap: '1.5rem'
   };
 
   const gridStyle = {
@@ -155,7 +154,7 @@ const AdminAnalytics = () => {
     background: 'var(--admin-card)',
     borderRadius: '1rem',
     border: '1px solid var(--admin-border)',
-    padding: '1.75rem',
+    padding: '1.5rem',
     position: 'relative',
     overflow: 'hidden',
     display: 'flex',
@@ -183,35 +182,35 @@ const AdminAnalytics = () => {
         title="ANALYTICS"
         subtitle="Real-time data visualization and business insights."
         onRefresh={fetchAnalytics}
-      />
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem', position: 'relative' }}>
-        <button 
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          style={{ 
-            display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem',
-            background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem',
-            color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer'
-          }}
-        >
-          <Calendar size={18} color="var(--admin-brand)" />
-          {timeRange}
-          <ChevronDown size={16} />
-        </button>
-        {isDropdownOpen && (
-          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', overflow: 'hidden', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
-            {['Today', 'This Week', 'This Month', 'All Time'].map(range => (
-              <div 
-                key={range}
-                onClick={() => { setTimeRange(range); setIsDropdownOpen(false); }}
-                style={{ padding: '0.75rem 1.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', color: range === timeRange ? 'var(--admin-brand)' : 'var(--admin-text-primary)', background: range === timeRange ? 'var(--admin-bg)' : 'transparent' }}
-              >
-                {range}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', position: 'relative' }}>
+          <button 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem',
+              background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem',
+              color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer'
+            }}
+          >
+            <Calendar size={18} color="var(--admin-brand)" />
+            {timeRange}
+            <ChevronDown size={16} />
+          </button>
+          {isDropdownOpen && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', overflow: 'hidden', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+              {['Today', 'This Week', 'This Month', 'All Time'].map(range => (
+                <div 
+                  key={range}
+                  onClick={() => { setTimeRange(range); setIsDropdownOpen(false); }}
+                  style={{ padding: '0.75rem 1.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', color: range === timeRange ? 'var(--admin-brand)' : 'var(--admin-text-primary)', background: range === timeRange ? 'var(--admin-bg)' : 'transparent' }}
+                >
+                  {range}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </PageHeader>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '1rem' }}>
         {mainStats.map((stat, idx) => (
@@ -262,7 +261,7 @@ const AdminAnalytics = () => {
 
         <div style={cardStyle}>
           <h3 style={sectionTitleStyle}>Booking Status</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {stats.statusDist.map((status, idx) => (
               <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: status.color }} />

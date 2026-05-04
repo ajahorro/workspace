@@ -8,6 +8,7 @@ import AdminSearch from '../components/AdminSearch';
 import NotificationPopover from '../components/NotificationPopover';
 import { confirmLogout } from '../utils/logoutConfirm.jsx';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useTheme } from '../context/ThemeContext';
 
 const BlurGlow = ({ top, left, right, bottom, size, color }) => (
   <div style={{
@@ -25,6 +26,7 @@ const BlurGlow = ({ top, left, right, bottom, size, color }) => (
 );
 
 const StaffLayout = () => {
+  const { theme } = useTheme();
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,6 +75,9 @@ const StaffLayout = () => {
   const navLinks = [
     { name: 'Tasks', path: '/staff', icon: ClipboardList, exact: true },
     { name: 'Notifications', path: '/staff/notifications', icon: Bell },
+  ];
+
+  const bottomLinks = [
     { name: 'Settings', path: '/staff/settings', icon: Settings },
   ];
 
@@ -106,7 +111,7 @@ const StaffLayout = () => {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
+    <div className="admin-theme" data-theme={theme} style={{ display: 'flex', minHeight: '100vh', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', position: 'relative', overflow: 'hidden' }}>
       <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
       <BlurGlow top="10%" right="5%" size="450px" color="rgba(169, 27, 24, 0.2)" />
       <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.15)" />
@@ -133,20 +138,43 @@ const StaffLayout = () => {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1.25rem',
                   borderRadius: '0.75rem', textDecoration: 'none',
-                  color: 'var(--panel-text)',
-                  background: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                  opacity: isActive ? 1 : 0.6,
-                  fontWeight: isActive ? '900' : '500', fontSize: '0.9rem',
+                  color: isActive ? 'var(--admin-sidebar-active-text)' : 'var(--admin-text-secondary)',
+                  background: isActive ? 'var(--admin-sidebar-active-bg)' : 'transparent',
+                  fontWeight: isActive ? '800' : '600', fontSize: '0.9rem',
                   transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  borderLeft: isActive ? '3px solid var(--panel-text)' : '3px solid transparent'
+                  borderLeft: isActive ? '3px solid var(--primary-color)' : '3px solid transparent'
                 }}
               >
-                <Icon size={18} color="currentColor" />
+                <Icon size={18} style={{ opacity: 1 }} />
                 {link.name}
               </NavLink>
             );
           })}
         </nav>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+          {bottomLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = location.pathname === link.path;
+            return (
+              <NavLink
+                key={link.name}
+                to={link.path}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem',
+                  borderRadius: '0.75rem', textDecoration: 'none',
+                  color: isActive ? 'var(--admin-sidebar-active-text)' : 'var(--admin-text-secondary)',
+                  background: isActive ? 'var(--admin-sidebar-active-bg)' : 'transparent',
+                  fontWeight: isActive ? '800' : '600', fontSize: '0.9rem',
+                  transition: 'all 0.3s',
+                }}
+              >
+                <Icon size={18} />
+                {link.name}
+              </NavLink>
+            );
+          })}
+        </div>
 
         <button
           onClick={handleLogout}
@@ -190,16 +218,30 @@ const StaffLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
             <div
               onClick={() => setShowNotifPopover(!showNotifPopover)}
-              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6, color: 'var(--panel-text)' }}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.7, color: 'var(--panel-text)', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => { if (!showNotifPopover) e.currentTarget.style.opacity = '0.7'; }}
             >
               <Bell size={20} />
               {unreadCount > 0 && (
                 <div style={{
-                  position: 'absolute', top: '-4px', right: '-4px',
-                  background: '#ef4444', color: '#fff', fontSize: '0.5rem',
-                  fontWeight: 'bold', width: '14px', height: '14px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%', border: '1px solid var(--bg-panel)'
+                  position: 'absolute', 
+                  top: '-5px', 
+                  right: '-8px',
+                  background: 'var(--primary-color)', 
+                  color: '#fff', 
+                  fontSize: '0.65rem',
+                  fontWeight: '900', 
+                  minWidth: '18px', 
+                  height: '18px',
+                  padding: '0 4px',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  borderRadius: '10px', 
+                  border: '2px solid var(--bg-panel)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  fontFamily: 'sans-serif'
                 }}>{unreadCount}</div>
               )}
             </div>
@@ -217,7 +259,7 @@ const StaffLayout = () => {
           </div>
         )}
 
-        <main style={{ flex: 1, padding: '1.5rem 2.5rem', overflowY: 'auto' }}>
+        <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
       </div>

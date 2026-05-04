@@ -43,6 +43,26 @@ serve(async (req) => {
         html = `<h1>Staff Assigned</h1><p>A specialist has been assigned to your booking on ${data.date}.</p>`
         break
 
+      case 'service_started':
+        subject = 'Your Service Has Started! 🚀'
+        html = `
+          <h1>Service is In Progress</h1>
+          <p>Great news! Our team has officially started working on your vehicle.</p>
+          <p><strong>Date:</strong> ${data.date}</p>
+          <p>We will notify you as soon as the service is completed.</p>
+        `
+        break
+
+      case 'service_completed':
+        subject = 'Your Service is Complete! ✨'
+        html = `
+          <h1>Service Completed</h1>
+          <p>Your vehicle is ready to go! Our team has finished the service.</p>
+          <p><strong>Date:</strong> ${data.date}</p>
+          <p>Thank you for choosing RENEW Auto Detailing.</p>
+        `
+        break
+
       case 'booking_cancelled':
         subject = 'Booking Cancelled ⚠️'
         html = `<h1>Booking Cancelled</h1><p>Your booking for ${data.date} has been cancelled.</p>`
