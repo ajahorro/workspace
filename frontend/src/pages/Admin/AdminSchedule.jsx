@@ -69,14 +69,13 @@ const AdminSchedule = () => {
   };
 
   const panelStyle = {
-    background: 'var(--glass-bg)',
-    backdropFilter: 'blur(var(--blur-amount))',
-    WebkitBackdropFilter: 'blur(var(--blur-amount))',
+    background: 'var(--bg-card)',
     borderRadius: '1.25rem',
     border: '1px solid var(--glass-border)',
     padding: isMobile ? '1rem' : '1.75rem',
     boxShadow: 'var(--card-shadow)',
-    color: 'var(--card-text)'
+    color: 'var(--card-text)',
+    transition: 'all 0.3s ease'
   };
 
   return (
@@ -151,7 +150,8 @@ const AdminSchedule = () => {
                   padding: '1.5rem 0', 
                   fontSize: '0.7rem', 
                   fontWeight: '900', 
-                  color: 'rgba(255,255,255,0.6)',
+                  color: 'var(--card-text)',
+                  opacity: 0.6,
                   display: 'flex',
                   alignItems: 'flex-start',
                   letterSpacing: '0.5px'
@@ -161,7 +161,7 @@ const AdminSchedule = () => {
 
                 <div style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
                   {!isOccupied && (
-                    <span style={{ color: 'rgba(var(--text-primary-rgb), 0.1)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
+                    <span style={{ color: 'var(--card-text)', opacity: 0.1, fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
                   )}
 
                   {booking && (
@@ -184,21 +184,21 @@ const AdminSchedule = () => {
                         flexDirection: 'column',
                         gap: '0.25rem',
                         overflow: 'hidden',
-                        color: '#fff'
+                        color: 'var(--card-text)'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ color: '#fff', opacity: 0.9, fontSize: '0.6rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.3rem', textTransform: 'uppercase' }}>
+                        <div style={{ color: 'var(--card-text)', opacity: 0.9, fontSize: '0.6rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.3rem', textTransform: 'uppercase' }}>
                           <Clock size={12} /> {getDuration(booking.scheduled_start, booking.scheduled_end)}H
                         </div>
                       </div>
                       
-                      <h3 style={{ margin: 0, fontSize: isMobile ? '0.9rem' : '1.2rem', fontWeight: '900', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{booking.customer?.full_name}</h3>
+                      <h3 style={{ margin: 0, fontSize: isMobile ? '0.9rem' : '1.2rem', fontWeight: '900', color: 'var(--card-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{booking.customer?.full_name}</h3>
                       
                       {!isMobile && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
                           {booking.booking_services?.slice(0, 2).map((item, i) => (
-                            <span key={i} style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', fontSize: '0.65rem', color: '#fff', fontWeight: '800' }}>
+                            <span key={i} style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '0.25rem 0.5rem', borderRadius: '0.4rem', fontSize: '0.65rem', color: 'var(--card-text)', fontWeight: '800' }}>
                               {item.service_name}
                             </span>
                           ))}
@@ -206,7 +206,7 @@ const AdminSchedule = () => {
                       )}
 
                       <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#fff', opacity: 0.9, fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.9, fontWeight: '900' }}>₱{booking.payments?.[0]?.total_amount?.toLocaleString()}</div>
                       </div>
                     </div>
                   )}

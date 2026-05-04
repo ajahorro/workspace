@@ -91,7 +91,7 @@ const AdminSearch = () => {
           style={{
             width: '100%',
             padding: '0.75rem 1rem 0.75rem 2.75rem',
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'var(--bg-input)',
             backdropFilter: 'blur(var(--blur-amount))',
             WebkitBackdropFilter: 'blur(var(--blur-amount))',
             border: '1px solid var(--glass-border)',
@@ -110,7 +110,7 @@ const AdminSearch = () => {
           top: 'calc(100% + 0.5rem)',
           left: 0,
           right: 0,
-          background: 'var(--glass-header)',
+          background: 'var(--bg-panel)',
           backdropFilter: 'blur(var(--blur-amount))',
           WebkitBackdropFilter: 'blur(var(--blur-amount))',
           border: '1px solid var(--glass-border)',
@@ -119,7 +119,7 @@ const AdminSearch = () => {
           zIndex: 1000,
           boxShadow: 'var(--card-shadow)',
           animation: 'fadeIn 0.2s ease',
-          color: '#fff'
+          color: 'var(--panel-text)'
         }}>
           {suggestions.map((item) => (
             <div 
@@ -134,11 +134,11 @@ const AdminSearch = () => {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <span style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.9 }}>{item.name}</span>
-              <ChevronRight size={14} opacity={0.5} />
+              <span style={{ fontSize: '0.9rem', fontWeight: '900', opacity: 0.9 }}>{item.name}</span>
+              <ChevronRight size={14} style={{ opacity: 0.5 }} />
             </div>
           ))}
         </div>

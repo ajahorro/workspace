@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
 import BookingChat from '../../components/BookingChat';
 import { Eye, ExternalLink, MessageCircle } from 'lucide-react';
+import { sendStaffAssignmentNotification, sendPaymentReceiptNotification, sendStatusUpdateNotification } from '../../services/EmailService';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const AdminBookingDetails = () => {
   const { id } = useParams();
@@ -20,6 +22,7 @@ const AdminBookingDetails = () => {
   const [loading, setLoading] = useState(true);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1024px)');
 
   useEffect(() => {
     fetchBookingDetails();
@@ -81,7 +84,14 @@ const AdminBookingDetails = () => {
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('bookings').update({ staff_id: staffId }).eq('id', id);
+      // Update staff_id and auto-confirm if it was pending assignment
+      const { error } = await supabase
+        .from('bookings')
+        .update({ 
+          staff_id: staffId,
+          booking_status: booking.booking_status === 'PENDING_ASSIGNMENT' ? 'CONFIRMED' : booking.booking_status
+        })
+        .eq('id', id);
       if (error) throw error;
 
       // Add audit log
@@ -97,6 +107,18 @@ const AdminBookingDetails = () => {
       });
 
       toast.success('Staff assigned successfully');
+      
+      // Notify Staff via Email
+      if (staff && staff.email) {
+        sendStaffAssignmentNotification(staff.email, {
+          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`,
+          plate: booking.plate_number,
+          services: services.map(s => s.service_name).join(', '),
+          date: new Date(booking.scheduled_start).toLocaleDateString(),
+          time: new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }).catch(err => console.error('Staff email failed:', err));
+      }
+
       fetchBookingDetails();
       fetchAuditLogs();
     } catch (err) {
@@ -142,6 +164,14 @@ const AdminBookingDetails = () => {
       });
 
       toast.success('Payment recorded');
+      
+      // Notify Customer via Email
+      if (booking.customer?.email) {
+        sendPaymentReceiptNotification(booking.customer.email, amount, {
+          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`
+        }).catch(err => console.error('Receipt email failed:', err));
+      }
+
       setPaymentAmount('');
       fetchBookingDetails();
       fetchAuditLogs();
@@ -176,6 +206,14 @@ const AdminBookingDetails = () => {
       });
 
       toast.success('Payment verified successfully');
+      
+      // Notify Customer via Email
+      if (booking.customer?.email) {
+        sendPaymentReceiptNotification(booking.customer.email, payment.total_amount, {
+          vehicle: `${booking.vehicle_brand} ${booking.vehicle_model}`
+        }).catch(err => console.error('Receipt email failed:', err));
+      }
+
       fetchBookingDetails();
       fetchAuditLogs();
     } catch (err) {
@@ -236,14 +274,14 @@ const AdminBookingDetails = () => {
             <ArrowLeft size={16} /> Back to Bookings
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+            <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: '900', margin: 0, color: 'var(--text-primary)' }}>
               Booking for {booking.customer?.full_name || 'Guest'}
             </h1>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-secondary)', color: '#fff', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '700', border: 'var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-card)', color: 'var(--card-text)', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '900', border: '1px solid var(--glass-border)' }}>
                 <Clock size={12} /> {(booking.service_status || 'NOT_STARTED').replace('_', ' ')}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-secondary)', color: '#fff', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '700', border: 'var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-card)', color: 'var(--card-text)', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.7rem', fontWeight: '900', border: '1px solid var(--glass-border)' }}>
                 <CreditCard size={12} /> {(payment.status || 'UNPAID').replace('_', ' ')}
               </div>
             </div>
@@ -274,62 +312,69 @@ const AdminBookingDetails = () => {
         {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {/* Service Details */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: '#fff' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--card-text)' }}>
               <ClipboardList size={22} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Service Details</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Service Details</h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {services.map(s => (
-                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.15)' }}>
+                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem', border: '1px solid var(--glass-border)' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: '#fff', marginBottom: '0.25rem' }}>{s.service_name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', maxWidth: '400px' }}>{s.service?.description}</div>
+                    <div style={{ fontWeight: '900', color: 'var(--card-text)', marginBottom: '0.25rem' }}>{s.service_name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.7, maxWidth: '400px' }}>{s.service?.description}</div>
                   </div>
-                  <div style={{ fontWeight: '800', color: '#fff' }}>₱{Number(s.service_price).toLocaleString()}</div>
+                  <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>₱{Number(s.service_price).toLocaleString()}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed rgba(255,255,255,0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.7)' }}>Total Amount</span>
-              <span style={{ fontSize: '1.75rem', fontWeight: '800', color: '#fff' }}>₱{payment.total_amount.toLocaleString()}</span>
+            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: '700', color: 'var(--card-text)', opacity: 0.6 }}>Total Amount</span>
+              <span style={{ fontSize: '1.75rem', fontWeight: '900', color: 'var(--card-text)' }}>₱{payment.total_amount.toLocaleString()}</span>
             </div>
           </div>
 
           {/* Staff Assignment */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: '#fff' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--card-text)' }}>
               <User size={22} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Staff Assignment</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Staff Assignment</h2>
             </div>
             {booking.staff_id ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '1rem' }}>
-                <CheckCircle size={24} color="#fff" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', borderRadius: '1rem' }}>
+                <CheckCircle size={24} color="var(--card-text)" />
                 <div>
-                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase' }}>Assigned Staff</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#fff' }}>{booking.assigned_staff?.full_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.6, fontWeight: '900', textTransform: 'uppercase' }}>Assigned Staff</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--card-text)' }}>{booking.assigned_staff?.full_name}</div>
                 </div>
                 <button
                   onClick={() => handleAssignStaff(null)}
-                  style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}
+                  style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--card-text)', opacity: 0.3, cursor: 'pointer' }}
                 >
                   <Trash2 size={18} />
                 </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--card-text)', opacity: 0.5, fontSize: '0.9rem' }}>
                   <Clock size={20} /> No staff assigned yet
                 </div>
                 <select
                   onChange={(e) => handleAssignStaff(e.target.value)}
                   disabled={isProcessing}
-                  style={{ width: '100%', padding: '1rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '0.9rem', cursor: 'pointer' }}
+                  style={{ 
+                    width: '100%', padding: '1rem', borderRadius: '0.75rem', 
+                    background: 'var(--bg-input)', border: '1px solid var(--glass-border)', 
+                    color: 'var(--card-text)', fontSize: '0.9rem', cursor: 'pointer',
+                    outline: 'none'
+                  }}
                   defaultValue=""
                 >
-                  <option value="" disabled>Select staff to assign...</option>
+                  <option value="" disabled style={{ background: 'var(--bg-card)', color: 'var(--card-text)' }}>Select staff to assign...</option>
                   {staffList.map(s => (
-                    <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                    <option key={s.id} value={s.id} style={{ background: 'var(--bg-card)', color: 'var(--card-text)' }}>
+                      {s.full_name || s.email}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -337,32 +382,32 @@ const AdminBookingDetails = () => {
           </div>
 
           {/* Payment Verification */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: '#fff' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--card-text)' }}>
               <CreditCard size={22} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Payment Verification</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Payment Verification</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem', fontWeight: '600' }}>Total</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>₱{payment.total_amount.toLocaleString()}</div>
+              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.5rem', fontWeight: '900' }}>Total</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>₱{payment.total_amount.toLocaleString()}</div>
               </div>
-              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem', fontWeight: '600' }}>Amount Paid</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>₱{payment.amount_paid.toLocaleString()}</div>
+              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.5rem', fontWeight: '900' }}>Amount Paid</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>₱{payment.amount_paid.toLocaleString()}</div>
               </div>
-              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem', fontWeight: '600' }}>Balance</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>₱{balance.toLocaleString()}</div>
+              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.5rem', fontWeight: '900' }}>Balance</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>₱{balance.toLocaleString()}</div>
               </div>
             </div>
 
             {/* GCash Receipt View */}
             {payment.method === 'GCASH' && payment.receipt_url && (
-              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1.25rem', border: '1px solid var(--glass-border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#fff', textTransform: 'uppercase' }}>GCash Receipt Upload</div>
-                  <a href={payment.receipt_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--card-text)', textTransform: 'uppercase' }}>GCash Receipt Upload</div>
+                  <a href={payment.receipt_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: 'var(--card-text)', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}>
                     <ExternalLink size={12} /> View Full
                   </a>
                 </div>
@@ -373,7 +418,7 @@ const AdminBookingDetails = () => {
                   <button
                     onClick={handleVerifyPayment}
                     disabled={isProcessing}
-                    style={{ width: '100%', marginTop: '1rem', padding: '1rem', background: '#fff', border: 'none', color: 'var(--red-shade)', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                    style={{ width: '100%', marginTop: '1rem', padding: '1rem', background: 'var(--card-text)', border: 'none', color: 'var(--bg-card)', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}
                   >
                     {isProcessing ? 'Verifying...' : 'Verify Receipt & Confirm Payment'}
                   </button>
@@ -381,24 +426,24 @@ const AdminBookingDetails = () => {
               </div>
             )}
 
-            {balance > 0 && payment.method === 'CASH' && (
-              <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.15)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Record Cash Payment</div>
+            {balance > 0 && (
+              <div style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '1.25rem', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '900', color: 'var(--card-text)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Record Cash Payment</div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
-                    <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.7)', fontWeight: '700' }}>₱</span>
+                    <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--card-text)', opacity: 0.6, fontWeight: '900' }}>₱</span>
                     <input
                       type="number"
                       placeholder="Enter amount"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
-                      style={{ width: '100%', padding: '1rem 1rem 1rem 2.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '1rem' }}
+                      style={{ width: '100%', padding: '1rem 1rem 1rem 2.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'var(--card-text)', fontSize: '1rem' }}
                     />
                   </div>
                   <button
                     onClick={handleRecordPayment}
                     disabled={isProcessing}
-                    style={{ background: '#fff', border: 'none', color: 'var(--red-shade)', padding: '0 2rem', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                    style={{ background: 'var(--card-text)', border: 'none', color: 'var(--bg-card)', padding: '0 2rem', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer' }}
                   >
                     Record
                   </button>
@@ -408,10 +453,10 @@ const AdminBookingDetails = () => {
           </div>
 
           {/* Refund & Communication Chat */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: '#fff' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--card-text)' }}>
               <MessageCircle size={22} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Customer Chat</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Customer Communication</h2>
             </div>
             <BookingChat bookingId={id} />
           </div>
@@ -420,45 +465,45 @@ const AdminBookingDetails = () => {
         {/* Right Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {/* Customer & Vehicle */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'rgba(255,255,255,0.7)' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--card-text)', opacity: 0.7 }}>
               <Car size={22} />
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Customer & Vehicle</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Customer & Vehicle</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Customer</div>
-                <div style={{ fontWeight: '700', color: '#fff' }}>{booking.customer?.full_name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Customer</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>{booking.customer?.full_name}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Contact</div>
-                <div style={{ fontWeight: '700', color: '#fff' }}>{booking.customer?.phone_number || 'N/A'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Contact</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>{booking.customer?.phone_number || 'N/A'}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Vehicle Type</div>
-                <div style={{ fontWeight: '700', color: '#fff' }}>{booking.vehicle_type}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Vehicle Type</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>{booking.vehicle_type}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Plate Number</div>
-                <div style={{ fontWeight: '700', color: '#fff' }}>{booking.plate_number}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Plate Number</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>{booking.plate_number}</div>
               </div>
               <div style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Appointment</div>
-                <div style={{ fontWeight: '700', color: '#fff' }}>{new Date(booking.scheduled_start).toLocaleString()}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Appointment</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)' }}>{new Date(booking.scheduled_start).toLocaleString()}</div>
               </div>
               <div style={{ gridColumn: 'span 2' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.25rem' }}>Payment Method</div>
-                <div style={{ fontWeight: '700', color: '#fff', textTransform: 'uppercase' }}>{booking.payments?.[0]?.method || 'CASH'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.25rem' }}>Payment Method</div>
+                <div style={{ fontWeight: '900', color: 'var(--card-text)', textTransform: 'uppercase' }}>{booking.payments?.[0]?.method || 'CASH'}</div>
               </div>
             </div>
           </div>
 
           {/* Audit History */}
-          <div style={{ background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
+          <div style={{ background: 'var(--bg-card)', backdropFilter: 'blur(var(--blur-amount))', WebkitBackdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', padding: '2rem', boxShadow: 'var(--card-shadow)', color: 'var(--card-text)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--card-text)', opacity: 0.7 }}>
                 <History size={22} />
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Secure Activity Trail</h2>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Secure Activity Trail</h2>
               </div>
             </div>
             <BookingAuditTrail bookingId={id} isAdmin={true} />

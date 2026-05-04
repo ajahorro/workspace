@@ -143,22 +143,11 @@ const BookingChat = ({ bookingId }) => {
   return (
     <div style={{ 
       display: 'flex', flexDirection: 'column', height: '600px', 
-      background: 'var(--bg-secondary)', borderRadius: '1.5rem', 
-      border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden',
-      boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+      background: 'var(--bg-input)', borderRadius: '1.5rem', 
+      border: '1px solid var(--glass-border)', overflow: 'hidden',
+      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.05)'
     }}>
-      {/* Header */}
-      <div style={{ 
-        padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.03)', 
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'rgba(255,255,255,0.01)' 
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b98144' }}></div>
-          <span style={{ fontSize: '0.9rem', fontWeight: '900', letterSpacing: '1px', color: 'rgba(255,255,255,0.7)' }}>SUPPORT & EVIDENCE CHAT</span>
-        </div>
-        <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>#{bookingId.slice(0,8)}</div>
-      </div>
+      {/* Redundant header removed */}
 
       {/* Messages Area */}
       <div ref={scrollRef} style={{ 
@@ -167,9 +156,9 @@ const BookingChat = ({ bookingId }) => {
         scrollBehavior: 'smooth'
       }}>
         {messages.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', opacity: 0.2 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--card-text)', opacity: 0.3 }}>
             <MessageCircle size={48} />
-            <p style={{ fontSize: '0.9rem', fontWeight: '700' }}>No messages yet. Send a photo or message to start.</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: '800' }}>No messages yet. Send a photo or message to start.</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -180,13 +169,14 @@ const BookingChat = ({ bookingId }) => {
               return (
                 <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0', width: '100%' }}>
                   <div style={{ 
-                    background: 'rgba(255,255,255,0.03)', 
+                    background: 'var(--bg-secondary)', 
                     padding: '0.5rem 1.25rem', 
                     borderRadius: '5rem', 
                     fontSize: '0.75rem', 
-                    color: 'rgba(255,255,255,0.4)',
-                    fontWeight: '800',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    color: 'var(--card-text)',
+                    opacity: 0.6,
+                    fontWeight: '900',
+                    border: '1px solid var(--glass-border)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px',
                     textAlign: 'center'
@@ -212,13 +202,14 @@ const BookingChat = ({ bookingId }) => {
                 <div style={{ 
                   padding: msg.media_url && msg.media_type !== 'file' ? '0.25rem' : '0.85rem 1.25rem', 
                   borderRadius: isMe ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem',
-                  background: isMe ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)',
-                  color: isMe ? '#000' : '#fff',
+                  background: isMe ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                  color: isMe ? 'var(--bg-card)' : 'var(--card-text)',
                   fontSize: '0.95rem',
-                  fontWeight: isMe ? '700' : '500',
+                  fontWeight: '600',
                   lineHeight: '1.5',
-                  boxShadow: isMe ? '0 10px 20px rgba(169, 27, 24, 0.1)' : 'none',
-                  overflow: 'hidden'
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  overflow: 'hidden',
+                  border: isMe ? 'none' : '1px solid var(--glass-border)'
                 }}>
                   {msg.media_url ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -254,10 +245,10 @@ const BookingChat = ({ bookingId }) => {
                 
                 {/* Meta */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
-                  <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', fontWeight: '900' }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--card-text)', opacity: 0.4, fontWeight: '900' }}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  {!isMe && <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: '900', textTransform: 'uppercase' }}>Support</span>}
+                  {!isMe && <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: '950', textTransform: 'uppercase' }}>Customer</span>}
                 </div>
               </div>
             );
@@ -266,14 +257,14 @@ const BookingChat = ({ bookingId }) => {
       </div>
 
       {/* Input Area */}
-      <div style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(255,255,255,0.01)' }}>
+      <div style={{ padding: '1.25rem', borderTop: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.03)' }}>
         <form onSubmit={handleSendMessage} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button 
             type="button"
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
             style={{ 
-              background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.4)', 
+              background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', color: 'var(--card-text)', 
               padding: '0.75rem', borderRadius: '0.75rem', cursor: 'pointer', transition: 'all 0.2s'
             }}
           >
@@ -288,11 +279,11 @@ const BookingChat = ({ bookingId }) => {
               onChange={(e) => setNewMessage(e.target.value)}
               style={{ 
                 width: '100%', padding: '0.85rem 1.25rem', borderRadius: '1rem', 
-                background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', 
-                color: '#fff', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s' 
+                background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', 
+                color: 'var(--card-text)', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s' 
               }}
-              onFocus={(e) => e.target.style.borderColor = 'rgba(169, 27, 24, 0.3)'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.05)'}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary-color)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--glass-border)'}
             />
           </div>
 
@@ -301,7 +292,7 @@ const BookingChat = ({ bookingId }) => {
             disabled={!newMessage.trim()}
             style={{ 
               padding: '0.85rem 1.5rem', borderRadius: '1rem', background: 'var(--primary-color)', 
-              border: 'none', color: '#000', cursor: 'pointer', fontWeight: '900',
+              border: 'none', color: 'var(--bg-card)', cursor: 'pointer', fontWeight: '950',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               opacity: !newMessage.trim() ? 0.3 : 1, transition: 'all 0.3s'
             }}

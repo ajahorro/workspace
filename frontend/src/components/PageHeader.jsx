@@ -31,12 +31,12 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '0.4rem', 
-              background: 'var(--red-shade)', 
-              color: '#fff', 
+              background: 'var(--primary-color)', 
+              color: 'var(--card-text)', 
               padding: '0.35rem 1rem', 
               borderRadius: '5rem', 
               marginBottom: '0.75rem', 
-              border: '1px solid rgba(255,255,255,0.1)', 
+              border: '1px solid var(--glass-border)', 
               fontSize: '0.65rem', 
               fontWeight: '900', 
               letterSpacing: '1px',
@@ -64,9 +64,9 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
               onClick={handleRefresh}
               title="Refresh Page"
               style={{ 
-                background: 'var(--bg-secondary)', 
-                border: 'var(--border-color)', 
-                color: 'var(--text-secondary)', 
+                background: 'var(--bg-panel)', 
+                border: '1px solid var(--glass-border)', 
+                color: 'var(--panel-text)', 
                 width: '32px', 
                 height: '32px', 
                 borderRadius: '0.5rem', 
@@ -78,14 +78,10 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
                 padding: 0
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#fff';
-                e.currentTarget.style.background = 'var(--red-shade)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                e.currentTarget.style.opacity = '0.8';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--text-secondary)';
-                e.currentTarget.style.background = 'var(--bg-secondary)';
-                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.opacity = '1';
               }}
             >
               <RefreshCw 

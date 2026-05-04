@@ -109,7 +109,7 @@ const AdminUserManagement = () => {
 
       {/* Search Bar */}
       <div style={{ position: 'relative', marginBottom: '2rem' }}>
-        <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+        <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
         <input 
           type="text" 
           placeholder="Search by name, email, or phone number..."
@@ -119,7 +119,7 @@ const AdminUserManagement = () => {
             width: '100%', 
             padding: '1.25rem 1.25rem 1.25rem 3.5rem', 
             background: 'var(--bg-input)', 
-            border: 'var(--border-color)', 
+            border: '1px solid var(--glass-border)', 
             borderRadius: '1rem', 
             color: 'var(--text-primary)', 
             fontSize: '1rem',
@@ -132,16 +132,14 @@ const AdminUserManagement = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {loading ? (
           [1,2,3,4,5].map(i => (
-            <div key={i} style={{ height: '100px', background: 'rgba(255,255,255,0.02)', borderRadius: '1.25rem' }} className="animate-pulse"></div>
+            <div key={i} style={{ height: '100px', background: 'rgba(255,255,255,0.05)', borderRadius: '1.25rem' }} className="animate-pulse"></div>
           ))
         ) : filteredUsers.length > 0 ? (
           filteredUsers.map((user) => (
             <div 
               key={user.id}
               style={{ 
-                background: 'var(--glass-bg)', 
-                backdropFilter: 'blur(var(--blur-amount))',
-                WebkitBackdropFilter: 'blur(var(--blur-amount))',
+                background: 'var(--bg-card)', 
                 border: '1px solid var(--glass-border)', 
                 borderRadius: '1.25rem', 
                 padding: '1.5rem',
@@ -150,15 +148,14 @@ const AdminUserManagement = () => {
                 gap: '2rem',
                 flexWrap: isMobile ? 'wrap' : 'nowrap',
                 transition: 'all 0.2s ease',
-                color: 'var(--card-text)'
+                color: 'var(--card-text)',
+                boxShadow: 'var(--card-shadow)'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = 'var(--card-shadow)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
               }}
             >
               {/* Profile Info */}
@@ -171,7 +168,7 @@ const AdminUserManagement = () => {
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: '#ffffff',
+                  color: 'var(--card-text)',
                   fontSize: '1.5rem',
                   fontWeight: '900',
                   border: '1px solid rgba(255,255,255,0.1)'
@@ -187,14 +184,15 @@ const AdminUserManagement = () => {
                         padding: '0.2rem 0.6rem', 
                         borderRadius: '0.5rem', 
                         background: 'rgba(255,255,255,0.1)', 
-                        color: 'rgba(255,255,255,0.8)',
+                        color: 'var(--card-text)',
+                        opacity: 0.8,
                         textTransform: 'uppercase',
                         letterSpacing: '1px'
                     }}>
                         {user.role}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--card-text)', opacity: 0.7, fontSize: '0.85rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Mail size={14} /> {user.email}</span>
                     {user.phone_number && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Phone size={14} /> {user.phone_number}</span>}
                   </div>
@@ -209,7 +207,7 @@ const AdminUserManagement = () => {
                       padding: '0.85rem 1.5rem', 
                       borderRadius: '0.85rem', 
                       background: 'rgba(255, 255, 255, 0.1)', 
-                      color: '#ffffff', 
+                      color: 'var(--card-text)', 
                       fontSize: '0.9rem', 
                       fontWeight: '700', 
                       border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -221,12 +219,12 @@ const AdminUserManagement = () => {
                       whiteSpace: 'nowrap'
                   }}
                   onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                      e.currentTarget.style.color = 'var(--red-shade)';
+                      e.currentTarget.style.background = 'var(--card-text)';
+                      e.currentTarget.style.color = 'var(--bg-card)';
                   }}
                   onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.color = 'var(--card-text)';
                   }}
                 >
                   <History size={18} />
@@ -258,7 +256,7 @@ const AdminUserManagement = () => {
                       padding: '0.85rem', 
                       borderRadius: '0.85rem', 
                       background: 'rgba(255, 255, 255, 0.1)', 
-                      color: '#ffffff', 
+                      color: 'var(--card-text)', 
                       border: '1px solid rgba(255, 255, 255, 0.2)',
                       cursor: 'pointer',
                       display: 'flex',
@@ -272,7 +270,7 @@ const AdminUserManagement = () => {
                   }}
                   onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.color = 'var(--card-text)';
                   }}
                 >
                   <Trash2 size={18} />
@@ -307,7 +305,7 @@ const AdminUserManagement = () => {
             maxHeight: '90vh',
             background: 'var(--bg-primary)', 
             borderRadius: '2rem', 
-            border: 'var(--border-color)', 
+            border: '1px solid var(--glass-border)', 
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -315,14 +313,14 @@ const AdminUserManagement = () => {
             animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
             {/* Modal Header */}
-            <div style={{ padding: '2rem', borderBottom: 'var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '2rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-panel)' }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>Booking History</h2>
-                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  Reviewing activity for <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>{selectedUser.full_name}</span>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--panel-text)' }}>Booking History</h2>
+                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--panel-text)', opacity: 0.7, fontSize: '0.9rem' }}>
+                  Reviewing activity for <span style={{ fontWeight: '700' }}>{selectedUser.full_name}</span>
                 </p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)', cursor: 'pointer', background: 'none', border: 'none' }}><X size={28} /></button>
+              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--panel-text)', cursor: 'pointer', background: 'none', border: 'none' }}><X size={28} /></button>
             </div>
 
             {/* Modal Content */}
@@ -340,40 +338,41 @@ const AdminUserManagement = () => {
                       <div 
                         key={booking.id}
                         style={{ 
-                            padding: '1.25rem', 
-                            background: 'var(--bg-secondary)', 
-                            borderRadius: '1rem', 
-                            border: 'var(--border-color)',
+                            padding: '1.5rem', 
+                            background: 'var(--bg-card)', 
+                            borderRadius: '1.25rem', 
+                            border: '1px solid var(--glass-border)',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            color: 'var(--card-text)'
+                            color: 'var(--card-text)',
+                            boxShadow: 'var(--card-shadow)'
                         }}
                       >
                         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                             <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' }}>
+                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.6, textTransform: 'uppercase' }}>
                                     {new Date(booking.scheduled_start).toLocaleDateString(undefined, { month: 'short' })}
                                 </div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fff' }}>
+                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--card-text)' }}>
                                     {new Date(booking.scheduled_start).getDate()}
                                 </div>
                             </div>
                             <div style={{ width: '1px', height: '40px', background: 'rgba(255,255,255,0.2)' }}></div>
                              <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: '#fff' }}>Booking #{booking.id.slice(0, 8).toUpperCase()}</span>
+                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--card-text)' }}>Booking #{booking.id.slice(0, 8).toUpperCase()}</span>
                                     <span style={{ 
                                         padding: '0.2rem 0.5rem', 
                                         borderRadius: '0.4rem', 
                                         background: 'rgba(255,255,255,0.15)', 
-                                        color: '#fff', 
+                                        color: 'var(--card-text)', 
                                         fontSize: '0.6rem', 
                                         fontWeight: '900',
                                         textTransform: 'uppercase'
                                     }}>{booking.booking_status.replace('_', ' ')}</span>
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', gap: '1rem' }}>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--card-text)', opacity: 0.7, display: 'flex', gap: '1rem' }}>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Calendar size={14} /> {new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Clock size={14} /> {booking.services?.[0]?.service_name}{booking.services?.length > 1 ? ` +${booking.services.length - 1}` : ''}</span>
                                 </div>
@@ -388,10 +387,10 @@ const AdminUserManagement = () => {
                                 padding: '0.6rem 1rem', 
                                 borderRadius: '0.65rem', 
                                 background: 'rgba(255,255,255,0.1)', 
-                                color: '#fff', 
+                                color: 'var(--card-text)', 
                                 fontSize: '0.8rem', 
                                 fontWeight: '700', 
-                                border: '1px solid rgba(255,255,255,0.2)',
+                                border: '1px solid rgba(255,255,255,0.15)',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',

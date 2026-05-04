@@ -115,7 +115,7 @@ const AdminAuditLogs = () => {
       {/* Search and Filters */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           <input 
             type="text" 
             placeholder="Search by action, performer, or details..."
@@ -125,16 +125,17 @@ const AdminAuditLogs = () => {
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
               background: 'var(--bg-input)', 
-              border: 'var(--border-color)', 
+              border: '1px solid var(--glass-border)', 
               borderRadius: '0.75rem', 
               color: 'var(--text-primary)', 
               fontSize: '0.9rem',
-              outline: 'none'
+              outline: 'none',
+              fontWeight: '600'
             }}
           />
         </div>
         <div style={{ position: 'relative', minWidth: '180px' }}>
-          <Filter size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+          <Filter size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           <select 
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -142,12 +143,13 @@ const AdminAuditLogs = () => {
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
               background: 'var(--bg-input)', 
-              border: 'var(--border-color)', 
+              border: '1px solid var(--glass-border)', 
               borderRadius: '0.75rem', 
               color: 'var(--text-primary)', 
               fontSize: '0.9rem',
               outline: 'none',
-              appearance: 'none'
+              appearance: 'none',
+              fontWeight: '600'
             }}
           >
             <option value="All">All Entities</option>
@@ -173,37 +175,34 @@ const AdminAuditLogs = () => {
                 key={log.id}
                 onClick={() => handleOpenDetail(log)}
                 style={{ 
-                  background: 'var(--glass-bg)', 
-                  backdropFilter: 'blur(var(--blur-amount))',
-                  WebkitBackdropFilter: 'blur(var(--blur-amount))',
+                  background: 'var(--bg-card)', 
                   border: '1px solid var(--glass-border)', 
-                  borderRadius: '1rem', 
-                  padding: '1.25rem',
+                  borderRadius: '1.25rem', 
+                  padding: '1.5rem',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: 'var(--card-shadow)'
+                  boxShadow: 'var(--card-shadow)',
+                  color: 'var(--card-text)'
                 }}
                 onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.opacity = '0.9';
                 }}
                 onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.opacity = '1';
                 }}
               >
                 <div style={{ 
                   width: '44px', 
                   height: '44px', 
-                  background: 'rgba(255,255,255,0.2)', 
+                  background: 'rgba(255,255,255,0.15)', 
                   borderRadius: '0.75rem', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: '#fff'
+                  color: 'var(--card-text)'
                 }}>
                   {getEventIcon(log.event_type)}
                 </div>
@@ -216,30 +215,30 @@ const AdminAuditLogs = () => {
                       color: badge.text, 
                       borderRadius: '0.4rem', 
                       fontSize: '0.65rem', 
-                      fontWeight: '800',
+                      fontWeight: '900',
                       letterSpacing: '0.5px'
                     }}>
                       {log.event_type}
                     </span>
-                    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
-                      Performed by <span style={{ color: '#fff', fontWeight: '700' }}>{log.profiles?.full_name || 'System'}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--card-text)', opacity: 0.7, fontWeight: '500' }}>
+                      Performed by <span style={{ fontWeight: '800' }}>{log.profiles?.full_name || 'System'}</span>
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: 'rgba(255,255,255,0.9)' }}>
+                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: 'var(--card-text)' }}>
                     {formatDescription(log)}
                   </p>
                 </div>
 
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#fff' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--card-text)' }}>
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6 }}>
                       {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <ChevronRight size={18} color="rgba(255,255,255,0.4)" />
+                  <ChevronRight size={18} color="var(--card-text)" style={{ opacity: 0.3 }} />
                 </div>
               </div>
             );
@@ -293,7 +292,7 @@ const AdminAuditLogs = () => {
               }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Action</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--red-shade)' }}>{selectedLog.event_type}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-color)' }}>{selectedLog.event_type}</span>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Entity</label>
@@ -333,8 +332,8 @@ const AdminAuditLogs = () => {
                         flex: 2, 
                         padding: '1rem', 
                         borderRadius: '0.75rem', 
-                        background: 'var(--red-shade)', 
-                        color: '#fff', 
+                        background: 'var(--primary-color)', 
+                        color: 'var(--card-text)', 
                         border: 'none', 
                         fontWeight: '800', 
                         cursor: 'pointer',

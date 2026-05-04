@@ -75,8 +75,8 @@ const ProfileHeader = () => {
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          color: '#0f172a', 
-          fontWeight: '800', 
+          color: 'var(--card-text)', 
+          fontWeight: '900', 
           fontSize: '0.8rem' 
         }}>
           {initial}
@@ -110,8 +110,8 @@ const ProfileHeader = () => {
               fontWeight: '700', 
               padding: '0.15rem 0.5rem', 
               borderRadius: '1rem', 
-              background: 'rgba(56, 189, 248, 0.1)', 
-              color: 'var(--primary-color)',
+              background: 'rgba(255, 255, 255, 0.1)', 
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.5px'
             }}>

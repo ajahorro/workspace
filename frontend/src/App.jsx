@@ -37,41 +37,38 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster 
-        position="top-center"
+        position="top-right"
         reverseOrder={false}
-        gutter={8}
-        containerClassName=""
-        containerStyle={{
-          top: 20,
-          left: 20,
-          bottom: 20,
-          right: 20,
-        }}
+        gutter={12}
         toastOptions={{
-          duration: 3500,
+          duration: 4000,
           style: {
-            background: 'var(--bg-secondary)',
-            color: '#fff',
-            borderRadius: '1rem',
-            border: '1px solid rgba(255,255,255,0.05)',
-            fontSize: '0.9rem',
-            fontWeight: '600',
-            maxWidth: '90vw',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            backdropFilter: 'blur(10px)',
+            background: 'var(--bg-panel)',
+            color: 'var(--panel-text)',
+            borderRadius: '1.25rem',
+            border: '1px solid var(--glass-border)',
+            fontSize: '0.95rem',
+            fontWeight: '700',
+            maxWidth: '400px',
+            boxShadow: 'var(--card-shadow)',
+            padding: '1rem 1.5rem',
+            letterSpacing: '0.3px'
           },
           success: {
-            duration: 3000,
             iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
+              primary: 'var(--primary-color)',
+              secondary: 'var(--panel-text)',
             },
           },
           error: {
-            duration: 4000,
+            style: {
+              background: '#ef4444',
+              color: '#fff',
+              border: 'none'
+            },
             iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
+              primary: '#fff',
+              secondary: '#ef4444',
             },
           },
         }} 

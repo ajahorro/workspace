@@ -7,7 +7,7 @@ import { Check, Edit2, AlertCircle, Banknote, Save, Sparkles, X, ChevronRight, C
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/PageHeader';
-// Email confirmation removed from client — should be triggered server-side (Edge Function / DB trigger)
+import { sendBookingConfirmation } from '../../services/EmailService';
 
 const BookAppointment = () => {
   const navigate = useNavigate();
@@ -225,18 +225,13 @@ const BookAppointment = () => {
 
       toast.success('Booking submitted successfully!', { duration: 4000 });
       
-      // Send Confirmation Email via Edge Function
-      supabase.functions.invoke('send-email', {
-        body: {
-          type: 'booking_confirmed',
-          to: user.email,
-          data: {
-            serviceName: selectedServices.map(s => s.name).join(', '),
-            date: new Date(date).toLocaleDateString(),
-            time: time,
-            totalPrice: totalAmount
-          }
-        }
+      // Send Confirmation Email via Local Backend
+      sendBookingConfirmation(user.email, {
+        vehicle: `${vehicle.brand} ${vehicle.model}`,
+        services: selectedServices.map(s => s.name).join(', '),
+        date: new Date(date).toLocaleDateString(),
+        time: time,
+        totalPrice: totalAmount
       }).catch(err => console.error('Email trigger failed:', err));
       
       navigate('/my-bookings');
@@ -574,11 +569,11 @@ const BookAppointment = () => {
 
                <div>
                  <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Vehicle Type *</label>
-                 <select value={vehicle.type} onChange={e => setVehicle({...vehicle, type: e.target.value})} style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: '0.5rem', color: '#fff' }}>
-                   <option value="">Select type</option>
-                   <option value="Sedan">Sedan</option>
-                   <option value="SUV">SUV</option>
-                   <option value="Motorcycle">Motorcycle</option>
+                 <select value={vehicle.type} onChange={e => setVehicle({...vehicle, type: e.target.value})} style={{ width: '100%', background: '#2d2b30', border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--text-primary)', outline: 'none' }}>
+                   <option value="" style={{ background: '#2d2b30', color: 'var(--text-primary)' }}>Select type</option>
+                   <option value="Sedan" style={{ background: '#2d2b30', color: 'var(--text-primary)' }}>Sedan</option>
+                   <option value="SUV" style={{ background: '#2d2b30', color: 'var(--text-primary)' }}>SUV</option>
+                   <option value="Motorcycle" style={{ background: '#2d2b30', color: 'var(--text-primary)' }}>Motorcycle</option>
                  </select>
                </div>
 

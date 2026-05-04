@@ -128,16 +128,15 @@ const AdminStaffManagement = () => {
   );
 
   const glassPanelStyle = {
-    background: 'var(--glass-red)',
-    backdropFilter: 'var(--blur-amount)',
-    WebkitBackdropFilter: 'var(--blur-amount)',
+    background: 'var(--bg-card)',
     border: '1px solid var(--glass-border)',
     borderRadius: '1.25rem',
-    padding: isMobile ? '1.5rem' : '2rem',
+    padding: isMobile ? '1.5rem' : '2.5rem',
     boxShadow: 'var(--card-shadow)',
     color: 'var(--card-text)',
     position: 'sticky',
-    top: '100px'
+    top: '100px',
+    transition: 'all 0.3s ease'
   };
 
   return (
@@ -159,17 +158,17 @@ const AdminStaffManagement = () => {
         {/* Left: Registration Form */}
         <div style={glassPanelStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
+            <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: 'var(--card-text)' }}>
               <UserPlus size={20} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>Register New Employee</h2>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--card-text)' }}>Register New Employee</h2>
           </div>
 
           <form onSubmit={handleAddStaff} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Full Name</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Full Name</label>
               <div style={{ position: 'relative' }}>
-                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--card-text)', opacity: 0.5 }} />
                 <input 
                   type="text" 
                   name="fullName"
@@ -182,7 +181,7 @@ const AdminStaffManagement = () => {
                     background: 'var(--bg-input)', 
                     border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: 'var(--text-primary)', 
+                    color: 'var(--card-text)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -191,9 +190,9 @@ const AdminStaffManagement = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Email Address</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Email Address</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--card-text)', opacity: 0.5 }} />
                 <input 
                   type="email" 
                   name="email"
@@ -206,7 +205,7 @@ const AdminStaffManagement = () => {
                     background: 'var(--bg-input)', 
                     border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: 'var(--text-primary)', 
+                    color: 'var(--card-text)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -215,9 +214,9 @@ const AdminStaffManagement = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Temporary Password</label>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.7, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '1px' }}>Temporary Password</label>
               <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--card-text)', opacity: 0.5 }} />
                 <input 
                   type="password" 
                   name="password"
@@ -231,7 +230,7 @@ const AdminStaffManagement = () => {
                     background: 'var(--bg-input)', 
                     border: 'var(--border-color)', 
                     borderRadius: '0.75rem', 
-                    color: 'var(--text-primary)', 
+                    color: 'var(--card-text)', 
                     fontSize: '0.9rem',
                     outline: 'none'
                   }}
@@ -247,8 +246,8 @@ const AdminStaffManagement = () => {
                 width: '100%', 
                 padding: '1rem', 
                 borderRadius: '0.75rem', 
-                background: '#fff', 
-                color: 'var(--red-shade)', 
+                background: 'var(--card-text)', 
+                color: 'var(--bg-card)', 
                 fontWeight: '800', 
                 border: 'none', 
                 cursor: 'pointer',
@@ -256,7 +255,8 @@ const AdminStaffManagement = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
@@ -277,10 +277,10 @@ const AdminStaffManagement = () => {
         <div style={glassPanelStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: '#fff' }}>
+              <div style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', color: 'var(--card-text)' }}>
                 <Users size={20} />
               </div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: '#fff' }}>Active Team ({staff.length})</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--card-text)' }}>Active Team ({staff.length})</h2>
             </div>
 
             <div style={{ position: 'relative', width: isMobile ? '100%' : '250px' }}>
@@ -307,7 +307,7 @@ const AdminStaffManagement = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {loading ? (
               [1,2,3].map(i => (
-                <div key={i} style={{ height: '80px', background: 'rgba(255,255,255,0.02)', borderRadius: '1rem' }} className="animate-pulse"></div>
+                <div key={i} style={{ height: '80px', background: 'rgba(255,255,255,0.05)', borderRadius: '1rem' }} className="animate-pulse"></div>
               ))
             ) : filteredStaff.length > 0 ? (
               filteredStaff.map((member) => (
@@ -315,27 +315,25 @@ const AdminStaffManagement = () => {
                   key={member.id}
                   style={{ 
                     padding: '1.25rem', 
-                    background: 'var(--bg-secondary)', 
+                    background: 'rgba(255, 255, 255, 0.05)', 
                     borderRadius: '1.25rem', 
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1.25rem',
                     transition: 'all 0.2s ease',
-                    color: '#fff'
+                    color: 'var(--card-text)'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'}
                 >
                   <div style={{ 
                     width: '48px', 
                     height: '48px', 
                     borderRadius: '1rem', 
-                    background: 'rgba(255, 255, 255, 0.2)', 
+                    background: 'rgba(255, 255, 255, 0.15)', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    color: '#fff',
+                    color: 'var(--card-text)',
                     fontSize: '1.25rem',
                     fontWeight: '900'
                   }}>
@@ -343,8 +341,8 @@ const AdminStaffManagement = () => {
                   </div>
 
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '1rem', fontWeight: '700', color: '#fff', marginBottom: '0.2rem' }}>{member.full_name}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--card-text)', marginBottom: '0.2rem' }}>{member.full_name}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--card-text)', opacity: 0.7, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <Mail size={12} /> {member.email}
                     </div>
                   </div>
@@ -356,10 +354,10 @@ const AdminStaffManagement = () => {
                         padding: '0.5rem 1rem', 
                         borderRadius: '0.5rem', 
                         background: 'rgba(255, 255, 255, 0.1)', 
-                        color: '#fff', 
+                        color: 'var(--card-text)', 
                         fontSize: '0.75rem', 
                         fontWeight: '700', 
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -367,12 +365,10 @@ const AdminStaffManagement = () => {
                         transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fff';
-                        e.currentTarget.style.color = 'var(--red-shade)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                        e.currentTarget.style.color = '#fff';
                       }}
                     >
                       <Ban size={14} /> Deactivate

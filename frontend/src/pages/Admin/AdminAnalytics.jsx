@@ -71,35 +71,43 @@ const AdminAnalytics = () => {
   };
 
   const cardStyle = {
-    background: 'var(--glass-bg)',
-    backdropFilter: 'blur(var(--blur-amount))',
-    WebkitBackdropFilter: 'blur(var(--blur-amount))',
-    borderRadius: '1rem',
+    background: 'var(--bg-card)',
+    borderRadius: '1.25rem',
     border: '1px solid var(--glass-border)',
-    padding: '1.25rem',
+    padding: '1.75rem',
     position: 'relative',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     color: 'var(--card-text)',
-    boxShadow: 'var(--card-shadow)'
+    boxShadow: 'var(--card-shadow)',
+    transition: 'all 0.3s ease'
   };
 
   const sectionTitleStyle = {
     fontSize: '0.85rem',
     fontWeight: '900',
-    color: 'rgba(255,255,255,0.8)',
+    color: 'var(--card-text)',
+    opacity: 0.8,
     textTransform: 'uppercase',
-    letterSpacing: '1px',
-    margin: '0 0 1.25rem 0'
+    letterSpacing: '1.5px',
+    margin: '0 0 1.5rem 0'
   };
 
   const statLabelStyle = {
-    fontSize: '0.7rem',
+    fontSize: '0.75rem',
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.7)',
+    color: 'var(--card-text)',
+    opacity: 0.7,
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '1px'
+  };
+
+  const sectionTitleOutsideStyle = {
+    ...sectionTitleStyle,
+    color: 'var(--text-primary)',
+    opacity: 0.9,
+    marginBottom: '1rem'
   };
 
   const bigValueStyle = {
@@ -130,15 +138,15 @@ const AdminAnalytics = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: '0.5rem', 
-            background: 'var(--bg-secondary)', 
+            background: 'var(--bg-panel)', 
             padding: '0.4rem 0.85rem', 
             borderRadius: '5rem',
-            border: 'var(--border-color)',
-            color: '#fff'
+            border: '1px solid var(--glass-border)',
+            color: 'var(--text-primary)'
           }}>
-            <Sparkles size={12} color="#fff" />
-            <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#fff' }}>AI Revenue Forecast: <span style={{ color: '#fff' }}>₱0.00</span></span>
-            <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#10b981', marginLeft: '0.25rem' }}>+0%</span>
+            <Sparkles size={12} color="var(--primary-color)" />
+            <span style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--text-primary)' }}>AI Revenue Forecast: <span style={{ color: 'var(--text-primary)', fontWeight: '950' }}>₱0.00</span></span>
+            <span style={{ fontSize: '0.65rem', fontWeight: '950', color: 'var(--success-color)', marginLeft: '0.25rem' }}>+0%</span>
           </div>
 
           <div style={{ position: 'relative' }}>
@@ -185,7 +193,7 @@ const AdminAnalytics = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                <span style={bigValueStyle}>{stat.value}</span>
                <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.45rem', borderRadius: '0.5rem' }}>
-                <stat.icon size={18} color="#ffffff" />
+                <stat.icon size={18} color="var(--card-text)" />
               </div>
             </div>
             <span style={statLabelStyle}>{stat.label}</span>
@@ -195,7 +203,7 @@ const AdminAnalytics = () => {
 
       {/* Booking Trends section */}
       <div>
-        <h3 style={sectionTitleStyle}>Booking Trends</h3>
+        <h3 style={sectionTitleOutsideStyle}>Booking Trends</h3>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '1rem' }}>
           {trendStats.map((trend, i) => (
             <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '1.75rem 1rem' }}>
@@ -215,11 +223,11 @@ const AdminAnalytics = () => {
             {services.map((service, i) => (
               <div key={i}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.6rem' }}>
-                  <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>{service.name}</span>
+                  <span style={{ fontWeight: '700', color: 'var(--card-text)', opacity: 0.9, fontSize: '0.85rem' }}>{service.name}</span>
                   <span style={midValueStyle}>{service.count}</span>
                 </div>
                 <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '100%', background: '#ffffff', borderRadius: '10px' }}></div>
+                  <div style={{ height: '100%', width: '100%', background: 'var(--card-text)', borderRadius: '10px' }}></div>
                 </div>
               </div>
             ))}
@@ -243,14 +251,14 @@ const AdminAnalytics = () => {
           <h3 style={sectionTitleStyle}>Payment Methods</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Smartphone size={20} color="#fff" />
+              <Smartphone size={20} color="var(--card-text)" />
               <div>
                 <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
                 <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>GCash</p>
               </div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Wallet size={20} color="#fff" />
+              <Wallet size={20} color="var(--card-text)" />
               <div>
                 <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
                 <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>Cash</p>

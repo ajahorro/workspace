@@ -90,68 +90,77 @@ const StaffSettings = () => {
   if (fetching) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading settings...</div>;
 
   const cardStyle = {
-    background: 'var(--bg-secondary)',
+    background: 'var(--bg-card)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    border: '1px solid var(--glass-border)',
     borderRadius: '1.25rem',
-    border: '1px solid var(--border-color)',
-    padding: isMobile ? '1.5rem' : '2rem',
+    padding: isMobile ? '1.5rem' : '2.5rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem'
+    gap: '2rem',
+    boxShadow: 'var(--card-shadow)',
+    color: 'var(--card-text)'
   };
 
   const inputGroupStyle = {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem'
+    gap: '0.75rem'
   };
 
   const labelStyle = {
-    fontSize: '0.75rem',
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.4)',
+    fontSize: '0.7rem',
+    fontWeight: '900',
+    color: 'var(--card-text)',
+    opacity: 0.7,
     textTransform: 'uppercase',
     letterSpacing: '1px'
   };
 
   const inputStyle = {
     width: '100%',
-    padding: '0.85rem 1rem',
-    background: 'rgba(0,0,0,0.2)',
+    padding: '0.875rem 1rem',
+    background: 'rgba(0,0,0,0.3)',
     border: '1px solid rgba(255,255,255,0.05)',
     borderRadius: '0.75rem',
-    color: '#fff',
-    fontSize: '0.9rem',
-    outline: 'none'
+    color: 'var(--card-text)',
+    fontSize: '0.95rem',
+    outline: 'none',
+    transition: 'border-color 0.2s'
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader 
         badge="STAFF PORTAL"
         title="Account Settings"
-        subtitle="Manage your personal information and security"
+        subtitle="Manage your personal information, work profile, and security."
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
         
         {/* Profile Section */}
         <form onSubmit={handleUpdateProfile} style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <div style={{ padding: '0.5rem', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '0.5rem', color: 'var(--primary-color)' }}>
-              <User size={20} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+            <div style={{ padding: '0.65rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', color: 'var(--card-text)' }}>
+              <User size={24} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>Personal Information</h2>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Personal Information</h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.7 }}>Update your public staff profile</p>
+            </div>
           </div>
 
           <div style={inputGroupStyle}>
-            <label style={labelStyle}>Primary Email (Read-only)</label>
+            <label style={labelStyle}>Work Email (Read-only)</label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
               <input 
                 type="email" 
                 value={user?.email} 
                 disabled 
-                style={{ ...inputStyle, paddingLeft: '2.75rem', opacity: 0.5, cursor: 'not-allowed' }} 
+                style={{ ...inputStyle, paddingLeft: '3rem', opacity: 0.5, cursor: 'not-allowed', background: 'transparent' }} 
               />
             </div>
           </div>
@@ -179,11 +188,11 @@ const StaffSettings = () => {
           </div>
 
           <div style={inputGroupStyle}>
-            <label style={labelStyle}>Secondary Email (Recovery)</label>
-            <div style={{ padding: '0.75rem', background: 'rgba(169, 27, 24, 0.05)', borderRadius: '0.5rem', border: '1px solid rgba(169, 27, 24, 0.1)', marginBottom: '0.5rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-              <AlertCircle size={16} color="var(--primary-color)" style={{ marginTop: '2px' }} />
-              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                <strong>Required:</strong> Use your personal email for account recovery. This is where "Forgot Password" links will be sent.
+            <label style={labelStyle}>Recovery Email</label>
+            <div style={{ padding: '0.85rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', border: '1px solid var(--glass-border)', marginBottom: '0.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <AlertCircle size={20} color="var(--card-text)" style={{ opacity: 0.6, marginTop: '2px', flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.8, lineHeight: '1.5' }}>
+                <strong style={{ opacity: 1 }}>Important:</strong> Use your personal email for account recovery. Forgot Password links will be sent here.
               </p>
             </div>
             <input 
@@ -200,37 +209,43 @@ const StaffSettings = () => {
             type="submit" 
             disabled={loading}
             style={{ 
-              marginTop: '1rem', padding: '1rem', background: 'var(--primary-color)', 
-              color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', 
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' 
+              marginTop: '1rem', padding: '1.1rem', background: 'var(--card-text)', 
+              color: 'var(--bg-card)', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+              transition: 'all 0.2s ease'
             }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <Save size={18} /> Update Profile
+            <Save size={20} /> UPDATE PROFILE
           </button>
         </form>
 
         {/* Security Section */}
         <form onSubmit={handleChangePassword} style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <div style={{ padding: '0.5rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.5rem', color: '#10b981' }}>
-              <ShieldCheck size={20} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+            <div style={{ padding: '0.65rem', background: 'rgba(74, 222, 128, 0.1)', borderRadius: '0.75rem', color: '#4ade80' }}>
+              <ShieldCheck size={24} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>Security</h2>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Security & Auth</h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.7 }}>Secure your staff access</p>
+            </div>
           </div>
 
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
-            Update your password periodically to keep your account secure.
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '600', lineHeight: '1.6' }}>
+            We recommend changing your temporary password immediately upon onboarding.
           </p>
 
           <div style={inputGroupStyle}>
             <label style={labelStyle}>New Password</label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
               <input 
                 type="password" 
                 value={formData.newPassword}
                 onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
-                style={{ ...inputStyle, paddingLeft: '2.75rem' }} 
+                style={{ ...inputStyle, paddingLeft: '3rem' }} 
                 placeholder="At least 6 characters"
               />
             </div>
@@ -239,12 +254,12 @@ const StaffSettings = () => {
           <div style={inputGroupStyle}>
             <label style={labelStyle}>Confirm New Password</label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
+              <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.3 }} />
               <input 
                 type="password" 
                 value={formData.confirmPassword}
                 onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                style={{ ...inputStyle, paddingLeft: '2.75rem' }} 
+                style={{ ...inputStyle, paddingLeft: '3rem' }} 
                 placeholder="Repeat new password"
               />
             </div>
@@ -254,13 +269,16 @@ const StaffSettings = () => {
             type="submit" 
             disabled={loading || !formData.newPassword}
             style={{ 
-              marginTop: 'auto', padding: '1rem', background: '#10b981', 
-              color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', 
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-              opacity: !formData.newPassword ? 0.5 : 1
+              marginTop: 'auto', padding: '1.1rem', background: '#4ade80', 
+              color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+              opacity: !formData.newPassword ? 0.5 : 1,
+              transition: 'all 0.2s ease'
             }}
+            onMouseEnter={e => !(!formData.newPassword) && (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            Change Password
+            CHANGE PASSWORD
           </button>
         </form>
 

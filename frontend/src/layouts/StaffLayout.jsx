@@ -78,8 +78,10 @@ const StaffLayout = () => {
 
   const sidebarStyle = {
     width: '280px',
-    background: 'var(--bg-secondary)',
-    borderRight: '1px solid rgba(255,255,255,0.03)',
+    background: 'var(--bg-panel)',
+    backdropFilter: 'var(--blur-amount)',
+    WebkitBackdropFilter: 'var(--blur-amount)',
+    borderRight: '1px solid var(--glass-border)',
     display: 'flex',
     flexDirection: 'column',
     padding: '2rem 1.5rem',
@@ -106,19 +108,18 @@ const StaffLayout = () => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
       <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
-      <BlurGlow top="10%" right="5%" size="450px" color="rgba(206, 231, 243, 0.3)" />
-      <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.25)" />
-      <BlurGlow bottom="10%" left="5%" size="400px" color="rgba(206, 231, 243, 0.3)" />
+      <BlurGlow top="10%" right="5%" size="450px" color="rgba(169, 27, 24, 0.2)" />
+      <BlurGlow top="40%" left="35%" size="600px" color="rgba(169, 27, 24, 0.15)" />
       <BlurGlow bottom="-5%" right="-5%" size="550px" color="rgba(169, 27, 24, 0.3)" />
 
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
       <aside style={sidebarStyle}>
         <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
+          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--panel-text)', letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
             SpeedWay AutoxMoto Detail Studio
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'rgba(255,255,255,0.4)' }}><X /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--panel-text)', opacity: 0.5, cursor: 'pointer' }}><X /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
@@ -132,14 +133,15 @@ const StaffLayout = () => {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1.25rem',
                   borderRadius: '0.75rem', textDecoration: 'none',
-                  color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
-                  background: isActive ? 'rgba(169, 27, 24, 0.1)' : 'transparent',
-                  fontWeight: isActive ? '800' : '600', fontSize: '0.9rem',
+                  color: 'var(--panel-text)',
+                  background: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                  opacity: isActive ? 1 : 0.6,
+                  fontWeight: isActive ? '900' : '500', fontSize: '0.9rem',
                   transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  borderLeft: isActive ? '3px solid var(--primary-color)' : '3px solid transparent'
+                  borderLeft: isActive ? '3px solid var(--panel-text)' : '3px solid transparent'
                 }}
               >
-                <Icon size={18} style={{ opacity: isActive ? 1 : 0.6 }} />
+                <Icon size={18} color="currentColor" />
                 {link.name}
               </NavLink>
             );
@@ -151,7 +153,7 @@ const StaffLayout = () => {
           style={{
             display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem',
             borderRadius: '0.75rem', border: 'none', background: 'transparent',
-            color: '#ef4444', cursor: 'pointer', fontWeight: '800', fontSize: '0.9rem',
+            color: 'var(--panel-text)', opacity: 0.8, cursor: 'pointer', fontWeight: '900', fontSize: '0.9rem',
             marginTop: 'auto'
           }}
         >
@@ -163,17 +165,21 @@ const StaffLayout = () => {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, minHeight: '100vh', maxWidth: '100%', marginLeft: isMobile ? 0 : '280px' }}>
         <header style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: isMobile ? '0.75rem 1.25rem' : '1rem 2rem', background: 'var(--bg-secondary)',
+          padding: isMobile ? '0.75rem 1.25rem' : '1.25rem 2.5rem', 
+          background: 'var(--bg-panel)',
+          backdropFilter: 'var(--blur-amount)',
+          WebkitBackdropFilter: 'var(--blur-amount)',
+          borderBottom: '1px solid var(--glass-border)',
           position: 'sticky', top: 0, zIndex: 1000
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '2rem' }}>
             {isMobile && (
-              <button onClick={() => setIsSidebarOpen(true)} style={{ color: '#fff' }}>
+              <button onClick={() => setIsSidebarOpen(true)} style={{ color: 'var(--panel-text)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <Menu size={24} />
               </button>
             )}
             <div
-              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer' }}
+              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer', color: 'var(--panel-text)' }}
               onClick={() => navigate('/staff')}
             >
               STAFF
@@ -184,7 +190,7 @@ const StaffLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
             <div
               onClick={() => setShowNotifPopover(!showNotifPopover)}
-              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6 }}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.6, color: 'var(--panel-text)' }}
             >
               <Bell size={20} />
               {unreadCount > 0 && (
@@ -193,20 +199,20 @@ const StaffLayout = () => {
                   background: '#ef4444', color: '#fff', fontSize: '0.5rem',
                   fontWeight: 'bold', width: '14px', height: '14px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%', border: '1px solid #050a15'
+                  borderRadius: '50%', border: '1px solid var(--bg-panel)'
                 }}>{unreadCount}</div>
               )}
             </div>
             {showNotifPopover && (
               <NotificationPopover user={user} profile={profile} onClose={() => setShowNotifPopover(false)} onRead={fetchUnreadCount} />
             )}
-            <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.05)' }}></div>
+            <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)' }}></div>
             <ProfileHeader />
           </div>
         </header>
 
         {isMobile && (
-          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'rgba(5, 10, 21, 0.2)' }}>
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--glass-border)', background: 'var(--bg-secondary)' }}>
             <AdminSearch />
           </div>
         )}

@@ -121,25 +121,24 @@ const AdminDashboard = () => {
 
   const getStatusDotColor = (status) => {
     switch(status) {
-      case 'PENDING_ASSIGNMENT': return '#f59e0b';
+      case 'PENDING_ASSIGNMENT': return 'var(--danger-color)';
       case 'CONFIRMED': return 'var(--primary-color)';
-      case 'CANCELLED': return '#ef4444';
-      case 'COMPLETED': return '#10b981';
-      case 'NOT_STARTED': return 'rgba(255,255,255,0.4)';
+      case 'CANCELLED': return 'var(--danger-color)';
+      case 'COMPLETED': return 'var(--success-color)';
+      case 'NOT_STARTED': return 'var(--card-text)';
       case 'ONGOING': return '#8b5cf6';
-      default: return '#fff';
+      default: return 'var(--card-text)';
     }
   };
 
   const panelStyle = {
-    background: 'var(--glass-red)',
-    backdropFilter: 'var(--blur-amount)',
-    WebkitBackdropFilter: 'var(--blur-amount)',
+    background: 'var(--bg-card)',
     border: '1px solid var(--glass-border)',
     borderRadius: '1.5rem',
     padding: '1.75rem',
     boxShadow: 'var(--card-shadow)',
-    color: 'var(--card-text)'
+    color: 'var(--card-text)',
+    transition: 'all 0.3s ease'
   };
 
   if (loading) {
@@ -169,23 +168,21 @@ const AdminDashboard = () => {
           <div 
             key={i}
             onClick={() => navigate(stat.path)}
-            style={{ ...panelStyle, cursor: 'pointer', transition: 'all 0.3s ease' }}
+            style={{ ...panelStyle, cursor: 'pointer' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.borderColor = 'var(--border-color)';
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-              <div style={{ background: 'rgba(255, 255, 255, 0.2)', color: '#fff', padding: '0.75rem', borderRadius: '1rem' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.15)', color: 'var(--card-text)', padding: '0.75rem', borderRadius: '1rem' }}>
                 <stat.icon size={22} />
               </div>
-              <ArrowRight size={18} style={{ opacity: 0.15 }} />
+              <ArrowRight size={18} style={{ opacity: 0.3 }} />
             </div>
-            <p style={{ margin: '0 0 0.25rem 0', color: 'var(--gray-shade)', fontSize: isMobile ? '0.65rem' : '0.8rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>{stat.label}</p>
+            <p style={{ margin: '0 0 0.25rem 0', color: 'var(--card-text)', opacity: 0.6, fontSize: isMobile ? '0.65rem' : '0.8rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px' }}>{stat.label}</p>
             <h2 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2.5rem', fontWeight: '900', letterSpacing: '-1.5px', color: 'var(--card-text)' }}>{stat.value}</h2>
           </div>
         ))}
@@ -208,12 +205,12 @@ const AdminDashboard = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--white-shade)', letterSpacing: '0.5px' }}>{status}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--card-text)', letterSpacing: '0.5px' }}>{status}</span>
                 </div>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900' }}>{count}</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--card-text)' }}>{count}</span>
               </div>
             ))}
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.5rem 0' }}></div>
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '0.5rem 0' }}></div>
             {Object.entries(serviceStats).map(([status, count]) => (
               <div 
                 key={status} 
@@ -224,9 +221,9 @@ const AdminDashboard = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status) }}></div>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--gray-shade)', letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--card-text)', opacity: 0.8, letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
                 </div>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--gray-shade)' }}>{count}</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--card-text)', opacity: 0.8 }}>{count}</span>
               </div>
             ))}
           </div>
@@ -235,7 +232,7 @@ const AdminDashboard = () => {
         {/* Recent Activity */}
         <div style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '1.75rem 1.75rem 1.25rem 1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'var(--white-shade)', opacity: 0.8, letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Bookings</h3>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'var(--card-text)', opacity: 0.8, letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Bookings</h3>
             <ArrowRight size={18} style={{ opacity: 0.2 }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -245,19 +242,19 @@ const AdminDashboard = () => {
                 onClick={() => navigate(`/admin/bookings/${activity.id}`)}
                 style={{ 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  padding: '1.25rem 1.75rem', borderTop: '1px solid rgba(255,255,255,0.1)',
+                  padding: '1.25rem 1.75rem', borderTop: '1px solid rgba(255,255,255,0.08)',
                   cursor: 'pointer', transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--white-shade)' }}>{activity.customer}</h4>
-                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: 'var(--gray-shade)', letterSpacing: '0.5px' }}>#{activity.shortId.toUpperCase()}</p>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--card-text)' }}>{activity.customer}</h4>
+                  <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: 'var(--card-text)', opacity: 0.6, letterSpacing: '0.5px' }}>#{activity.shortId.toUpperCase()}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: '#10b981' }}>₱{activity.amount.toLocaleString()}</p>
-                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '900', color: activity.status === 'COMPLETED' ? '#10b981' : '#ffb347', textTransform: 'uppercase' }}>{activity.status}</p>
+                  <p style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: 'var(--success-color)' }}>₱{activity.amount.toLocaleString()}</p>
+                  <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: '900', color: activity.status === 'COMPLETED' ? 'var(--success-color)' : 'var(--danger-color)', textTransform: 'uppercase' }}>{activity.status}</p>
                 </div>
               </div>
             ))}
@@ -267,8 +264,8 @@ const AdminDashboard = () => {
         {/* Action Required */}
         <div style={panelStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffb347', animation: 'pulse 2s infinite' }}></div>
-            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: '#ffb347', letterSpacing: '2px', textTransform: 'uppercase' }}>Needs Assignment</h3>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger-color)', animation: 'pulse 2s infinite' }}></div>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: 'var(--danger-color)', letterSpacing: '2px', textTransform: 'uppercase' }}>Needs Assignment</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {needsAssignment.map((item, i) => (
@@ -276,25 +273,23 @@ const AdminDashboard = () => {
                 key={i} 
                 onClick={() => navigate(`/admin/bookings/${item.id}`)}
                 style={{ 
-                  background: 'var(--glass-red)',
-                  backdropFilter: 'var(--blur-amount)',
-                  WebkitBackdropFilter: 'var(--blur-amount)',
-                  border: '1px solid var(--glass-border)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   padding: '1.25rem', borderRadius: '1rem', cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--glass-red)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '800', color: 'var(--card-text)' }}>{item.customer}</h4>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', background: item.type === 'PAYMENT' ? 'rgba(255, 179, 71, 0.2)' : 'rgba(255, 255, 255, 0.2)', color: item.type === 'PAYMENT' ? '#ffb347' : '#ffffff' }}>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.5rem', borderRadius: '0.4rem', background: item.type === 'PAYMENT' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.15)', color: item.type === 'PAYMENT' ? '#f59e0b' : 'var(--card-text)' }}>
                     {item.type}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'var(--gray-shade)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: '700', color: 'var(--card-text)', opacity: 0.7 }}>
                   <span>{item.date}</span>
-                  <span style={{ color: item.type === 'PAYMENT' ? '#ffb347' : '#ffffff' }}>₱{item.amount.toLocaleString()}</span>
+                  <span style={{ color: item.type === 'PAYMENT' ? 'var(--danger-color)' : 'var(--card-text)' }}>₱{item.amount.toLocaleString()}</span>
                 </div>
               </div>
             ))}
@@ -305,7 +300,7 @@ const AdminDashboard = () => {
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
       `}</style>
     </div>
   );

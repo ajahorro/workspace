@@ -158,12 +158,12 @@ const AdminNotifications = () => {
         ) : filteredNotifications.length === 0 ? (
           <div style={{ 
             textAlign: 'center', padding: '6rem 2rem', 
-            background: 'var(--bg-secondary)', borderRadius: '1.5rem', 
-            border: 'var(--border-color)', color: '#fff', boxShadow: 'var(--card-shadow)'
+            background: 'var(--bg-card)', borderRadius: '1.5rem', 
+            border: '1px solid var(--glass-border)', color: 'var(--card-text)', boxShadow: 'var(--card-shadow)'
           }}>
-            <Bell size={48} color="rgba(255,255,255,0.2)" style={{ marginBottom: '1.5rem' }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'rgba(255,255,255,0.8)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
+            <Bell size={48} color="var(--card-text)" style={{ marginBottom: '1.5rem', opacity: 0.2 }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--card-text)', opacity: 0.8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
+            <p style={{ margin: 0, color: 'var(--card-text)', opacity: 0.6, fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
           </div>
         ) : (
           filteredNotifications.map(n => (
@@ -171,15 +171,14 @@ const AdminNotifications = () => {
               key={n.id}
               onClick={() => handleNotificationClick(n)}
               style={{ 
-                background: n.is_read ? 'var(--glass-bg)' : 'rgba(255, 255, 255, 0.1)', 
-                backdropFilter: 'blur(var(--blur-amount))',
-                WebkitBackdropFilter: 'blur(var(--blur-amount))',
+                background: 'var(--bg-card)', 
+                opacity: n.is_read ? 0.7 : 1,
                 padding: '1.5rem', borderRadius: '1rem', 
                 border: '1px solid var(--glass-border)',
                 display: 'flex', gap: '1.5rem', cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 position: 'relative',
-                color: '#fff',
+                color: 'var(--card-text)',
                 boxShadow: 'var(--card-shadow)'
               }}
               onMouseEnter={(e) => {
@@ -188,41 +187,41 @@ const AdminNotifications = () => {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateX(0)';
-                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.opacity = n.is_read ? 0.7 : 1;
               }}
             >
               <div style={{ 
                 width: '48px', height: '48px', borderRadius: '0.75rem', 
-                background: 'rgba(255,255,255,0.2)', display: 'flex', 
+                background: 'rgba(255, 255, 255, 0.15)', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0
+                border: '1px solid rgba(255, 255, 255, 0.1)', flexShrink: 0
               }}>
                 {getIcon(n.title, n.message)}
               </div>
 
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: '#fff' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: 'var(--card-text)' }}>
                     {n.title}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: '800' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.7, fontWeight: '800' }}>
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <button 
                       onClick={(e) => deleteNotification(e, n.id)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--card-text)', opacity: 0.3, cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: 'var(--card-text)', opacity: 0.85, lineHeight: '1.6' }}>
                   {n.message}
                 </p>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--card-text)', opacity: 0.5, fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
@@ -230,8 +229,8 @@ const AdminNotifications = () => {
               {!n.is_read && (
                 <div style={{ 
                   position: 'absolute', top: '1.5rem', right: '1.5rem', 
-                  width: '6px', height: '6px', borderRadius: '50%', background: '#fff',
-                  boxShadow: '0 0 10px #fff'
+                  width: '6px', height: '6px', borderRadius: '50%', background: 'var(--card-text)',
+                  boxShadow: '0 0 10px var(--card-text)'
                 }}></div>
               )}
             </div>

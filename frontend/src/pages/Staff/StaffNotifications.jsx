@@ -138,9 +138,9 @@ const StaffNotifications = () => {
             onClick={markAllRead}
             style={{ 
               display: 'flex', alignItems: 'center', gap: '0.6rem', padding: isMobile ? '0.6rem 1.25rem' : '0.75rem 1.5rem', 
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', 
-              color: 'rgba(255,255,255,0.6)', borderRadius: '5rem', cursor: 'pointer', 
-              fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: '800', transition: 'all 0.2s', textTransform: 'uppercase'
+              background: 'var(--bg-panel)', border: '1px solid var(--glass-border)', 
+              color: 'var(--panel-text)', borderRadius: '5rem', cursor: 'pointer', 
+              fontSize: isMobile ? '0.75rem' : '0.85rem', fontWeight: '900', transition: 'all 0.2s', textTransform: 'uppercase'
             }}
           >
             <CheckCheck size={16} /> Mark all read
@@ -150,35 +150,40 @@ const StaffNotifications = () => {
 
       {/* Search Bar */}
       <div style={{ 
-        background: 'var(--bg-secondary)', 
-        borderRadius: '1rem', 
-        border: '1px solid rgba(255,255,255,0.03)', 
-        padding: '1rem',
-        boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+        background: 'var(--bg-card)', 
+        backdropFilter: 'var(--blur-amount)',
+        WebkitBackdropFilter: 'var(--blur-amount)',
+        borderRadius: '1.25rem', 
+        border: '1px solid var(--glass-border)', 
+        padding: '1.5rem',
+        boxShadow: 'var(--card-shadow)',
+        color: 'var(--card-text)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.2)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
-          <Search size={18} color="rgba(255,255,255,0.3)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--glass-border)' }}>
+          <Search size={18} color="var(--card-text)" style={{ opacity: 0.3 }} />
           <input 
             placeholder="Search notifications..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ border: 'none', background: 'transparent', color: '#fff', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
+            style={{ border: 'none', background: 'transparent', color: 'var(--card-text)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '900' }} 
           />
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {loading ? (
           <LoadingState message="Checking for updates..." />
         ) : filteredNotifications.length === 0 ? (
           <div style={{ 
             textAlign: 'center', padding: isMobile ? '4rem 1.5rem' : '6rem 2rem', 
-            background: 'var(--bg-secondary)', borderRadius: '1.5rem', 
-            border: '1px solid rgba(255,255,255,0.03)'
+            background: 'var(--bg-card)', borderRadius: '1.5rem', 
+            border: '1px solid var(--glass-border)',
+            backdropFilter: 'var(--blur-amount)',
+            color: 'var(--card-text)'
           }}>
-            <Bell size={48} color="rgba(255,255,255,0.05)" style={{ marginBottom: '1.5rem' }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'rgba(255,255,255,0.4)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
-            <p style={{ margin: 0, color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
+            <Bell size={48} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', opacity: 0.4, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
+            <p style={{ margin: 0, opacity: 0.2, fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
           </div>
         ) : (
           filteredNotifications.map(n => (
@@ -186,18 +191,22 @@ const StaffNotifications = () => {
               key={n.id}
               onClick={() => handleNotificationClick(n)}
               style={{ 
-                background: n.is_read ? 'var(--bg-secondary)' : 'rgba(169, 27, 24, 0.04)', 
-                padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1rem', 
+                background: n.is_read ? 'var(--bg-card)' : 'var(--bg-secondary)', 
+                backdropFilter: 'var(--blur-amount)',
+                WebkitBackdropFilter: 'var(--blur-amount)',
+                padding: isMobile ? '1.25rem' : '1.5rem', borderRadius: '1.25rem', 
                 border: '1px solid',
-                borderColor: n.is_read ? 'rgba(255,255,255,0.03)' : 'rgba(169, 27, 24, 0.2)',
+                borderColor: n.is_read ? 'var(--glass-border)' : 'var(--primary-color)',
                 display: 'flex', gap: isMobile ? '1rem' : '1.5rem', cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                position: 'relative'
+                position: 'relative',
+                boxShadow: n.is_read ? 'none' : 'var(--card-shadow)',
+                color: 'var(--card-text)'
               }}
             >
               <div style={{ 
-                width: isMobile ? '40px' : '48px', height: isMobile ? '40px' : '48px', borderRadius: '0.75rem', 
-                background: 'rgba(0,0,0,0.2)', display: 'flex', 
+                width: isMobile ? '44px' : '52px', height: isMobile ? '44px' : '52px', borderRadius: '1rem', 
+                background: 'rgba(0,0,0,0.3)', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
                 border: '1px solid rgba(255,255,255,0.05)', flexShrink: 0
               }}>
@@ -205,26 +214,26 @@ const StaffNotifications = () => {
               </div>
 
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
-                  <h3 style={{ margin: 0, fontSize: isMobile ? '0.95rem' : '1.1rem', fontWeight: '900', color: n.is_read ? 'rgba(255,255,255,0.6)' : '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
+                  <h3 style={{ margin: 0, fontSize: isMobile ? '0.95rem' : '1.15rem', fontWeight: '900', color: 'var(--card-text)' }}>
                     {n.title}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.75rem' : '1.25rem' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: '800' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--card-text)', opacity: 0.3, fontWeight: '800' }}>
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <button 
                       onClick={(e) => deleteNotification(e, n.id)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'color 0.2s' }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--card-text)', opacity: 0.1, cursor: 'pointer', transition: 'color 0.2s' }}
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: isMobile ? '0.8rem' : '0.95rem', color: n.is_read ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.7)', lineHeight: '1.5' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: isMobile ? '0.8rem' : '0.95rem', color: 'var(--card-text)', opacity: n.is_read ? 0.4 : 0.8, lineHeight: '1.5' }}>
                   {n.message}
                 </p>
-                <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.6rem', color: 'var(--card-text)', opacity: 0.2, fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
