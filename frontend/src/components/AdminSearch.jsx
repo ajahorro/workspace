@@ -90,17 +90,19 @@ const AdminSearch = () => {
           onFocus={() => setIsOpen(true)}
           style={{
             width: '100%',
-            padding: '0.75rem 1rem 0.75rem 2.75rem',
-            background: 'var(--bg-input)',
-            backdropFilter: 'blur(var(--blur-amount))',
-            WebkitBackdropFilter: 'blur(var(--blur-amount))',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '5rem',
-            color: 'var(--text-primary)',
+            padding: '0.7rem 1rem 0.7rem 2.75rem',
+            background: '#F9FAFB',
+            border: '1px solid var(--admin-border)',
+            borderRadius: '0.75rem',
+            color: 'var(--admin-text-primary)',
             fontSize: '0.9rem',
             outline: 'none',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.2s ease',
+            fontWeight: '600',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--admin-brand)'}
+          onMouseLeave={(e) => { if (!isOpen) e.currentTarget.style.borderColor = 'var(--admin-border)'; }}
         />
       </div>
 
@@ -110,16 +112,14 @@ const AdminSearch = () => {
           top: 'calc(100% + 0.5rem)',
           left: 0,
           right: 0,
-          background: 'var(--bg-panel)',
-          backdropFilter: 'blur(var(--blur-amount))',
-          WebkitBackdropFilter: 'blur(var(--blur-amount))',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '1rem',
-          padding: '0.5rem',
+          background: '#FFFFFF',
+          border: '1px solid var(--admin-border)',
+          borderRadius: '0.75rem',
+          padding: '0.4rem',
           zIndex: 1000,
-          boxShadow: 'var(--card-shadow)',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
           animation: 'fadeIn 0.2s ease',
-          color: 'var(--panel-text)'
+          color: 'var(--admin-text-primary)'
         }}>
           {suggestions.map((item) => (
             <div 
@@ -129,16 +129,16 @@ const AdminSearch = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0.75rem 1rem',
+                padding: '0.65rem 0.85rem',
                 borderRadius: '0.5rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#F3F4F6'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <span style={{ fontSize: '0.9rem', fontWeight: '900', opacity: 0.9 }}>{item.name}</span>
-              <ChevronRight size={14} style={{ opacity: 0.5 }} />
+              <span style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{item.name}</span>
+              <ChevronRight size={14} style={{ opacity: 0.4 }} color="var(--admin-brand)" />
             </div>
           ))}
         </div>

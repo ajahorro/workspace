@@ -9,7 +9,7 @@ const runCheck = async () => {
     await client.connect();
     
     // Get the ID of the admin user from auth.users
-    const adminRes = await client.query("SELECT id FROM auth.users WHERE email = 'admin@renew.com'");
+    const adminRes = await client.query("SELECT id FROM auth.users WHERE email = 'admin@speed.way'");
     if (adminRes.rows.length > 0) {
       const adminId = adminRes.rows[0].id;
       

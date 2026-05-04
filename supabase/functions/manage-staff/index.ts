@@ -17,10 +17,52 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { action, email, password, fullName, secondaryEmail } = await req.json()
+    const { action, email, password, fullName, secondaryEmail, userId, staffId, bookings } = await req.json()
 
+    // --- Schema Initialization Check ---
+    // If we're doing an action, let's ensure was_staff exists first
+    // Note: We only do this once or per request if we suspect it's missing
+    try {
+      await supabaseAdmin.rpc('exec_sql', {
+        sql_string: `
+          ALTER TABLE profiles ADD COLUMN IF NOT EXISTS was_staff BOOLEAN DEFAULT FALSE;
+          UPDATE profiles SET was_staff = true WHERE role = 'STAFF' AND was_staff = false;
+        `
+      })
+    } catch (e) {
+      // If exec_sql RPC doesn't exist, we fallback to just trying the operation
+      // or we can ignore if we don't have the RPC defined.
+    }
+ 
     if (action === 'create-staff') {
-      // 1. Create user in auth.users without confirmation
+      // 1. Check if user already exists in auth or profiles
+      const { data: existingProfile, error: searchError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role, email')
+        .eq('email', email)
+        .single()
+
+      if (!searchError && existingProfile) {
+        // Promote or Restore
+        const { error: promoError } = await supabaseAdmin
+          .from('profiles')
+          .upsert({ 
+            id: existingProfile.id,
+            email: email,
+            role: 'STAFF', 
+            full_name: fullName,
+            secondary_email: null // Use null to avoid unique constraint issues with empty strings
+          })
+
+        if (promoError) throw promoError
+
+        return new Response(JSON.stringify({ success: true, message: 'Account assigned to staff role.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      }
+
+      // 2. Otherwise, create new user in auth.users
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -30,15 +72,16 @@ serve(async (req) => {
 
       if (authError) throw authError
 
-      // 2. Update profile to STAFF role and set secondary email
+      // 3. Force creation/update of profile with STAFF role
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
-        .update({ 
+        .upsert({ 
+          id: authUser.user.id,
+          email: email,
           role: 'STAFF', 
           full_name: fullName,
-          secondary_email: secondaryEmail
+          secondary_email: null
         })
-        .eq('id', authUser.user.id)
 
       if (profileError) throw profileError
 
@@ -48,7 +91,119 @@ serve(async (req) => {
       })
     }
 
+    if (action === 'deactivate-staff') {
+      if (!staffId) throw new Error('Staff ID is required')
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ role: 'CUSTOMER' }) 
+        .eq('id', staffId)
+
+      if (profileError) throw profileError
+
+      return new Response(JSON.stringify({ success: true, message: 'Staff deactivated successfully' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
+    if (action === 'list-staff') {
+      const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .or('role.eq.STAFF,email.ilike.%@speed.way%,email.ilike.%@speedway.com%')
+        .order('full_name', { ascending: true })
+
+      if (error) throw error
+
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
+    if (action === 'reactivate-staff') {
+      if (!staffId) throw new Error('Staff ID is required')
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ role: 'STAFF' })
+        .eq('id', staffId)
+
+      if (profileError) throw profileError
+
+      return new Response(JSON.stringify({ success: true, message: 'Staff reactivated successfully' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
+    if (action === 'list-history') {
+      if (!userId) throw new Error('userId is required')
+      
+      const { data, error } = await supabaseAdmin
+        .from('bookings_v2')
+        .select(`
+          *,
+          booking_services:booking_services_v2(
+            price_at_booking,
+            service:services_v2(name)
+          )
+        `)
+        .eq('customer_id', userId)
+        .order('start_datetime', { ascending: false })
+
+      if (error) throw error
+
+      // Flatten services for the frontend
+      const formattedData = (data || []).map(b => ({
+        ...b,
+        services: b.booking_services.map(bs => ({ service_name: bs.service?.name || 'Unknown Service' }))
+      }))
+
+      return new Response(JSON.stringify({ success: true, data: formattedData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'seed-history') {
+      if (!userId || !bookings) throw new Error('userId and bookings required')
+      
+      const results = []
+      for (const b of bookings) {
+        // Insert booking
+        const { data: booking, error: bErr } = await supabaseAdmin
+          .from('bookings_v2')
+          .insert({
+            customer_id: userId,
+            status: b.status,
+            start_datetime: b.start_datetime,
+            end_datetime: b.end_datetime,
+            total_price: b.total_price
+          })
+          .select()
+          .single()
+
+        if (bErr) throw bErr
+
+        // Link services (assuming we link the first available service for testing)
+        const { data: services } = await supabaseAdmin.from('services_v2').select('id').limit(1)
+        if (services && services.length > 0) {
+          await supabaseAdmin.from('booking_services_v2').insert({
+            booking_id: booking.id,
+            service_id: services[0].id,
+            price_at_booking: b.total_price
+          })
+        }
+        results.push(booking)
+      }
+      return new Response(JSON.stringify({ success: true, results }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (action === 'recover-staff') {
+      // ... existing recover-staff logic ...
       // 1. Find user by secondary email
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -66,14 +221,6 @@ serve(async (req) => {
       if (userError || !user) throw new Error('Auth user not found.')
 
       // 3. Trigger reset password for the primary email 
-      // (Wait, the user wants the link sent to the secondary email)
-      // Supabase resets only to primary. Workaround:
-      // We can temporarily change the primary email to secondary, send reset, then change back? 
-      // No, that's messy. 
-      // Better: Use a custom link or just send the reset to the primary but the user said 
-      // "send links to for forgot password option" specifically for the secondary email.
-      
-      // If we want to send to secondary, we have to change the email in Auth.
       const oldEmail = user.email;
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
         email: email, // Set to secondary
@@ -82,19 +229,13 @@ serve(async (req) => {
 
       if (updateError) throw updateError;
 
-      // Now trigger reset (it goes to the new email, which is the secondary)
+      // Now trigger reset
       const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
         redirectTo: `${req.headers.get('origin')}/login?reset=true`,
       });
 
       if (resetError) throw resetError;
 
-      // We should probably keep it as the new email if they want to use it for recovery consistently,
-      // but the user said "secondary email... preferably their personal working email".
-      // If we leave it as primary, then future logins will use this email.
-      // Is that what the user wants? "no need to input their personal email [to edit]"
-      // Maybe the "Admin created" email is just a placeholder or corporate email?
-      
       return new Response(JSON.stringify({ success: true, message: 'Recovery link sent to personal email.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -102,11 +243,17 @@ serve(async (req) => {
     }
 
     if (action === 'delete-user') {
-      const { userId } = await req.json()
       if (!userId) throw new Error('User ID is required')
-
+      
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
       if (deleteError) throw deleteError
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (profileError) throw profileError
 
       return new Response(JSON.stringify({ success: true, message: 'User deleted successfully' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -114,9 +261,11 @@ serve(async (req) => {
       })
     }
 
-    throw new Error('Invalid action')
-
-  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    })
+  } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

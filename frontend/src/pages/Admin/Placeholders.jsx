@@ -16,18 +16,18 @@ const UnderConstruction = ({ badge, title, subtitle }) => (
       alignItems: 'center', 
       justifyContent: 'center', 
       minHeight: '400px',
-      background: 'var(--bg-secondary)',
-      backdropFilter: 'blur(20px)',
-      borderRadius: '1.25rem',
-      border: '1px solid rgba(255,255,255,0.03)',
-      color: 'rgba(255,255,255,0.2)',
-      gap: '1rem'
+      background: '#FFFFFF',
+      borderRadius: '1rem',
+      border: '1px solid var(--admin-border)',
+      color: 'var(--admin-text-secondary)',
+      gap: '1.25rem',
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
     }}>
-      <Construction size={48} strokeWidth={1} />
-      <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', letterSpacing: '2px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.1)' }}>
+      <Construction size={48} strokeWidth={1.5} color="var(--admin-brand)" />
+      <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)', letterSpacing: '1px' }}>
         Page Under Construction
       </h2>
-      <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '600' }}>
+      <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '600', textAlign: 'center', maxWidth: '300px' }}>
         This module is currently being calibrated for peak performance.
       </p>
     </div>

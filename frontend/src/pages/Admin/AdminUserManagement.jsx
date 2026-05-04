@@ -16,7 +16,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Trash2
+  Trash2,
+  RefreshCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -28,22 +29,28 @@ const AdminUserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // History Modal State
+  // View State
+  const [view, setView] = useState('list'); // 'list' or 'history'
   const [selectedUser, setSelectedUser] = useState(null);
   const [userBookings, setUserBookings] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(null); // stores the user object being deleted
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch only profiles with CUSTOMER role
-      const { data, error } = await supabase
+      // Fetch only CUSTOMER profiles — staff, admin, and super_admin belong in Staff Management
+      const { data, error, count } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('role', 'CUSTOMER')
         .order('full_name', { ascending: true });
 
+      if (data) {
+        console.log('Unique roles in directory:', [...new Set(data.map(u => u.role))]);
+      }
+
+      console.log('User directory debug:', { data, count, error });
       if (error) throw error;
       setUsers(data || []);
     } catch (err) {
@@ -60,20 +67,26 @@ const AdminUserManagement = () => {
 
   const handleSeeHistory = async (user) => {
     setSelectedUser(user);
-    setIsModalOpen(true);
+    setView('history');
     setLoadingHistory(true);
     try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          services:booking_services(service_name)
-        `)
-        .eq('customer_id', user.id)
-        .order('scheduled_start', { ascending: false });
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'list-history',
+          userId: user.id
+        })
+      });
 
-      if (error) throw error;
-      setUserBookings(data || []);
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+      
+      setUserBookings(result.data || []);
     } catch (err) {
       console.error('Error fetching history:', err);
       toast.error('Failed to load booking history');
@@ -82,357 +95,497 @@ const AdminUserManagement = () => {
     }
   };
 
+  const handleBackToList = () => {
+    setView('list');
+    setSelectedUser(null);
+    setUserBookings([]);
+  };
+
+  // Exclude staff/admin accounts that may have role=CUSTOMER (deactivated staff)
+  const isStaffAccount = (u) => {
+    const emailLower = u.email?.toLowerCase() || '';
+    return u.was_staff === true || 
+           emailLower.endsWith('@speed.way') || 
+           emailLower.endsWith('@speedway.com') ||
+           emailLower.endsWith('@renew.com');
+  };
+
   const filteredUsers = users.filter(u => 
-    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.phone_number?.includes(searchQuery)
+    !isStaffAccount(u) && (
+      u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.phone_number?.includes(searchQuery)
+    )
   );
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'COMPLETED': return { bg: 'rgba(34, 197, 94, 0.1)', text: '#22c55e' };
-      case 'CANCELLED': return { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444' };
-      case 'PENDING_ASSIGNMENT': return { bg: 'rgba(234, 179, 8, 0.1)', text: '#eab308' };
-      case 'CONFIRMED': return { bg: 'rgba(169, 27, 24, 0.1)', text: 'var(--primary-color)' };
-      default: return { bg: 'rgba(148, 163, 184, 0.1)', text: '#94a3b8' };
+      case 'completed': return { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981' };
+      case 'cancelled': return { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444' };
+      case 'scheduled': return { bg: 'rgba(59, 130, 246, 0.1)', text: '#3b82f6' };
+      case 'in_progress': return { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b' };
+      case 'curing': return { bg: 'rgba(139, 92, 246, 0.1)', text: '#8b5cf6' };
+      case 'ready_for_pickup': return { bg: 'rgba(20, 184, 166, 0.1)', text: '#14b8a6' };
+      default: return { bg: 'var(--admin-bg)', text: 'var(--admin-text-secondary)' };
     }
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    <div style={{ minHeight: '100vh', padding: isMobile ? '1rem' : '2rem', background: 'var(--admin-bg)', animation: 'fadeIn 0.5s ease' }}>
       <PageHeader 
         badge="ACCESS CONTROL"
-        title="User Directory"
-        subtitle="Manage customer profiles and review booking histories"
-        onRefresh={fetchUsers}
+        title={view === 'list' ? "User Directory" : "Customer History"}
+        subtitle={view === 'list' ? "Manage customer profiles and review booking histories" : `Service timeline for ${selectedUser?.full_name}`}
+        onRefresh={view === 'list' ? fetchUsers : () => handleSeeHistory(selectedUser)}
       />
 
-      {/* Search Bar */}
-      <div style={{ position: 'relative', marginBottom: '2rem' }}>
-        <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-        <input 
-          type="text" 
-          placeholder="Search by name, email, or phone number..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ 
-            width: '100%', 
-            padding: '1.25rem 1.25rem 1.25rem 3.5rem', 
-            background: 'var(--bg-input)', 
-            border: '1px solid var(--glass-border)', 
-            borderRadius: '1rem', 
-            color: 'var(--text-primary)', 
-            fontSize: '1rem',
-            outline: 'none'
-          }}
-        />
-      </div>
 
-      {/* Users List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {loading ? (
-          [1,2,3,4,5].map(i => (
-            <div key={i} style={{ height: '100px', background: 'rgba(255,255,255,0.05)', borderRadius: '1.25rem' }} className="animate-pulse"></div>
-          ))
-        ) : filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => (
-            <div 
-              key={user.id}
+
+      {view === 'list' ? (
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ position: 'relative', marginBottom: '2rem' }}>
+            <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
+            <input 
+              type="text" 
+              placeholder="Search by name, email, or phone number..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{ 
-                background: 'var(--bg-card)', 
-                border: '1px solid var(--glass-border)', 
-                borderRadius: '1.25rem', 
-                padding: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2rem',
-                flexWrap: isMobile ? 'wrap' : 'nowrap',
-                transition: 'all 0.2s ease',
-                color: 'var(--card-text)',
-                boxShadow: 'var(--card-shadow)'
+                width: '100%', 
+                padding: '1rem 1.25rem 1rem 3.5rem', 
+                background: 'var(--admin-card)', 
+                border: '1px solid var(--admin-border)', 
+                borderRadius: '1rem', 
+                color: 'var(--admin-text-primary)', 
+                fontSize: '1rem',
+                fontWeight: '600',
+                outline: 'none',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              {/* Profile Info */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flex: 1, minWidth: '200px' }}>
-                <div style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  borderRadius: '1.25rem', 
-                  background: 'rgba(255,255,255,0.15)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  color: 'var(--card-text)',
-                  fontSize: '1.5rem',
-                  fontWeight: '900',
-                  border: '1px solid rgba(255,255,255,0.1)'
-                }}>
-                  {user.full_name?.charAt(0) || <User size={28} />}
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--card-text)' }}>{user.full_name || 'Anonymous User'}</h3>
-                    <span style={{ 
-                        fontSize: '0.65rem', 
-                        fontWeight: '900', 
-                        padding: '0.2rem 0.6rem', 
-                        borderRadius: '0.5rem', 
-                        background: 'rgba(255,255,255,0.1)', 
-                        color: 'var(--card-text)',
-                        opacity: 0.8,
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
-                    }}>
-                        {user.role}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--card-text)', opacity: 0.7, fontSize: '0.85rem' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Mail size={14} /> {user.email}</span>
-                    {user.phone_number && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Phone size={14} /> {user.phone_number}</span>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button 
-                  onClick={() => handleSeeHistory(user)}
-                  style={{ 
-                      padding: '0.85rem 1.5rem', 
-                      borderRadius: '0.85rem', 
-                      background: 'rgba(255, 255, 255, 0.1)', 
-                      color: 'var(--card-text)', 
-                      fontSize: '0.9rem', 
-                      fontWeight: '700', 
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.65rem',
-                      transition: 'all 0.2s ease',
-                      whiteSpace: 'nowrap'
-                  }}
-                  onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--card-text)';
-                      e.currentTarget.style.color = 'var(--bg-card)';
-                  }}
-                  onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                      e.currentTarget.style.color = 'var(--card-text)';
-                  }}
-                >
-                  <History size={18} />
-                  See history
-                </button>
-
-                <button 
-                  onClick={async () => {
-                    if (!window.confirm(`Are you sure you want to PERMANENTLY delete ${user.full_name}?`)) return;
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession();
-                      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${session?.access_token}`
-                        },
-                        body: JSON.stringify({ action: 'delete-user', userId: user.id })
-                      });
-                      const result = await res.json();
-                      if (result.error) throw new Error(result.error);
-                      toast.success('User deleted permanently');
-                      fetchUsers();
-                    } catch (err) {
-                      toast.error(`Delete failed: ${err.message}`);
-                    }
-                  }}
-                  style={{ 
-                      padding: '0.85rem', 
-                      borderRadius: '0.85rem', 
-                      background: 'rgba(255, 255, 255, 0.1)', 
-                      color: 'var(--card-text)', 
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#ef4444';
-                      e.currentTarget.style.color = '#fff';
-                  }}
-                  onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                      e.currentTarget.style.color = 'var(--card-text)';
-                  }}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--glass-bg)', backdropFilter: 'blur(var(--blur-amount))', borderRadius: '1.25rem', border: '1px solid var(--glass-border)', color: 'rgba(255,255,255,0.4)' }}>
-            <Users size={64} strokeWidth={1} style={{ marginBottom: '1rem' }} />
-            <p style={{ fontSize: '1.1rem' }}>No users found matching your search</p>
+            />
           </div>
-        )}
-      </div>
 
-      {/* Booking History Modal */}
-      {isModalOpen && selectedUser && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0,0,0,0.85)', 
-          backdropFilter: 'blur(10px)', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          zIndex: 10000,
-          padding: '1.5rem'
-        }}>
-          <div style={{ 
-            width: '100%', 
-            maxWidth: '800px', 
-            maxHeight: '90vh',
-            background: 'var(--bg-primary)', 
-            borderRadius: '2rem', 
-            border: '1px solid var(--glass-border)', 
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: 'var(--card-shadow)',
-            animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}>
-            {/* Modal Header */}
-            <div style={{ padding: '2rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-panel)' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--panel-text)' }}>Booking History</h2>
-                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--panel-text)', opacity: 0.7, fontSize: '0.9rem' }}>
-                  Reviewing activity for <span style={{ fontWeight: '700' }}>{selectedUser.full_name}</span>
-                </p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--panel-text)', cursor: 'pointer', background: 'none', border: 'none' }}><X size={28} /></button>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1.25rem' }}>
+            {loading ? (
+              [1,2,3,4].map(i => (
+                <div key={i} style={{ height: '160px', background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)' }} className="animate-pulse"></div>
+              ))
+            ) : filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <div 
+                  key={user.id}
+                  className="user-card"
+                  style={{ 
+                    background: 'var(--admin-card)', 
+                    border: '1px solid var(--admin-border)', 
+                    borderRadius: '1.25rem', 
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.25rem',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'default'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ 
+                      width: '48px', 
+                      height: '48px', 
+                      borderRadius: '0.75rem', 
+                      background: 'var(--admin-bg)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'var(--admin-brand)',
+                      fontSize: '1.25rem',
+                      fontWeight: '800',
+                      border: '1px solid var(--admin-border)'
+                    }}>
+                      {user.full_name?.charAt(0) || <User size={20} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{user.full_name}</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>
+                          <Mail size={12} style={{ color: 'var(--admin-brand)' }} /> {user.email}
+                        </div>
+                        {user.phone_number && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>
+                            <Phone size={12} style={{ color: 'var(--admin-brand)' }} /> {user.phone_number}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Modal Content */}
-            <div style={{ padding: '2rem', overflowY: 'auto', flex: 1 }}>
-              {loadingHistory ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '1rem' }}>
-                  <Loader2 size={40} className="animate-spin" color="var(--primary-color)" />
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>Fetching records...</span>
-                </div>
-              ) : userBookings.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {userBookings.map((booking) => {
-                    const status = getStatusColor(booking.booking_status);
-                    return (
-                      <div 
-                        key={booking.id}
+                  <div style={{ display: 'flex', gap: '0.6rem' }}>
+                    <button 
+                      onClick={() => handleSeeHistory(user)}
+                      className="action-btn"
+                      style={{ 
+                        flex: 1,
+                        padding: '0.75rem', 
+                        borderRadius: '0.75rem', 
+                        background: 'var(--admin-bg)', 
+                        color: 'var(--admin-brand)', 
+                        fontSize: '0.8rem', 
+                        fontWeight: '800', 
+                        border: '1px solid var(--admin-border)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <History size={16} /> SERVICE HISTORY
+                    </button>
+                    {user.role !== 'CUSTOMER' && (
+                      <button 
+                        onClick={() => setIsDeletingUser(user)}
+                        className="action-btn"
                         style={{ 
-                            padding: '1.5rem', 
-                            background: 'var(--bg-card)', 
-                            borderRadius: '1.25rem', 
-                            border: '1px solid var(--glass-border)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            color: 'var(--card-text)',
-                            boxShadow: 'var(--card-shadow)'
+                          padding: '0.75rem', 
+                          borderRadius: '0.75rem', 
+                          background: 'rgba(239, 68, 68, 0.05)', 
+                          color: '#ef4444', 
+                          border: '1px solid var(--admin-border)',
+                          cursor: 'pointer'
                         }}
                       >
-                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.6, textTransform: 'uppercase' }}>
-                                    {new Date(booking.scheduled_start).toLocaleDateString(undefined, { month: 'short' })}
-                                </div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--card-text)' }}>
-                                    {new Date(booking.scheduled_start).getDate()}
-                                </div>
-                            </div>
-                            <div style={{ width: '1px', height: '40px', background: 'rgba(255,255,255,0.2)' }}></div>
-                             <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--card-text)' }}>Booking #{booking.id.slice(0, 8).toUpperCase()}</span>
-                                    <span style={{ 
-                                        padding: '0.2rem 0.5rem', 
-                                        borderRadius: '0.4rem', 
-                                        background: 'rgba(255,255,255,0.15)', 
-                                        color: 'var(--card-text)', 
-                                        fontSize: '0.6rem', 
-                                        fontWeight: '900',
-                                        textTransform: 'uppercase'
-                                    }}>{booking.booking_status.replace('_', ' ')}</span>
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--card-text)', opacity: 0.7, display: 'flex', gap: '1rem' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Calendar size={14} /> {new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Clock size={14} /> {booking.services?.[0]?.service_name}{booking.services?.length > 1 ? ` +${booking.services.length - 1}` : ''}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={() => {
-                                setIsModalOpen(false);
-                                navigate(`/admin/bookings/${booking.id}`);
-                            }}
-                            style={{ 
-                                padding: '0.6rem 1rem', 
-                                borderRadius: '0.65rem', 
-                                background: 'rgba(255,255,255,0.1)', 
-                                color: 'var(--card-text)', 
-                                fontSize: '0.8rem', 
-                                fontWeight: '700', 
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            Details <ExternalLink size={14} />
-                        </button>
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '5rem', background: 'var(--admin-card)', borderRadius: '2rem', border: '1px dashed var(--admin-border)' }}>
+                <Users size={64} strokeWidth={1} style={{ color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', opacity: 0.3 }} />
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '950', color: 'var(--admin-text-primary)' }}>No customers found</h3>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <button 
+            onClick={handleBackToList}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--admin-brand)', 
+              fontWeight: '800', 
+              cursor: 'pointer',
+              marginBottom: '1.5rem',
+              padding: '0.5rem 0',
+              fontSize: '0.85rem'
+            }}
+          >
+            <ChevronRight size={18} style={{ transform: 'rotate(180deg)' }} /> BACK TO DIRECTORY
+          </button>
+
+          <div style={{ 
+            background: 'var(--admin-card)', 
+            borderRadius: '1.5rem', 
+            padding: '2rem', 
+            border: '1px solid var(--admin-border)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '2rem',
+            marginBottom: '2rem',
+            alignItems: 'center',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ 
+              width: '80px', 
+              height: '80px', 
+              borderRadius: '1.25rem', 
+              background: 'var(--admin-bg)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'var(--admin-brand)',
+              fontSize: '2rem',
+              fontWeight: '800',
+              border: '1px solid var(--admin-border)'
+            }}>
+              {selectedUser?.full_name?.charAt(0)}
+            </div>
+            
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--admin-text-primary)', margin: '0 0 0.5rem 0', letterSpacing: '-0.5px' }}>{selectedUser?.full_name}</h2>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '700' }}>
+                  <Mail size={16} style={{ color: 'var(--admin-brand)' }} /> {selectedUser?.email}
+                </div>
+                {selectedUser?.phone_number && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '700' }}>
+                    <Phone size={16} style={{ color: 'var(--admin-brand)' }} /> {selectedUser?.phone_number}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '700' }}>
+                  <CheckCircle2 size={16} style={{ color: '#10b981' }} /> {userBookings.length} Total Records
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {loadingHistory ? (
+              [1,2,3].map(i => (
+                <div key={i} style={{ height: '110px', background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)' }} className="animate-pulse"></div>
+              ))
+            ) : userBookings.length > 0 ? (
+              userBookings.map((booking) => {
+                const statusInfo = getStatusColor(booking.status);
+                return (
+                  <div 
+                    key={booking.id}
+                    style={{
+                      background: 'var(--admin-card)',
+                      borderRadius: '1.25rem',
+                      padding: '1.5rem',
+                      border: '1px solid var(--admin-border)',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '2rem',
+                      alignItems: 'center',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  >
+                    <div style={{ 
+                      minWidth: '140px', 
+                      padding: '1rem', 
+                      background: 'var(--admin-bg)', 
+                      borderRadius: '1rem', 
+                      textAlign: 'center',
+                      border: '1px solid var(--admin-border)'
+                    }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.15rem', opacity: 0.7 }}>
+                        {new Date(booking.start_datetime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(255,255,255,0.2)' }}>
-                  <Calendar size={48} strokeWidth={1} style={{ marginBottom: '1rem' }} />
-                  <p>No booking history found for this user</p>
-                </div>
-              )}
+                      <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
+                        {new Date(booking.start_datetime).getDate()}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>
+                        {new Date(booking.start_datetime).toLocaleDateString('en-US', { weekday: 'long' })}
+                      </div>
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: '280px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                        <span style={{ 
+                          padding: '0.35rem 0.75rem', 
+                          borderRadius: '2rem', 
+                          background: statusInfo.bg, 
+                          color: statusInfo.text, 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          border: `1px solid ${statusInfo.text}22`
+                        }}>
+                          {booking.status.replace('_', ' ')}
+                        </span>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <Clock size={14} /> {new Date(booking.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        {booking.services.map((s, idx) => (
+                          <span key={idx} style={{ 
+                            fontSize: '0.9rem', 
+                            fontWeight: '700', 
+                            color: 'var(--admin-text-primary)',
+                            background: 'var(--admin-bg)',
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '0.75rem',
+                            border: '1px solid var(--admin-border)'
+                          }}>
+                            {s.service_name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.15rem', opacity: 0.7 }}>TOTAL VALUE</div>
+                      <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--admin-brand)' }}>
+                        ₱{booking.total_price?.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--admin-card)', borderRadius: '2rem', border: '1px dashed var(--admin-border)' }}>
+                <Calendar size={48} strokeWidth={1} style={{ color: 'var(--admin-text-secondary)', marginBottom: '1.25rem', opacity: 0.3 }} />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>No booking history found</h3>
+                <p style={{ color: 'var(--admin-text-secondary)', fontWeight: '600', fontSize: '0.9rem', marginTop: '0.5rem' }}>This customer has no recorded service activity.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* DELETION MODAL */}
+      {isDeletingUser && (
+        <div style={{ 
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 100000,
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{ 
+            background: 'var(--bg-panel)', 
+            border: '1px solid var(--glass-border)', 
+            borderRadius: '1.5rem', 
+            padding: isMobile ? '1.5rem' : '2.5rem', 
+            width: 'min(400px, 95vw)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            animation: 'modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            backdropFilter: 'blur(12px)',
+            margin: '1.25rem'
+          }}>
+            <div style={{ marginBottom: isMobile ? '1rem' : '1.5rem', textAlign: 'center' }}>
+              <div style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', borderRadius: '1rem', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto', color: '#ef4444' }}>
+                <Trash2 size={isMobile ? 24 : 32} />
+              </div>
+              <h2 style={{ fontSize: isMobile ? '1.25rem' : '1.5rem', fontWeight: '800', color: 'var(--panel-text)', margin: '0 0 0.5rem 0' }}>Confirm Deletion</h2>
+              <p style={{ fontSize: isMobile ? '0.8rem' : '0.9rem', color: 'var(--panel-text)', opacity: 0.6, fontWeight: '500', lineHeight: '1.6', margin: '0.75rem 0 0 0' }}>
+                Are you sure you want to remove <span style={{ color: 'var(--primary-color)', fontWeight: '800' }}>{isDeletingUser.full_name}</span>? This action will permanently delete their account and history.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexDirection: isMobile ? 'column' : 'row' }}>
+              <button 
+                onClick={() => setIsDeletingUser(null)}
+                className="action-btn"
+                style={{ 
+                  flex: 1, 
+                  padding: '0.875rem', 
+                  borderRadius: '0.875rem', 
+                  background: 'var(--admin-bg)', 
+                  color: 'var(--panel-text)', 
+                  border: '1px solid var(--glass-border)', 
+                  fontWeight: '800', 
+                  fontSize: '0.85rem', 
+                  cursor: 'pointer'
+                }}
+              >
+                CANCEL
+              </button>
+              <button 
+                onClick={async () => {
+                  const userId = isDeletingUser.id;
+                  setIsDeletingUser(null);
+                  const loadingToast = toast.loading('Deleting user...', {
+                    style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+                  });
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '')}/functions/v1/manage-staff`;
+                    const response = await fetch(functionUrl, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+                      },
+                      body: JSON.stringify({ action: 'delete-user', userId })
+                    });
+                    
+                    if (!response.ok) {
+                      const errText = await response.text();
+                      let message = 'Failed to delete user';
+                      try {
+                        const errData = JSON.parse(errText);
+                        message = errData.error || errData.message || message;
+                      } catch (e) {}
+                      
+                      // User-friendly mapping for common DB constraint errors
+                      if (message.includes('foreign key constraint') || message.includes('Database error')) {
+                        message = 'Cannot delete user: Active records (bookings/history) found.';
+                      }
+                      
+                      throw new Error(message);
+                    }
+                    toast.success('User removed from system', { 
+                      id: loadingToast,
+                      style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+                    });
+                    fetchUsers();
+                  } catch (err) {
+                    toast.error(err.message || 'Deletion failed', { 
+                      id: loadingToast,
+                      style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }
+                    });
+                  }
+                }}
+                className="action-btn"
+                style={{ 
+                  flex: 1, 
+                  padding: '0.875rem', 
+                  borderRadius: '0.875rem', 
+                  background: '#ef4444', 
+                  color: '#fff', 
+                  border: 'none', 
+                  fontWeight: '800', 
+                  fontSize: '0.85rem', 
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                }}
+              >
+                DELETE USER
+              </button>
             </div>
           </div>
         </div>
       )}
 
       <style>{`
-        .animate-spin {
-          animation: spin 1s linear infinite;
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes modalFadeIn {
+        @keyframes modalIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+        .user-card {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .user-card:hover {
+          transform: translateY(-4px);
+          border-color: var(--admin-brand) !important;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .action-btn {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .action-btn:hover {
+          transform: scale(1.02);
         }
       `}</style>
     </div>
   );
 };
-
-const Loader2 = ({ size, className, color }) => (
-  <RefreshCcw size={size} className={className} color={color} />
-);
 
 export default AdminUserManagement;

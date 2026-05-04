@@ -20,7 +20,7 @@ const LandingPage = () => {
     const fetchServices = async () => {
       try {
         const { data, error } = await supabase
-          .from('services')
+          .from('services_v2')
           .select('*')
           .eq('is_active', true);
         if (!error && data) setServices(data);
@@ -157,9 +157,6 @@ const LandingPage = () => {
           background: 'transparent'
         }}>
           <div style={{ maxWidth: '1700px', zIndex: 10 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(169, 27, 24, 0.08)', color: 'var(--primary-color)', padding: '0.4rem 1rem', borderRadius: '5rem', marginBottom: '1.25rem', border: '1px solid rgba(169, 27, 24, 0.12)', fontSize: '0.75rem', fontWeight: '800' }}>
-              <Sparkles size={12} /> PREMIUM AUTO CARE
-            </div>
             <h1 style={{
               fontSize: 'clamp(2.5rem, 10vw, 4.5rem)',
               fontWeight: '900',

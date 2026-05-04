@@ -87,13 +87,13 @@ const BookingChat = ({ bookingId }) => {
       const filePath = `chat_media/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('bookings')
+        .from('bookings_v2')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('bookings')
+        .from('bookings_v2')
         .getPublicUrl(filePath);
 
       // Determine media type
@@ -203,7 +203,7 @@ const BookingChat = ({ bookingId }) => {
                   padding: msg.media_url && msg.media_type !== 'file' ? '0.25rem' : '0.85rem 1.25rem', 
                   borderRadius: isMe ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem',
                   background: isMe ? 'var(--primary-color)' : 'var(--bg-secondary)',
-                  color: isMe ? 'var(--bg-card)' : 'var(--card-text)',
+                  color: isMe ? '#ffffff' : 'var(--card-text)',
                   fontSize: '0.95rem',
                   fontWeight: '600',
                   lineHeight: '1.5',
@@ -280,7 +280,7 @@ const BookingChat = ({ bookingId }) => {
               style={{ 
                 width: '100%', padding: '0.85rem 1.25rem', borderRadius: '1rem', 
                 background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', 
-                color: 'var(--card-text)', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s' 
+                color: '#ffffff', fontSize: '0.9rem', outline: 'none', transition: 'all 0.2s' 
               }}
               onFocus={(e) => e.target.style.borderColor = 'var(--primary-color)'}
               onBlur={(e) => e.target.style.borderColor = 'var(--glass-border)'}
@@ -292,7 +292,7 @@ const BookingChat = ({ bookingId }) => {
             disabled={!newMessage.trim()}
             style={{ 
               padding: '0.85rem 1.5rem', borderRadius: '1rem', background: 'var(--primary-color)', 
-              border: 'none', color: 'var(--bg-card)', cursor: 'pointer', fontWeight: '950',
+              border: 'none', color: '#ffffff', cursor: 'pointer', fontWeight: '950',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               opacity: !newMessage.trim() ? 0.3 : 1, transition: 'all 0.3s'
             }}

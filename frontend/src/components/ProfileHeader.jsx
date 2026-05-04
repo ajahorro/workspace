@@ -57,32 +57,40 @@ const ProfileHeader = () => {
           display: 'flex', 
           alignItems: 'center', 
           gap: isMobile ? '0.25rem' : '0.75rem', 
-          background: 'rgba(255,255,255,0.04)', 
-          border: '1px solid var(--border-color)', 
-          padding: isMobile ? '0.25rem' : '0.5rem 1rem 0.5rem 0.5rem', 
+          background: 'var(--admin-bg)', 
+          border: '1px solid var(--admin-border)', 
+          padding: isMobile ? '0.25rem' : '0.4rem 0.85rem 0.4rem 0.4rem', 
           borderRadius: '2rem', 
           cursor: 'pointer',
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          boxShadow: 'var(--admin-card-shadow)'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--admin-brand)';
+          e.currentTarget.style.background = 'var(--admin-card)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'var(--admin-border)';
+          e.currentTarget.style.background = 'var(--admin-bg)';
+        }}
       >
         <div style={{ 
           width: isMobile ? '28px' : '32px', 
           height: isMobile ? '28px' : '32px', 
-          background: 'var(--primary-color)', 
+          background: 'var(--admin-brand)', 
           borderRadius: '50%', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          color: 'var(--card-text)', 
+          color: '#FFFFFF', 
           fontWeight: '900', 
-          fontSize: '0.8rem' 
+          fontSize: '0.8rem',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           {initial}
         </div>
-        {!isMobile && <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.85rem' }}>{displayName}</span>}
-        <ChevronDown size={14} color="var(--text-secondary)" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+        {!isMobile && <span style={{ color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.85rem' }}>{displayName}</span>}
+        <ChevronDown size={14} color="var(--admin-text-secondary)" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.7 }} />
       </button>
 
       {isOpen && (
@@ -90,30 +98,30 @@ const ProfileHeader = () => {
           position: 'absolute', 
           top: 'calc(100% + 0.5rem)', 
           right: 0, 
-          background: 'var(--bg-secondary)', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '0.75rem', 
-          minWidth: '200px', 
+          background: 'var(--admin-card)', 
+          border: '1px solid var(--admin-border)', 
+          borderRadius: '1rem', 
+          minWidth: '220px', 
           overflow: 'hidden',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-          zIndex: 100,
-          animation: 'fadeIn 0.15s ease'
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          zIndex: 1000,
+          animation: 'fadeIn 0.2s ease'
         }}>
           {/* User info header */}
-          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)' }}>
-            <p style={{ margin: 0, fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{displayName}</p>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user?.email}</p>
+          <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+            <p style={{ margin: 0, fontWeight: '800', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>{displayName}</p>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>{user?.email}</p>
             <span style={{ 
               display: 'inline-block', 
-              marginTop: '0.5rem', 
+              marginTop: '0.6rem', 
               fontSize: '0.65rem', 
-              fontWeight: '700', 
-              padding: '0.15rem 0.5rem', 
-              borderRadius: '1rem', 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              color: 'var(--text-primary)',
+              fontWeight: '800', 
+              padding: '0.25rem 0.75rem', 
+              borderRadius: '2rem', 
+              background: 'var(--admin-brand-light)', 
+              color: 'var(--admin-brand)',
               textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              letterSpacing: '1px'
             }}>
               {profile?.role?.replace('_', ' ') || 'Customer'}
             </span>
@@ -131,17 +139,17 @@ const ProfileHeader = () => {
                 padding: '0.75rem 1rem', 
                 background: 'transparent', 
                 border: 'none', 
-                color: 'var(--text-primary)', 
+                color: 'var(--admin-text-primary)', 
                 cursor: 'pointer', 
-                borderRadius: '0.5rem',
+                borderRadius: '0.6rem',
                 fontSize: '0.85rem',
-                fontWeight: '500',
-                transition: 'background 0.15s'
+                fontWeight: '600',
+                transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-bg)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <User size={16} color="var(--text-secondary)" /> My Profile
+              <User size={16} color="var(--admin-brand)" opacity={0.8} /> My Profile
             </button>
             <button 
               onClick={() => { setIsOpen(false); navigate(getSettingsPath()); }}
@@ -153,21 +161,21 @@ const ProfileHeader = () => {
                 padding: '0.75rem 1rem', 
                 background: 'transparent', 
                 border: 'none', 
-                color: 'var(--text-primary)', 
+                color: 'var(--admin-text-primary)', 
                 cursor: 'pointer', 
-                borderRadius: '0.5rem',
+                borderRadius: '0.6rem',
                 fontSize: '0.85rem',
-                fontWeight: '500',
-                transition: 'background 0.15s'
+                fontWeight: '600',
+                transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-bg)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <Settings size={16} color="var(--text-secondary)" /> Settings
+              <Settings size={16} color="var(--admin-brand)" opacity={0.8} /> Settings
             </button>
           </div>
 
-          <div style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem' }}>
+          <div style={{ borderTop: '1px solid var(--admin-border)', padding: '0.5rem' }}>
             <button 
               onClick={handleLogout}
               style={{ 
@@ -178,14 +186,14 @@ const ProfileHeader = () => {
                 padding: '0.75rem 1rem', 
                 background: 'transparent', 
                 border: 'none', 
-                color: 'var(--danger-color)', 
+                color: '#ef4444', 
                 cursor: 'pointer', 
-                borderRadius: '0.5rem',
+                borderRadius: '0.6rem',
                 fontSize: '0.85rem',
-                fontWeight: '600',
-                transition: 'background 0.15s'
+                fontWeight: '700',
+                transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               <LogOut size={16} /> Log Out

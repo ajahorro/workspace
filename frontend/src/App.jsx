@@ -37,9 +37,13 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster 
-        position="top-right"
+        position="top-center"
         reverseOrder={false}
         gutter={12}
+        containerStyle={{
+          top: 40,
+          zIndex: 999999,
+        }}
         toastOptions={{
           duration: 4000,
           style: {
@@ -47,28 +51,33 @@ function App() {
             color: 'var(--panel-text)',
             borderRadius: '1.25rem',
             border: '1px solid var(--glass-border)',
-            fontSize: '0.95rem',
-            fontWeight: '700',
-            maxWidth: '400px',
-            boxShadow: 'var(--card-shadow)',
+            fontSize: '0.9rem',
+            fontWeight: '800',
+            width: 'min(400px, 90vw)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
             padding: '1rem 1.5rem',
-            letterSpacing: '0.3px'
+            backdropFilter: 'blur(12px)',
+            textAlign: 'center',
+            margin: '0 auto'
           },
           success: {
             iconTheme: {
               primary: 'var(--primary-color)',
-              secondary: 'var(--panel-text)',
+              secondary: '#fff',
             },
           },
           error: {
             style: {
-              background: '#ef4444',
-              color: '#fff',
-              border: 'none'
+              background: 'rgba(239, 68, 68, 0.1)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              backdropFilter: 'blur(12px)',
+              width: 'min(400px, 90vw)',
+              margin: '0 auto'
             },
             iconTheme: {
-              primary: '#fff',
-              secondary: '#ef4444',
+              primary: '#ef4444',
+              secondary: '#fff',
             },
           },
         }} 

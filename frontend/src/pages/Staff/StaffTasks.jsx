@@ -22,99 +22,129 @@ const StaffTasks = () => {
     setLoading(true);
     // Fetch assigned bookings (including closed/cancelled)
     const { data, error } = await supabase
-      .from('bookings')
-      .select('*, payment_intents(*), profiles!customer_id(full_name, email), booking_services(service_name)')
+      .from('bookings_v2')
+      .select(`
+        *,
+        customer:profiles!customer_id(full_name, email),
+        booking_services:booking_services_v2(service:services_v2(name)),
+        payments:payments_v2(*)
+      `)
       .eq('staff_id', user.id)
-      .in('booking_status', ['PENDING_ASSIGNMENT', 'CONFIRMED', 'COMPLETED'])
-      .in('service_status', ['NOT_STARTED', 'IN_PROGRESS', 'FINISHED'])
-      .order('scheduled_start', { ascending: true });
+      .in('status', ['scheduled', 'in_progress', 'completed'])
+      .order('start_datetime', { ascending: true });
 
-    if (data) setTasks(data);
+    if (data) {
+      // Map to expected format
+      const mappedTasks = data.map(t => ({
+        ...t,
+        booking_services: t.booking_services.map(bs => ({ service_name: bs.service?.name })),
+        payments: t.payments || []
+      }));
+      setTasks(mappedTasks);
+    }
     setLoading(false);
   };
 
   const handleUpdateNotes = async (bookingId, notes) => {
     try {
       const { error } = await supabase
-        .from('bookings')
+        .from('bookings_v2')
         .update({ staff_notes: notes })
         .eq('id', bookingId);
       if (error) throw error;
-      toast.success('Notes saved');
+      toast.success('Notes saved', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
     } catch (err) {
-      toast.error('Failed to save notes');
+      toast.error('Failed to save notes', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     }
   };
 
-  const handleRpcAction = async (rpcName, bookingId, payload = {}) => {
+  const handleAction = async (type, bookingId, payload = {}) => {
     setActionLoading(bookingId);
     try {
-      const { error } = await supabase.rpc(rpcName, { p_booking_id: bookingId, ...payload });
-      if (error) throw error;
-      
-      // Notify Customer
+      let updateData = {};
+      let title = '';
+      let message = '';
       const task = tasks.find(t => t.id === bookingId);
-      if (task) {
-        let title = '';
-        let message = '';
-        const bookingInfo = { vehicle: `${task.vehicle_brand} ${task.vehicle_model}` };
+      const bookingInfo = { vehicle: `${task.vehicle_brand} ${task.vehicle_model}` };
 
-        if (rpcName === 'start_service') {
-          title = 'Service Started';
-          message = `Great news! We've started working on your ${task.vehicle_brand}.`;
-          sendStatusUpdateNotification(task.profiles.email, 'STARTED', bookingInfo);
-        } else if (rpcName === 'finish_service') {
-          title = 'Service Completed';
-          message = `Your detailing service is finished! Your car is ready for pick up or after-care review.`;
-          sendStatusUpdateNotification(task.profiles.email, 'FINISHED', bookingInfo);
-        } else if (rpcName === 'record_cash_payment') {
-          title = 'Payment Received';
-          message = `We have successfully recorded your payment of ₱${payload.p_amount}. Thank you!`;
-          sendPaymentReceiptNotification(task.profiles.email, payload.p_amount, bookingInfo);
-        }
+      if (type === 'start') {
+        updateData = { service_status: 'IN_PROGRESS', status: 'in_progress' };
+        title = 'Service Started';
+        message = `Great news! We've started working on your ${task.vehicle_brand}.`;
+        sendStatusUpdateNotification(task.customer.email, 'STARTED', bookingInfo);
+      } else if (type === 'finish') {
+        updateData = { service_status: 'FINISHED', status: 'completed' };
+        title = 'Service Completed';
+        message = `Your detailing service is finished! Your car is ready for pick up.`;
+        sendStatusUpdateNotification(task.customer.email, 'FINISHED', bookingInfo);
+      } else if (type === 'pay') {
+        const { error: payErr } = await supabase.rpc('record_payment_v2', {
+          p_booking_id: bookingId,
+          p_amount: payload.amount,
+          p_method: 'CASH'
+        });
+        if (payErr) throw payErr;
 
-        if (title) {
-          await supabase.from('notifications').insert({
-            user_id: task.customer_id,
-            title,
-            message,
-            type: 'info',
-            action_url: `/my-bookings/${task.id}`
-          });
-        }
+        title = 'Payment Received';
+        message = `We have successfully recorded your payment of ₱${payload.amount}. Thank you!`;
+        sendPaymentReceiptNotification(task.customer.email, payload.amount, bookingInfo);
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        const { error } = await supabase
+          .from('bookings_v2')
+          .update(updateData)
+          .eq('id', bookingId);
+        if (error) throw error;
+      }
+
+      if (title) {
+        await supabase.from('notifications').insert({
+          user_id: task.customer_id,
+          title,
+          message,
+          type: 'info',
+          action_url: `/my-bookings/${task.id}`
+        });
       }
 
       await fetchTasks();
     } catch (err) {
-      toast.error(`Action failed: ${err.message}`);
+      toast.error(`Action failed: ${err.message}`, {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleCollectCash = async (bookingId, intentId, totalAmount) => {
+  const handleCollectCash = async (bookingId, totalAmount) => {
     const amount = prompt(`Enter amount collected (Total due: ₱${totalAmount}):`, totalAmount);
     if (!amount || isNaN(amount) || amount <= 0) return;
     
-    await handleRpcAction('record_cash_payment', bookingId, { p_amount: parseFloat(amount) });
+    await handleAction('pay', bookingId, { amount: parseFloat(amount) });
   };
 
   const cardStyle = {
-    background: 'var(--bg-card)',
-    backdropFilter: 'var(--blur-amount)',
-    WebkitBackdropFilter: 'var(--blur-amount)',
-    border: '1px solid var(--glass-border)',
+    background: 'var(--admin-card)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid var(--admin-border)',
     borderRadius: '1.25rem',
     overflow: 'hidden',
-    boxShadow: 'var(--card-shadow)',
-    color: 'var(--card-text)'
+    boxShadow: 'var(--admin-card-shadow)',
+    color: 'var(--admin-text-primary)'
   };
 
   const statusBadgeStyle = (status) => {
     const colors = {
-      NOT_STARTED: { bg: 'rgba(255,255,255,0.05)', text: 'var(--card-text)', opacity: 0.7 },
-      IN_PROGRESS: { bg: 'rgba(56, 189, 248, 0.2)', text: '#38bdf8' },
-      FINISHED: { bg: 'var(--success-color)', text: 'var(--bg-card)', opacity: 1 }
+      NOT_STARTED: { bg: 'var(--admin-bg)', text: 'var(--admin-text-secondary)', opacity: 0.7 },
+      IN_PROGRESS: { bg: 'rgba(169, 27, 24, 0.1)', text: 'var(--admin-brand)' },
+      FINISHED: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', opacity: 1 }
     };
     const style = colors[status] || colors.NOT_STARTED;
     return {
@@ -126,7 +156,8 @@ const StaffTasks = () => {
       fontSize: '0.7rem',
       fontWeight: '900',
       textTransform: 'uppercase',
-      letterSpacing: '1px'
+      letterSpacing: '1px',
+      border: `1px solid ${style.text}33`
     };
   };
 
@@ -147,12 +178,12 @@ const StaffTasks = () => {
 
       {tasks.length === 0 ? (
         <div style={{ ...cardStyle, padding: '5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.03)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckSquare size={40} style={{ opacity: 0.2 }} />
+          <div style={{ width: '80px', height: '80px', background: 'var(--admin-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--admin-border)' }}>
+            <CheckSquare size={40} style={{ color: 'var(--admin-text-secondary)', opacity: 0.2 }} />
           </div>
           <div>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: '900' }}>YOU'RE ALL CAUGHT UP!</h3>
-            <p style={{ color: 'var(--card-text)', opacity: 0.7, fontWeight: '600' }}>No active tasks assigned to your schedule today.</p>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>YOU'RE ALL CAUGHT UP!</h3>
+            <p style={{ color: 'var(--admin-text-secondary)', opacity: 0.7, fontWeight: '600' }}>No active tasks assigned to your schedule today.</p>
           </div>
         </div>
       ) : (
@@ -160,17 +191,18 @@ const StaffTasks = () => {
           {tasks.map(task => {
             const isStarted = task.service_status === 'IN_PROGRESS';
             const isFinished = task.service_status === 'FINISHED';
-            const paymentIntent = task.payment_intents?.[0];
-            const needsCashCollection = isFinished && paymentIntent?.method === 'CASH' && paymentIntent?.status !== 'PAID';
+            
+            const totalPaid = task.payments.filter(p => p.status === 'PAID').reduce((s, p) => s + Number(p.amount), 0);
+            const needsCashCollection = isFinished && task.payment_method === 'CASH' && totalPaid < task.total_price;
 
             return (
               <div key={task.id} style={cardStyle}>
                 <div style={{ padding: '2rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                     <div>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>{task.vehicle_brand} {task.vehicle_model}</h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--card-text)', opacity: 0.8, fontWeight: '900', fontSize: '0.85rem', fontFamily: 'monospace' }}>
-                        <div style={{ width: '6px', height: '6px', background: 'var(--card-text)', borderRadius: '50%' }}></div>
+                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{task.vehicle_brand} {task.vehicle_model}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.8, fontWeight: '900', fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                        <div style={{ width: '6px', height: '6px', background: 'var(--admin-brand)', borderRadius: '50%' }}></div>
                         {task.plate_number}
                       </div>
                     </div>
@@ -180,27 +212,27 @@ const StaffTasks = () => {
                   </div>
                   
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--card-text)', opacity: 0.7 }}>
-                      <Clock size={18} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-secondary)' }}>
+                      <Clock size={18} color="var(--admin-brand)" />
                       <div>
                         <div style={{ fontSize: '0.65rem', fontWeight: '800', opacity: 0.5 }}>SCHEDULED</div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--card-text)' }}>{new Date(task.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{new Date(task.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--card-text)', opacity: 0.7 }}>
-                      <DollarSign size={18} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-secondary)' }}>
+                      <DollarSign size={18} color="var(--admin-brand)" />
                       <div>
                         <div style={{ fontSize: '0.65rem', fontWeight: '800', opacity: 0.5 }}>PAYMENT</div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--card-text)' }}>{paymentIntent?.method}</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{task.payment_method || 'CASH'}</div>
                       </div>
                     </div>
                   </div>
                   
-                  <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.6, marginBottom: '0.75rem', letterSpacing: '1px' }}>SELECTED SERVICES</div>
+                  <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--admin-bg)', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.6, marginBottom: '0.75rem', letterSpacing: '1px' }}>SELECTED SERVICES</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {task.booking_services.map((bs, i) => (
-                        <span key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '0.35rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--card-text)', opacity: 0.7 }}>
+                        <span key={i} style={{ background: 'var(--admin-card)', padding: '0.35rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-primary)', border: '1px solid var(--admin-border)' }}>
                           {bs.service_name}
                         </span>
                       ))}
@@ -208,44 +240,44 @@ const StaffTasks = () => {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.7, letterSpacing: '1px' }}>SERVICE NOTES</label>
-                    <textarea 
-                      placeholder="Add observations, damage photos link, or extra work done..."
-                      defaultValue={task.staff_notes}
-                      onBlur={(e) => handleUpdateNotes(task.id, e.target.value)}
-                      style={{ 
-                        width: '100%', 
-                        minHeight: '80px', 
-                        background: 'rgba(0,0,0,0.3)', 
-                        border: '1px solid rgba(255,255,255,0.05)', 
-                        borderRadius: '0.75rem', 
-                        padding: '0.75rem', 
-                        color: 'var(--card-text)', 
-                        fontSize: '0.85rem',
-                        resize: 'vertical',
-                        outline: 'none'
-                      }}
-                    />
+                    <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.7, letterSpacing: '1px' }}>SERVICE NOTES</label>
+                      <textarea 
+                        placeholder="Add observations, damage photos link, or extra work done..."
+                        defaultValue={task.staff_notes}
+                        onBlur={(e) => handleUpdateNotes(task.id, e.target.value)}
+                        style={{ 
+                          width: '100%', 
+                          minHeight: '80px', 
+                          background: 'var(--admin-bg)', 
+                          border: '1px solid var(--admin-border)', 
+                          borderRadius: '0.75rem', 
+                          padding: '0.75rem', 
+                          color: 'var(--admin-text-primary)', 
+                          fontSize: '0.85rem',
+                          resize: 'vertical',
+                          outline: 'none'
+                        }}
+                      />
                   </div>
                 </div>
 
                 <div style={{ padding: '1rem 2rem 2rem 2rem', display: 'flex', gap: '1rem' }}>
                   {!isStarted && !isFinished && (
                     <button 
-                      onClick={() => handleRpcAction('start_service', task.id)}
+                      onClick={() => handleAction('start', task.id)}
                       disabled={actionLoading === task.id}
-                      style={{ flex: 1, padding: '1rem', background: 'var(--primary-color)', color: 'var(--card-text)', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s ease' }}
+                      style={{ flex: 1, padding: '1rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s ease', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}
                       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      {actionLoading === task.id ? <div className="animate-spin" style={{ width: '18px', height: '18px', border: '2px solid var(--card-text)', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <Play size={18} fill="currentColor" />}
+                      {actionLoading === task.id ? <div className="animate-spin" style={{ width: '18px', height: '18px', border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%' }}></div> : <Play size={18} fill="currentColor" />}
                       START SERVICE
                     </button>
                   )}
 
                   {isStarted && !isFinished && (
                     <button 
-                      onClick={() => handleRpcAction('finish_service', task.id)}
+                      onClick={() => handleAction('finish', task.id)}
                       disabled={actionLoading === task.id}
                       style={{ flex: 1, padding: '1rem', background: '#4ade80', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s ease' }}
                       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -258,18 +290,18 @@ const StaffTasks = () => {
 
                   {needsCashCollection && (
                     <button 
-                      onClick={() => handleCollectCash(task.id, paymentIntent.id, paymentIntent.total_amount)}
+                      onClick={() => handleCollectCash(task.id, task.total_price)}
                       disabled={actionLoading === task.id}
                       style={{ flex: 1, padding: '1rem', background: '#fbbf24', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s ease' }}
                       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      <DollarSign size={18} /> COLLECT ₱{paymentIntent.total_amount}
+                      <DollarSign size={18} /> COLLECT ₱{task.total_price}
                     </button>
                   )}
 
                   {!needsCashCollection && isFinished && (
-                    <div style={{ flex: 1, textAlign: 'center', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '700' }}>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '1rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '700', border: '1px solid var(--admin-border)' }}>
                       SERVICE COMPLETED & PAID
                     </div>
                   )}

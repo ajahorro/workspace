@@ -65,11 +65,11 @@ const AdminAuditLogs = () => {
 
   const getBadgeColor = (type) => {
     const t = type.toUpperCase();
-    if (t.includes('CREATE')) return { bg: 'rgba(34, 197, 94, 0.1)', text: '#22c55e' };
-    if (t.includes('STAFF_ASSIGNED')) return { bg: 'rgba(169, 27, 24, 0.1)', text: 'var(--primary-color)' };
+    if (t.includes('CREATE')) return { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981' };
+    if (t.includes('STAFF_ASSIGNED')) return { bg: 'var(--admin-brand-light)', text: 'var(--admin-brand)' };
     if (t.includes('CANCEL') || t.includes('DELETE')) return { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444' };
-    if (t.includes('UPDATE')) return { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24' };
-    return { bg: 'rgba(148, 163, 184, 0.1)', text: '#94a3b8' };
+    if (t.includes('UPDATE')) return { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b' };
+    return { bg: 'var(--admin-bg)', text: 'var(--admin-text-secondary)' };
   };
 
   const formatDescription = (log) => {
@@ -115,7 +115,7 @@ const AdminAuditLogs = () => {
       {/* Search and Filters */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
           <input 
             type="text" 
             placeholder="Search by action, performer, or details..."
@@ -124,32 +124,34 @@ const AdminAuditLogs = () => {
             style={{ 
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
-              background: 'var(--bg-input)', 
-              border: '1px solid var(--glass-border)', 
+              background: 'var(--admin-input-bg)', 
+              border: '1px solid var(--admin-input-border)', 
               borderRadius: '0.75rem', 
-              color: 'var(--text-primary)', 
+              color: 'var(--admin-text-primary)', 
               fontSize: '0.9rem',
               outline: 'none',
-              fontWeight: '600'
+              fontWeight: '600',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
             }}
           />
         </div>
         <div style={{ position: 'relative', minWidth: '180px' }}>
-          <Filter size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+          <Filter size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
           <select 
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             style={{ 
               width: '100%', 
               padding: '0.875rem 1rem 0.875rem 3rem', 
-              background: 'var(--bg-input)', 
-              border: '1px solid var(--glass-border)', 
+              background: 'var(--admin-input-bg)', 
+              border: '1px solid var(--admin-input-border)', 
               borderRadius: '0.75rem', 
-              color: 'var(--text-primary)', 
+              color: 'var(--admin-text-primary)', 
               fontSize: '0.9rem',
               outline: 'none',
               appearance: 'none',
-              fontWeight: '600'
+              fontWeight: '600',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
             }}
           >
             <option value="All">All Entities</option>
@@ -165,7 +167,7 @@ const AdminAuditLogs = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {loading ? (
           [1,2,3,4,5].map(i => (
-            <div key={i} style={{ height: '80px', background: 'var(--bg-secondary)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.02)' }} className="animate-pulse"></div>
+            <div key={i} style={{ height: '80px', background: 'var(--admin-bg)', borderRadius: '1rem', border: '1px solid var(--admin-border)' }} className="animate-pulse"></div>
           ))
         ) : filteredLogs.length > 0 ? (
           filteredLogs.map((log) => {
@@ -175,17 +177,17 @@ const AdminAuditLogs = () => {
                 key={log.id}
                 onClick={() => handleOpenDetail(log)}
                 style={{ 
-                  background: 'var(--bg-card)', 
-                  border: '1px solid var(--glass-border)', 
-                  borderRadius: '1.25rem', 
-                  padding: '1.5rem',
+                  background: 'var(--admin-card)', 
+                  border: '1px solid var(--admin-border)', 
+                  borderRadius: '1rem', 
+                  padding: '1.25rem 1.5rem',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: 'var(--card-shadow)',
-                  color: 'var(--card-text)'
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+                  color: 'var(--admin-text-primary)'
                 }}
                 onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
@@ -197,12 +199,13 @@ const AdminAuditLogs = () => {
                 <div style={{ 
                   width: '44px', 
                   height: '44px', 
-                  background: 'rgba(255,255,255,0.15)', 
+                  background: 'var(--admin-bg)', 
                   borderRadius: '0.75rem', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  color: 'var(--card-text)'
+                  color: 'var(--admin-brand)',
+                  border: '1px solid var(--admin-border)'
                 }}>
                   {getEventIcon(log.event_type)}
                 </div>
@@ -210,43 +213,43 @@ const AdminAuditLogs = () => {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
                     <span style={{ 
-                      padding: '0.2rem 0.6rem', 
+                      padding: '0.25rem 0.6rem', 
                       background: badge.bg, 
                       color: badge.text, 
                       borderRadius: '0.4rem', 
                       fontSize: '0.65rem', 
-                      fontWeight: '900',
-                      letterSpacing: '0.5px'
+                      fontWeight: '800',
+                      textTransform: 'uppercase'
                     }}>
-                      {log.event_type}
+                      {log.event_type.replace('_', ' ')}
                     </span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--card-text)', opacity: 0.7, fontWeight: '500' }}>
-                      Performed by <span style={{ fontWeight: '800' }}>{log.profiles?.full_name || 'System'}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
+                      by <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{log.profiles?.full_name || 'System'}</span>
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: 'var(--card-text)' }}>
+                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: 'var(--admin-text-primary)' }}>
                     {formatDescription(log)}
                   </p>
                 </div>
 
                 <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--card-text)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.6 }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
                       {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <ChevronRight size={18} color="var(--card-text)" style={{ opacity: 0.3 }} />
+                  <ChevronRight size={18} color="var(--admin-text-secondary)" style={{ opacity: 0.5 }} />
                 </div>
               </div>
             );
           })
         ) : (
-          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--bg-secondary)', borderRadius: '1rem', color: 'rgba(255,255,255,0.2)' }}>
-            <Database size={48} strokeWidth={1} style={{ marginBottom: '1rem' }} />
-            <p>No audit logs found matching your criteria</p>
+          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', color: 'var(--admin-text-secondary)' }}>
+            <Database size={48} strokeWidth={1} style={{ marginBottom: '1rem', opacity: 0.3 }} />
+            <p style={{ fontWeight: '700' }}>No audit logs found matching your criteria</p>
           </div>
         )}
       </div>
@@ -256,8 +259,8 @@ const AdminAuditLogs = () => {
         <div style={{ 
           position: 'fixed', 
           inset: 0, 
-          background: 'rgba(0,0,0,0.85)', 
-          backdropFilter: 'blur(10px)', 
+          background: 'rgba(15, 23, 42, 0.65)', 
+          backdropFilter: 'blur(4px)', 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center', 
@@ -267,50 +270,50 @@ const AdminAuditLogs = () => {
           <div style={{ 
             width: '100%', 
             maxWidth: '600px', 
-            background: 'var(--bg-primary)', 
-            borderRadius: '1.5rem', 
-            border: 'var(--border-color)', 
+            background: 'var(--admin-card)', 
+            borderRadius: '1.25rem', 
+            border: '1px solid var(--admin-border)', 
             overflow: 'hidden',
-            boxShadow: 'var(--card-shadow)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
           }}>
-            <div style={{ padding: '1.5rem 2rem', borderBottom: 'var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>Activity Detail</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={24} /></button>
+            <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--admin-bg)' }}>
+              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Activity Detail</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--admin-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={24} /></button>
             </div>
 
             <div style={{ padding: '2rem' }}>
               <div style={{ 
-                background: 'var(--bg-input)', 
+                background: 'var(--admin-bg)', 
                 borderRadius: '1rem', 
                 padding: '1.5rem',
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-                gap: '2rem',
+                gap: '1.5rem 2rem',
                 marginBottom: '2rem',
-                border: 'var(--border-color)'
+                border: '1px solid var(--admin-border)'
               }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Action</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-color)' }}>{selectedLog.event_type}</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Action</label>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--admin-brand)' }}>{selectedLog.event_type.replace('_', ' ')}</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Entity</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Booking (#{selectedLog.booking_id?.slice(0, 8)})</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Entity</label>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>Booking (#{selectedLog.booking_id?.slice(0, 8)})</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Performer</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{selectedLog.profiles?.full_name} ({selectedLog.profiles?.role})</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Performer</label>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{selectedLog.profiles?.full_name} ({selectedLog.profiles?.role})</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Time</label>
-                  <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{new Date(selectedLog.created_at).toLocaleString()}</span>
+                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Time</label>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{new Date(selectedLog.created_at).toLocaleString()}</span>
                 </div>
               </div>
 
               <div style={{ marginBottom: '2.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '1px' }}>Full Description</label>
-                <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.5px' }}>Full Description</label>
+                <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: '600', color: 'var(--admin-text-primary)', lineHeight: '1.6' }}>
                   {formatDescription(selectedLog)}
                 </p>
               </div>
@@ -318,7 +321,7 @@ const AdminAuditLogs = () => {
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button 
                   onClick={() => setIsModalOpen(false)}
-                  style={{ flex: 1, padding: '1rem', borderRadius: '0.75rem', border: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-input)', fontWeight: '700', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-input-border)', color: 'var(--admin-text-primary)', background: 'var(--admin-bg)', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s ease' }}
                 >
                   Close
                 </button>
@@ -332,15 +335,16 @@ const AdminAuditLogs = () => {
                         flex: 2, 
                         padding: '1rem', 
                         borderRadius: '0.75rem', 
-                        background: 'var(--primary-color)', 
-                        color: 'var(--card-text)', 
+                        background: 'var(--admin-brand)', 
+                        color: '#FFFFFF', 
                         border: 'none', 
                         fontWeight: '800', 
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.5rem'
+                        gap: '0.5rem',
+                        transition: 'all 0.2s ease'
                     }}
                   >
                     See Booking <ExternalLink size={18} />

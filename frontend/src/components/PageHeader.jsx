@@ -27,21 +27,17 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
       }}>
         <div style={{ flex: 1, width: '100%' }}>
           {badge && (
-            <div style={{ 
+            <div className="badge" style={{ 
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '0.4rem', 
-              background: 'var(--primary-color)', 
-              color: 'var(--card-text)', 
               padding: '0.35rem 1rem', 
               borderRadius: '5rem', 
               marginBottom: '0.75rem', 
-              border: '1px solid var(--glass-border)', 
               fontSize: '0.65rem', 
               fontWeight: '900', 
               letterSpacing: '1px',
-              textTransform: 'uppercase',
-              boxShadow: 'var(--card-shadow)'
+              textTransform: 'uppercase'
             }}>
               {badge}
             </div>

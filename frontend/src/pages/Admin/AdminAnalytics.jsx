@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -13,48 +14,128 @@ import {
   Sparkles,
   BarChart2,
   PieChart,
-  Activity
+  Activity,
+  ArrowUpRight,
+  ArrowDownRight
 } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/PageHeader';
+import LoadingState from '../../components/LoadingState';
 
 const AdminAnalytics = () => {
   const isMobile = useMediaQuery('(max-width: 1024px)');
-  const [timeRange, setTimeRange] = useState('This Month');
+  const [timeRange, setTimeRange] = useState('All Time');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    completed: 0,
+    pending: 0,
+    revenue: 0,
+    todayCount: 0,
+    weekCount: 0,
+    monthCount: 0,
+    avgPerDay: 0,
+    topServices: [],
+    statusDist: [],
+    peakHours: []
+  });
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [timeRange]);
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    try {
+      // Get all bookings
+      let query = supabase.from('bookings_v2').select('*');
+      
+      const { data: bookings } = await query;
+      const { data: payments } = await supabase.from('payments_v2').select('*').eq('status', 'PAID');
+      const { data: bServices } = await supabase.from('booking_services_v2').select('service_id, services_v2(name)');
+
+      if (bookings) {
+        const total = bookings.length;
+        const completed = bookings.filter(b => b.status === 'completed').length;
+        const pending = bookings.filter(b => b.status === 'scheduled').length;
+        const revenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+        // Date-based filters
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const todayCount = bookings.filter(b => new Date(b.created_at) >= today).length;
+        const weekCount = bookings.filter(b => new Date(b.created_at) >= startOfWeek).length;
+        const monthCount = bookings.filter(b => new Date(b.created_at) >= startOfMonth).length;
+
+        // Top Services
+        const serviceCounts = {};
+        bServices?.forEach(bs => {
+          const name = bs.services_v2?.name || 'Unknown';
+          serviceCounts[name] = (serviceCounts[name] || 0) + 1;
+        });
+        const topServices = Object.entries(serviceCounts)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // Status Distribution
+        const statusDist = [
+          { label: 'Pending', count: bookings.filter(b => b.status === 'scheduled' && b.service_status === 'NOT_STARTED').length, color: '#f59e0b' },
+          { label: 'Ongoing', count: bookings.filter(b => b.service_status === 'IN_PROGRESS').length, color: '#a855f7' },
+          { label: 'Completed', count: completed, color: '#10b981' },
+          { label: 'Cancelled', count: bookings.filter(b => b.status === 'cancelled').length, color: '#ef4444' },
+        ];
+
+        // Peak Hours (based on start_datetime)
+        const hourCounts = {};
+        bookings.forEach(b => {
+          const hour = new Date(b.start_datetime).getHours();
+          const label = `${hour % 12 || 12}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+          hourCounts[label] = (hourCounts[label] || 0) + 1;
+        });
+        const peakHours = Object.entries(hourCounts)
+          .map(([time, count]) => ({ time, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        setStats({
+          totalBookings: total,
+          completed,
+          pending,
+          revenue,
+          todayCount,
+          weekCount,
+          monthCount,
+          avgPerDay: (total / 30).toFixed(1), // Rough estimate
+          topServices,
+          statusDist,
+          peakHours
+        });
+      }
+    } catch (err) {
+      console.error('Analytics fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const mainStats = [
-    { label: 'Total Bookings', value: '1', icon: BarChart2, color: 'var(--primary-color)' },
-    { label: 'Completed', value: '0', icon: CheckCircle, color: '#10b981' },
-    { label: 'Pending/Confirmed', value: '1', icon: Clock, color: '#f59e0b' },
-    { label: 'Total Revenue', value: '₱0.00', icon: DollarSign, color: 'var(--primary-color)' },
+    { label: 'Total Bookings', value: stats.totalBookings.toString(), icon: BarChart2, color: 'var(--admin-brand)' },
+    { label: 'Completed', value: stats.completed.toString(), icon: CheckCircle, color: '#10b981' },
+    { label: 'Pending/Confirmed', value: stats.pending.toString(), icon: Clock, color: '#f59e0b' },
+    { label: 'Total Revenue', value: `₱${stats.revenue.toLocaleString()}`, icon: DollarSign, color: 'var(--admin-brand)' },
   ];
 
   const trendStats = [
-    { label: "Today's Bookings", value: '0' },
-    { label: 'This Week', value: '3' },
-    { label: 'This Month', value: '1' },
-    { label: 'Avg/Day', value: '1' },
-  ];
-
-  const services = [
-    { name: 'Interior Vacuum', count: 1 },
-    { name: 'Wax Protection', count: 1 },
-    { name: 'Dashboard Cleaning', count: 1 },
-    { name: 'Tire and Rim Cleaning', count: 1 },
-    { name: 'Exterior Wash', count: 1 },
-  ];
-
-  const statusList = [
-    { label: 'Pending', count: 1, color: '#f59e0b' },
-    { label: 'Confirmed', count: 0, color: 'var(--primary-color)' },
-    { label: 'Ongoing', count: 0, color: '#a855f7' },
-    { label: 'Completed', count: 0, color: '#10b981' },
-    { label: 'Cancelled', count: 0, color: '#ef4444' },
-  ];
-
-  const peakHours = [
-    { time: '7:00 AM', count: 1 },
+    { label: "Today's Bookings", value: stats.todayCount.toString() },
+    { label: 'This Week', value: stats.weekCount.toString() },
+    { label: 'This Month', value: stats.monthCount.toString() },
+    { label: 'Avg/Day', value: stats.avgPerDay.toString() },
   ];
 
   const containerStyle = {
@@ -71,282 +152,154 @@ const AdminAnalytics = () => {
   };
 
   const cardStyle = {
-    background: 'var(--bg-card)',
-    borderRadius: '1.25rem',
-    border: '1px solid var(--glass-border)',
+    background: 'var(--admin-card)',
+    borderRadius: '1rem',
+    border: '1px solid var(--admin-border)',
     padding: '1.75rem',
     position: 'relative',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    color: 'var(--card-text)',
-    boxShadow: 'var(--card-shadow)',
+    color: 'var(--admin-text-primary)',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
     transition: 'all 0.3s ease'
   };
 
   const sectionTitleStyle = {
-    fontSize: '0.85rem',
-    fontWeight: '900',
-    color: 'var(--card-text)',
-    opacity: 0.8,
+    fontSize: '0.8rem',
+    fontWeight: '800',
+    color: 'var(--admin-text-secondary)',
     textTransform: 'uppercase',
-    letterSpacing: '1.5px',
+    letterSpacing: '1px',
     margin: '0 0 1.5rem 0'
   };
 
-  const statLabelStyle = {
-    fontSize: '0.75rem',
-    fontWeight: '800',
-    color: 'var(--card-text)',
-    opacity: 0.7,
-    textTransform: 'uppercase',
-    letterSpacing: '1px'
-  };
-
-  const sectionTitleOutsideStyle = {
-    ...sectionTitleStyle,
-    color: 'var(--text-primary)',
-    opacity: 0.9,
-    marginBottom: '1rem'
-  };
-
-  const bigValueStyle = {
-    fontSize: '1.75rem',
-    fontWeight: '950',
-    lineHeight: 1
-  };
-
-  const smallValueStyle = {
-    fontSize: '1rem',
-    fontWeight: '950',
-    lineHeight: 1
-  };
-
-  const midValueStyle = {
-    fontSize: '0.85rem',
-    fontWeight: '900'
-  };
+  if (loading) return <LoadingState message="Aggregating performance data..." />;
 
   return (
     <div style={containerStyle}>
       <PageHeader 
-        title="Analytics Dashboard" 
-        subtitle="Real-time business intelligence and operational performance."
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            background: 'var(--bg-panel)', 
-            padding: '0.4rem 0.85rem', 
-            borderRadius: '5rem',
-            border: '1px solid var(--glass-border)',
-            color: 'var(--text-primary)'
-          }}>
-            <Sparkles size={12} color="var(--primary-color)" />
-            <span style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--text-primary)' }}>AI Revenue Forecast: <span style={{ color: 'var(--text-primary)', fontWeight: '950' }}>₱0.00</span></span>
-            <span style={{ fontSize: '0.65rem', fontWeight: '950', color: 'var(--success-color)', marginLeft: '0.25rem' }}>+0%</span>
-          </div>
+        badge="SYSTEM PERFORMANCE"
+        title="ANALYTICS"
+        subtitle="Real-time data visualization and business insights."
+        onRefresh={fetchAnalytics}
+      />
 
-          <div style={{ position: 'relative' }}>
-            <button 
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              style={{ 
-                background: 'var(--bg-input)', 
-                border: 'var(--border-color)', 
-                borderRadius: '0.5rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' 
-              }}>
-                <Calendar size={14} />
-                <span style={{ fontSize: '0.8rem', fontWeight: '600' }}>{timeRange}</span>
-                <ChevronDown size={14} />
-            </button>
-            {isDropdownOpen && (
-              <div style={{ 
-                position: 'absolute', top: '120%', right: 0, width: '150px', 
-                background: 'var(--bg-primary)', 
-                border: 'var(--border-color)', 
-                borderRadius: '0.5rem', overflow: 'hidden', zIndex: 100, boxShadow: 'var(--card-shadow)' 
-              }}>
-                {['Today', 'This Week', 'This Month', 'All Time'].map((range) => (
-                  <button 
-                    key={range}
-                    onClick={() => { setTimeRange(range); setIsDropdownOpen(false); }}
-                    style={{ 
-                      width: '100%', padding: '0.65rem 1rem', background: timeRange === range ? 'var(--primary-color)' : 'transparent', 
-                      border: 'none', color: timeRange === range ? '#fff' : 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' 
-                    }}
-                  >
-                    {range}
-                  </button>
-                ))}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem', position: 'relative' }}>
+        <button 
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem',
+            background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem',
+            color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer'
+          }}
+        >
+          <Calendar size={18} color="var(--admin-brand)" />
+          {timeRange}
+          <ChevronDown size={16} />
+        </button>
+        {isDropdownOpen && (
+          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', overflow: 'hidden', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+            {['Today', 'This Week', 'This Month', 'All Time'].map(range => (
+              <div 
+                key={range}
+                onClick={() => { setTimeRange(range); setIsDropdownOpen(false); }}
+                style={{ padding: '0.75rem 1.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', color: range === timeRange ? 'var(--admin-brand)' : 'var(--admin-text-primary)', background: range === timeRange ? 'var(--admin-bg)' : 'transparent' }}
+              >
+                {range}
               </div>
-            )}
+            ))}
           </div>
-        </div>
-      </PageHeader>
+        )}
+      </div>
 
-      {/* Primary Stats Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '1rem' }}>
-        {mainStats.map((stat, i) => (
-          <div key={i} style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-               <span style={bigValueStyle}>{stat.value}</span>
-               <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.45rem', borderRadius: '0.5rem' }}>
-                <stat.icon size={18} color="var(--card-text)" />
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '1rem' }}>
+        {mainStats.map((stat, idx) => (
+          <div key={idx} style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <stat.icon size={22} color={stat.color} />
               </div>
+              <Activity size={14} style={{ opacity: 0.2 }} />
             </div>
-            <span style={statLabelStyle}>{stat.label}</span>
+            <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '900', color: 'var(--admin-text-primary)', marginTop: '0.25rem' }}>{stat.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Booking Trends section */}
-      <div>
-        <h3 style={sectionTitleOutsideStyle}>Booking Trends</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '1rem' }}>
-          {trendStats.map((trend, i) => (
-            <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '1.75rem 1rem' }}>
-              <span style={{ fontSize: '2rem', fontWeight: '950', display: 'block', marginBottom: '0.4rem', lineHeight: 1 }}>{trend.value}</span>
-              <span style={statLabelStyle}>{trend.label}</span>
+      <div style={{ ...cardStyle, padding: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '2rem' }}>
+          {trendStats.map((trend, idx) => (
+            <div key={idx}>
+              <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{trend.label}</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {trend.value}
+                <TrendingUp size={16} color="#10b981" />
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Main Analysis Grid */}
       <div style={gridStyle}>
-        {/* Bookings by Service */}
         <div style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Bookings by Service</h3>
+          <h3 style={sectionTitleStyle}>Service Popularity</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {services.map((service, i) => (
-              <div key={i}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.6rem' }}>
-                  <span style={{ fontWeight: '700', color: 'var(--card-text)', opacity: 0.9, fontSize: '0.85rem' }}>{service.name}</span>
-                  <span style={midValueStyle}>{service.count}</span>
+            {stats.topServices.length === 0 ? <p style={{ opacity: 0.3 }}>No data</p> : stats.topServices.map((svc, idx) => (
+              <div key={idx}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+                  <span>{svc.name}</span>
+                  <span style={{ color: 'var(--admin-brand)' }}>{svc.count} sales</span>
                 </div>
-                <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '100%', background: 'var(--card-text)', borderRadius: '10px' }}></div>
+                <div style={{ height: '8px', background: 'var(--admin-bg)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${(svc.count / (stats.topServices[0]?.count || 1)) * 100}%`, height: '100%', background: 'var(--admin-brand)', borderRadius: '4px' }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Revenue by Service */}
-        <div style={{ ...cardStyle, justifyContent: 'center', alignItems: 'center' }}>
-          <h3 style={{ ...sectionTitleStyle, position: 'absolute', top: '1.25rem', left: '1.25rem' }}>Revenue by Service</h3>
-          <div style={{ textAlign: 'center', opacity: 0.2 }}>
-            <PieChart size={44} strokeWidth={1.5} style={{ marginBottom: '1rem' }} />
-            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '800', letterSpacing: '0.5px' }}>NO DATA AVAILABLE</p>
+        <div style={cardStyle}>
+          <h3 style={sectionTitleStyle}>Booking Status</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, justifyContent: 'center' }}>
+            {stats.statusDist.map((status, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: status.color }} />
+                <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: '700' }}>{status.label}</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>{status.count}</div>
+                <div style={{ width: '100px', height: '6px', background: 'var(--admin-bg)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${(status.count / (stats.totalBookings || 1)) * 100}%`, height: '100%', background: status.color }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Operational Grid */}
       <div style={gridStyle}>
-        {/* Payment Methods */}
         <div style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Payment Methods</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Smartphone size={20} color="var(--card-text)" />
-              <div>
-                <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
-                <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>GCash</p>
-              </div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-              <Wallet size={20} color="var(--card-text)" />
-              <div>
-                <p style={{ margin: 0, ...smallValueStyle }}>₱0.00</p>
-                <p style={{ margin: 0, ...statLabelStyle, fontSize: '0.65rem' }}>Cash</p>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>Paid Bookings</span>
-              <span style={{ ...midValueStyle, color: '#10b981' }}>0</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>Unpaid Bookings</span>
-              <span style={{ ...midValueStyle, color: '#ef4444' }}>1</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-              <span style={{ fontWeight: '700', color: 'rgba(255,255,255,0.9)', fontSize: '0.85rem' }}>Pending Revenue</span>
-              <span style={{ ...midValueStyle, color: '#fff' }}>₱2,200.00</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Peak Hours */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Peak Hours</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            {peakHours.map((peak, i) => (
-              <div key={i} style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                background: 'rgba(255,255,255,0.1)', padding: '0.85rem 1.15rem', 
-                borderRadius: '0.65rem', border: '1px solid rgba(255,255,255,0.15)' 
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <span style={{ color: '#fff', fontWeight: '950', fontSize: '0.75rem' }}>#1</span>
-                  <span style={{ fontWeight: '800', fontSize: '0.9rem' }}>{peak.time}</span>
-                </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'rgba(255,255,255,0.6)' }}>{peak.count} bookings</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Distribution Grid */}
-      <div style={gridStyle}>
-        {/* Status Distribution */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Booking Status Distribution</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {statusList.map((status, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: status.label === 'Completed' ? '#10b981' : '#fff' }}></div>
-                  <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)' }}>{status.label}</span>
-                </div>
-                <span style={midValueStyle}>{status.count}</span>
+          <h3 style={sectionTitleStyle}>Peak Booking Hours</h3>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', height: '200px', marginTop: '1rem' }}>
+            {stats.peakHours.length === 0 ? <p style={{ opacity: 0.3 }}>No data</p> : stats.peakHours.map((hour, idx) => (
+              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '100%', background: 'linear-gradient(to top, var(--admin-brand), #ef4444)', borderRadius: '4px 4px 0 0', height: `${(hour.count / (stats.peakHours[0]?.count || 1)) * 100}%`, transition: 'height 1s ease' }} />
+                <div style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textAlign: 'center', whiteSpace: 'nowrap' }}>{hour.time}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Operational Metrics */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitleStyle}>Operational Metrics</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', flex: 1 }}>
-            <div style={{ 
-              background: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.15)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-            }}>
-              <span style={{ fontSize: '2.25rem', fontWeight: '950', color: '#fff', lineHeight: 1 }}>0%</span>
-              <span style={{ ...statLabelStyle, marginTop: '0.5rem' }}>Cancellation Rate</span>
-            </div>
-            <div style={{ 
-              background: 'rgba(255,255,255,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.15)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-            }}>
-              <span style={{ fontSize: '2.25rem', fontWeight: '950', color: '#fff', lineHeight: 1 }}>1</span>
-              <span style={{ ...statLabelStyle, marginTop: '0.5rem' }}>Days with Bookings</span>
-            </div>
+        <div style={{ ...cardStyle, background: 'var(--admin-brand)', color: '#FFFFFF', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+          <Sparkles size={48} style={{ marginBottom: '1.5rem', opacity: 0.8 }} />
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900' }}>Growth Insight</h2>
+          <p style={{ margin: '1rem 0 0 0', opacity: 0.9, fontSize: '0.95rem', fontWeight: '600', lineHeight: '1.5' }}>
+            Your revenue has been derived from {stats.completed} successful details. 
+            Peak demand is typically at {stats.peakHours[0]?.time || 'N/A'}.
+          </p>
+          <div style={{ marginTop: '2rem', padding: '1rem 2rem', background: '#FFFFFF', color: 'var(--admin-brand)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.9rem' }}>
+            VIEW FULL REPORT
           </div>
-        </div>
-      </div>
-
-      {/* Staff Performance */}
-      <div style={{ ...cardStyle, minHeight: '160px', display: 'flex', flexDirection: 'column' }}>
-        <h3 style={sectionTitleStyle}>Staff Performance</h3>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-          <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', letterSpacing: '1px' }}>NO STAFF DATA AVAILABLE</p>
         </div>
       </div>
 

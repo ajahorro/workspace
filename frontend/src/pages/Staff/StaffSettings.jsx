@@ -36,7 +36,9 @@ const StaffSettings = () => {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!formData.secondaryEmail) {
-      toast.error('Secondary email is required for account recovery');
+      toast.error('Secondary email is required for account recovery', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
       return;
     }
 
@@ -52,9 +54,13 @@ const StaffSettings = () => {
         .eq('id', user.id);
 
       if (error) throw error;
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated successfully', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
     } catch (err) {
-      toast.error(err.message || 'Failed to update profile');
+      toast.error(err.message || 'Failed to update profile', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setLoading(false);
     }
@@ -63,11 +69,15 @@ const StaffSettings = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Passwords do not match', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
       return;
     }
     if (formData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
       return;
     }
 
@@ -78,10 +88,14 @@ const StaffSettings = () => {
       });
 
       if (error) throw error;
-      toast.success('Password changed successfully');
+      toast.success('Password changed successfully', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
       setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
     } catch (err) {
-      toast.error(err.message || 'Failed to change password');
+      toast.error(err.message || 'Failed to change password', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setLoading(false);
     }
@@ -90,17 +104,17 @@ const StaffSettings = () => {
   if (fetching) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading settings...</div>;
 
   const cardStyle = {
-    background: 'var(--bg-card)',
-    backdropFilter: 'var(--blur-amount)',
-    WebkitBackdropFilter: 'var(--blur-amount)',
-    border: '1px solid var(--glass-border)',
+    background: 'var(--admin-card)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid var(--admin-border)',
     borderRadius: '1.25rem',
     padding: isMobile ? '1.5rem' : '2.5rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '2rem',
-    boxShadow: 'var(--card-shadow)',
-    color: 'var(--card-text)'
+    boxShadow: 'var(--admin-card-shadow)',
+    color: 'var(--admin-text-primary)'
   };
 
   const inputGroupStyle = {
@@ -112,7 +126,7 @@ const StaffSettings = () => {
   const labelStyle = {
     fontSize: '0.7rem',
     fontWeight: '900',
-    color: 'var(--card-text)',
+    color: 'var(--admin-text-secondary)',
     opacity: 0.7,
     textTransform: 'uppercase',
     letterSpacing: '1px'
@@ -121,10 +135,10 @@ const StaffSettings = () => {
   const inputStyle = {
     width: '100%',
     padding: '0.875rem 1rem',
-    background: 'rgba(0,0,0,0.3)',
-    border: '1px solid rgba(255,255,255,0.05)',
+    background: 'var(--admin-bg)',
+    border: '1px solid var(--admin-border)',
     borderRadius: '0.75rem',
-    color: 'var(--card-text)',
+    color: 'var(--admin-text-primary)',
     fontSize: '0.95rem',
     outline: 'none',
     transition: 'border-color 0.2s'
@@ -143,12 +157,12 @@ const StaffSettings = () => {
         {/* Profile Section */}
         <form onSubmit={handleUpdateProfile} style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-            <div style={{ padding: '0.65rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', color: 'var(--card-text)' }}>
+            <div style={{ padding: '0.65rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', color: 'var(--admin-brand)', border: '1px solid var(--admin-border)' }}>
               <User size={24} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Personal Information</h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.7 }}>Update your public staff profile</p>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Personal Information</h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', opacity: 0.7 }}>Update your public staff profile</p>
             </div>
           </div>
 
@@ -189,10 +203,10 @@ const StaffSettings = () => {
 
           <div style={inputGroupStyle}>
             <label style={labelStyle}>Recovery Email</label>
-            <div style={{ padding: '0.85rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', border: '1px solid var(--glass-border)', marginBottom: '0.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-              <AlertCircle size={20} color="var(--card-text)" style={{ opacity: 0.6, marginTop: '2px', flexShrink: 0 }} />
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.8, lineHeight: '1.5' }}>
-                <strong style={{ opacity: 1 }}>Important:</strong> Use your personal email for account recovery. Forgot Password links will be sent here.
+            <div style={{ padding: '0.85rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', marginBottom: '0.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <AlertCircle size={20} color="var(--admin-brand)" style={{ opacity: 0.6, marginTop: '2px', flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', opacity: 0.8, lineHeight: '1.5' }}>
+                <strong style={{ opacity: 1, color: 'var(--admin-text-primary)' }}>Important:</strong> Use your personal email for account recovery. Forgot Password links will be sent here.
               </p>
             </div>
             <input 
@@ -209,8 +223,8 @@ const StaffSettings = () => {
             type="submit" 
             disabled={loading}
             style={{ 
-              marginTop: '1rem', padding: '1.1rem', background: 'var(--card-text)', 
-              color: 'var(--bg-card)', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
+              marginTop: '1rem', padding: '1.1rem', background: 'var(--admin-brand)', 
+              color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
               transition: 'all 0.2s ease'
             }}
@@ -224,16 +238,16 @@ const StaffSettings = () => {
         {/* Security Section */}
         <form onSubmit={handleChangePassword} style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-            <div style={{ padding: '0.65rem', background: 'rgba(74, 222, 128, 0.1)', borderRadius: '0.75rem', color: '#4ade80' }}>
+            <div style={{ padding: '0.65rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.75rem', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <ShieldCheck size={24} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)' }}>Security & Auth</h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--card-text)', opacity: 0.7 }}>Secure your staff access</p>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Security & Auth</h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', opacity: 0.7 }}>Secure your staff access</p>
             </div>
           </div>
 
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '600', lineHeight: '1.6' }}>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', fontWeight: '600', lineHeight: '1.6' }}>
             We recommend changing your temporary password immediately upon onboarding.
           </p>
 
@@ -269,8 +283,8 @@ const StaffSettings = () => {
             type="submit" 
             disabled={loading || !formData.newPassword}
             style={{ 
-              marginTop: 'auto', padding: '1.1rem', background: '#4ade80', 
-              color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
+              marginTop: 'auto', padding: '1.1rem', background: '#10b981', 
+              color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '900', 
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
               opacity: !formData.newPassword ? 0.5 : 1,
               transition: 'all 0.2s ease'

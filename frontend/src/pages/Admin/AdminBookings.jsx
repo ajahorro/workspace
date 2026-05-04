@@ -21,25 +21,45 @@ const AdminBookings = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('bookings')
-      .select(`
-        id,
-        scheduled_start,
-        service_status,
-        booking_status,
-        vehicle_type,
-        plate_number,
-        vehicle_brand,
-        vehicle_model,
-        customer:profiles!customer_id(full_name),
-        payments:payment_intents(status, total_amount)
-      `)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('bookings_v2')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (data) setBookings(data);
-    if (error) console.error('Error fetching bookings:', error);
-    setLoading(false);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const customerIds = [...new Set(data.map(b => b.customer_id).filter(Boolean))];
+        
+        if (customerIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', customerIds);
+
+          if (!profilesError && profiles) {
+            const profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+            const combinedData = data.map(b => ({
+              ...b,
+              customer: profileMap[b.customer_id] || { full_name: 'Unknown' }
+            }));
+            setBookings(combinedData);
+          } else {
+            setBookings(data);
+          }
+        } else {
+          setBookings(data);
+        }
+      } else {
+        setBookings([]);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Failed to load records');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredBookings = bookings.filter(b => {
@@ -51,41 +71,37 @@ const AdminBookings = () => {
       ${b.vehicle_model || ''} 
       ${b.plate_number || ''} 
       ${(b.service_status || 'NOT_STARTED').replace('_', ' ')} 
-      ${b.booking_status || ''}
+      ${b.status || ''}
     `.toLowerCase();
     return searchStr.includes(searchTerm.toLowerCase());
   });
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'PENDING_ASSIGNMENT': return '#f59e0b';
-      case 'CONFIRMED': return 'var(--primary-color)';
-      case 'COMPLETED': return '#10b981';
-      case 'CANCELLED': return '#ef4444';
-      case 'ONGOING': return '#8b5cf6';
+      case 'scheduled': return 'var(--admin-brand)';
+      case 'completed': return '#10b981';
+      case 'cancelled': return '#ef4444';
       case 'IN_PROGRESS': return '#8b5cf6';
       case 'FINISHED': return '#10b981';
-      default: return 'rgba(255,255,255,0.4)';
+      default: return 'var(--admin-text-secondary)';
     }
   };
 
-  const getPaymentStatus = (payments) => {
-    if (!payments || payments.length === 0) return { label: 'UNPAID', color: '#f59e0b' };
-    const payment = payments[0];
-    const status = payment.status;
+  const getPaymentStatus = (booking) => {
+    const status = booking.payment_status || 'INITIATED';
     if (status === 'COMPLETED' || status === 'VERIFIED' || status === 'PAID') return { label: 'PAID', color: '#10b981' };
-    if (status === 'FOR_VERIFICATION') return { label: 'VERIFYING', color: '#f59e0b' };
-    if (status === 'PARTIALLY_PAID' || status === 'DOWNPAYMENT_PAID') return { label: 'PARTIAL', color: 'var(--primary-color)' };
-    return { label: 'UNPAID', color: '#f59e0b' };
+    if (status === 'FOR_VERIFICATION') return { label: 'VERIFYING', color: 'var(--admin-brand)' };
+    if (status === 'PARTIALLY_PAID' || status === 'DOWNPAYMENT_PAID') return { label: 'PARTIAL', color: 'var(--admin-brand)' };
+    return { label: 'UNPAID', color: 'var(--admin-brand)' };
   };
 
   const containerStyle = {
-    background: 'var(--bg-card)',
-    borderRadius: '1.25rem',
+    background: 'var(--admin-card)',
+    borderRadius: '1rem',
     overflow: 'hidden',
-    boxShadow: 'var(--card-shadow)',
-    color: 'var(--card-text)',
-    border: '1px solid var(--glass-border)'
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+    color: 'var(--admin-text-primary)',
+    border: '1px solid var(--admin-border)'
   };
 
   return (
@@ -99,19 +115,19 @@ const AdminBookings = () => {
       />
 
       {/* Filter & Search Bar */}
-      <div style={{ ...containerStyle, padding: '1.25rem' }}>
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.1)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: '1px solid rgba(255,255,255,0.1)' }}>
-            <Search size={18} color="rgba(255,255,255,0.7)" />
+      <div style={{ ...containerStyle, padding: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--admin-input-bg)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--admin-input-border)' }}>
+            <Search size={18} color="var(--admin-text-secondary)" />
             <input 
               type="text"
               placeholder="Search by customer, vehicle, plate..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ border: 'none', background: 'transparent', color: 'var(--card-text)', width: '100%', outline: 'none', fontSize: '0.9rem', fontWeight: '500' }} 
+              style={{ border: 'none', background: 'transparent', color: 'var(--admin-text-primary)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
             />
           </div>
-          <button style={{ padding: '0.85rem 1.5rem', background: 'rgba(255, 255, 255, 0.15)', color: 'var(--card-text)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+          <button style={{ padding: '0.75rem 1.5rem', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', border: '1px solid var(--admin-input-border)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
             <Filter size={16} /> FILTERS
           </button>
         </div>
@@ -125,7 +141,7 @@ const AdminBookings = () => {
         /* Mobile Card Layout */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {filteredBookings.map(booking => {
-            const pStatus = getPaymentStatus(booking.payments);
+            const pStatus = getPaymentStatus(booking);
             return (
               <div 
                 key={booking.id}
@@ -143,8 +159,8 @@ const AdminBookings = () => {
                     border: '1px solid rgba(255,255,255,0.05)', textTransform: 'uppercase',
                     display: 'flex', alignItems: 'center', gap: '0.4rem'
                   }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status) }}></div>
-                    {(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status).replace('_', ' ')}
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.status) }}></div>
+                    {booking.status?.toUpperCase()}
                   </div>
                 </div>
                 
@@ -155,13 +171,13 @@ const AdminBookings = () => {
                   </div>
                   <div>
                     <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: '800', color: 'var(--card-text)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Schedule</p>
-                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700', color: 'var(--card-text)' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</p>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: '700', color: 'var(--card-text)' }}>{new Date(booking.start_datetime).toLocaleDateString()}</p>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
                    <div style={{ color: pStatus.color, fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase' }}>
-                     ₱{(booking.payments?.[0]?.total_amount || 0).toLocaleString()} • {pStatus.label}
+                     ₱{(booking.total_price || 0).toLocaleString()} • {pStatus.label}
                    </div>
                    <ArrowRight size={16} style={{ color: 'var(--card-text)', opacity: 0.3 }} />
                 </div>
@@ -174,59 +190,58 @@ const AdminBookings = () => {
         <div style={containerStyle}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.05)' }}>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>ID</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Customer</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Vehicle</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Schedule</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Status</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Payment</th>
-                <th style={{ padding: '1.25rem 1.5rem', color: 'var(--card-text)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', opacity: 0.8 }}>Actions</th>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>ID</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Customer</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Vehicle</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Schedule</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Status</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.map(booking => {
-                const pStatus = getPaymentStatus(booking.payments);
+                const pStatus = getPaymentStatus(booking);
                 const initial = booking.customer?.full_name?.charAt(0).toUpperCase() || 'U';
                 return (
-                  <tr key={booking.id} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <tr key={booking.id} style={{ borderBottom: '1px solid var(--admin-border)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-bg)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{ color: 'var(--card-text)', fontWeight: '900', fontSize: '0.65rem', opacity: 0.6 }}>
+                      <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700', fontSize: '0.75rem' }}>
                         #{filteredBookings.length - filteredBookings.indexOf(booking)}
                       </span>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.15)', color: 'var(--card-text)', border: '1px solid rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.7rem' }}>{initial}</div>
-                        <span style={{ fontWeight: '700', color: 'var(--card-text)', fontSize: '0.9rem' }}>{booking.customer?.full_name || 'Unknown'}</span>
+                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--admin-bg)', color: 'var(--admin-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.75rem' }}>{initial}</div>
+                        <span style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.9rem' }}>{booking.customer?.full_name || 'Unknown'}</span>
                       </div>
                     </td>
                      <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ fontWeight: '800', color: 'var(--card-text)', fontSize: '0.85rem' }}>{booking.vehicle_type}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--card-text)', fontWeight: '700', textTransform: 'uppercase', opacity: 0.7 }}>{booking.plate_number}</div>
+                      <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.9rem' }}>{booking.vehicle_type}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{booking.plate_number}</div>
                     </td>
                      <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ fontWeight: '800', color: 'var(--card-text)', fontSize: '0.85rem' }}>{new Date(booking.scheduled_start).toLocaleDateString()}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--card-text)', fontWeight: '900', opacity: 0.8 }}>{new Date(booking.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.9rem' }}>{new Date(booking.start_datetime).toLocaleDateString()}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{new Date(booking.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ 
+                      <div className="badge" style={{ 
                         display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                        background: 'rgba(255,255,255,0.1)', color: 'var(--card-text)', padding: '0.4rem 0.8rem', 
-                        borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '900',
-                        border: '1px solid rgba(255,255,255,0.1)', textTransform: 'uppercase'
-                      }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status) }}></div>
-                        {(booking.booking_status === 'CONFIRMED' ? booking.service_status : booking.booking_status).replace('_', ' ')}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ 
-                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                        color: pStatus.color, fontSize: '0.75rem', fontWeight: '900',
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800',
                         textTransform: 'uppercase'
                       }}>
-                        ₱{(booking.payments?.[0]?.total_amount || 0).toLocaleString()} • {pStatus.label}
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor(booking.status) }}></div>
+                        {booking.status?.toUpperCase()}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                      <div style={{ 
+                        display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
+                        color: pStatus.color, fontSize: '0.8rem', fontWeight: '800'
+                      }}>
+                        ₱{(booking.total_price || 0).toLocaleString()} • {pStatus.label}
                       </div>
                     </td>
                     <td style={{ padding: '1.25rem 1.5rem' }}>
@@ -234,12 +249,12 @@ const AdminBookings = () => {
                         onClick={() => navigate(`/admin/bookings/${booking.id}`)}
                         style={{ 
                           display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                          background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)', 
-                          color: 'var(--card-text)', padding: '0.6rem 1.25rem', borderRadius: '0.6rem', 
+                          background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', 
+                          color: 'var(--admin-text-primary)', padding: '0.5rem 1rem', borderRadius: '0.5rem', 
                           fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', transition: 'all 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-card)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--admin-bg)'}
                       >
                         DETAILS <ArrowRight size={14} />
                       </button>

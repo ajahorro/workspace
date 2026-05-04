@@ -15,34 +15,50 @@ const Settings = () => {
   // Form states
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [phone, setPhone] = useState(profile?.phone_number || '');
-  const [notifPref, setNotifPref] = useState(profile?.notification_preference || 'BOTH');
+  const [email, setEmail] = useState(user?.email || '');
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     
     if (!fullName.trim()) {
-      toast.error('Full Name is mandatory');
+      toast.error('Full Name is mandatory', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
       return;
     }
 
     setLoading(true);
     try {
+      // 1. Update Auth Email if changed
+      if (email !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email });
+        if (authError) throw authError;
+        toast.success('Confirmation email sent to new address!', {
+          style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+        });
+      }
+
+      // 2. Update Profile Data
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: fullName,
           phone_number: phone,
-          notification_preference: notifPref
+          notification_preference: 'EMAIL'
         })
         .eq('id', user.id);
 
       if (error) throw error;
       
-      toast.success('Profile updated successfully!');
+      toast.success('Profile updated successfully!', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
       // Refresh page to sync context (or we could use a context update method)
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message, {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setLoading(false);
     }
@@ -61,82 +77,58 @@ const Settings = () => {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
         
         {/* Profile Info Column */}
-        <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: isMobile ? '1.5rem' : '2.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Personal Information</h2>
+        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.5rem' : '2.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
+          <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--admin-text-primary)' }}>Personal Information</h2>
           
           <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Full Name *</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Full Name *</label>
               <div style={{ position: 'relative' }}>
-                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-color)' }} />
+                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
                 <input 
                   type="text" 
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
                   required
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', color: '#fff', fontSize: '1rem' }}
+                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
                 />
               </div>
             </div>
-
+ 
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Email Address</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Email Address</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)' }} />
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
                 <input 
                   type="email" 
-                  value={user?.email}
-                  disabled
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', color: 'rgba(255,255,255,0.4)', fontSize: '1rem', cursor: 'not-allowed' }}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
                 />
               </div>
-              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Email cannot be changed manually.</p>
+              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.5, fontWeight: '600' }}>Note: Changing your email will require verification.</p>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Phone Number</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Phone Number</label>
               <div style={{ position: 'relative' }}>
-                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-color)' }} />
+                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
                 <input 
                   type="tel" 
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+63 9XX XXX XXXX"
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', color: '#fff', fontSize: '1rem' }}
+                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
                 />
               </div>
             </div>
 
-            <div style={{ marginTop: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '1rem', textTransform: 'uppercase' }}>Notification Preference</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {['EMAIL', 'PHONE', 'BOTH'].map(pref => (
-                  <div 
-                    key={pref}
-                    onClick={() => setNotifPref(pref)}
-                    style={{ 
-                      padding: '1rem', 
-                      background: 'var(--bg-input)', 
-                      borderRadius: '0.75rem', 
-                      border: notifPref === pref ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
-                  >
-                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: notifPref === pref ? 'var(--primary-color)' : '#fff' }}>{pref}</span>
-                    {notifPref === pref && <Check size={16} color="var(--primary-color)" />}
-                  </div>
-                ))}
-              </div>
-            </div>
 
             <button 
               type="submit"
               disabled={loading}
-              style={{ marginTop: '1rem', width: '100%', padding: '1.1rem', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'uppercase' }}
+              style={{ marginTop: '1rem', width: '100%', padding: '1.1rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 10px 20px rgba(169, 27, 24, 0.2)' }}
             >
               {loading ? 'Saving...' : 'Save Profile Changes'}
             </button>
@@ -147,40 +139,40 @@ const Settings = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
           {/* Appearance */}
-          <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase' }}>Appearance</h2>
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
+            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>Appearance</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {['system', 'light', 'dark'].map(t => (
                 <div 
                   key={t}
                   onClick={() => toggleTheme(t)}
                   style={{ 
-                    padding: '1rem', borderRadius: '0.75rem', border: theme === t ? '2px solid var(--primary-color)' : '1px solid var(--border-color)', 
-                    background: 'var(--bg-input)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem' 
+                    padding: '1rem', borderRadius: '0.75rem', border: theme === t ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)', 
+                    background: theme === t ? 'var(--admin-bg)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s' 
                   }}
                 >
                   <div style={{ 
                     width: '32px', height: '32px', borderRadius: '4px', 
                     background: t === 'light' ? '#fff' : t === 'dark' ? '#0f172a' : 'linear-gradient(135deg, #fff 50%, #0f172a 50%)',
-                    border: '1px solid var(--border-color)'
+                    border: '1px solid var(--admin-border)'
                   }}></div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: '700', textTransform: 'capitalize' }}>{t} Mode</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: '700', textTransform: 'capitalize', color: theme === t ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)' }}>{t} Mode</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Legal */}
-          <div style={{ background: 'var(--bg-secondary)', borderRadius: '1.25rem', border: '1px solid var(--border-color)', padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase' }}>Terms & Privacy</h2>
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
+            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>Terms & Privacy</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <h3 style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>SERVICE USAGE</h3>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Premium vehicle care provided by SpeedWay. All bookings are subject to availability and pricing confirmation.</p>
+                <h3 style={{ fontSize: '0.8rem', color: 'var(--admin-brand)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>SERVICE USAGE</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', lineHeight: '1.5', fontWeight: '500', opacity: 0.6 }}>Premium vehicle care provided by SpeedWay. All bookings are subject to availability and pricing confirmation.</p>
               </div>
               <div>
-                <h3 style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>CANCELLATIONS</h3>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Must be requested 24h prior. Late cancellations may be subject to a non-refundable deposit policy.</p>
+                <h3 style={{ fontSize: '0.8rem', color: 'var(--admin-brand)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>CANCELLATIONS</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', lineHeight: '1.5', fontWeight: '500', opacity: 0.6 }}>Must be requested 24h prior. Late cancellations may be subject to a non-refundable deposit policy.</p>
               </div>
             </div>
           </div>
@@ -191,6 +183,17 @@ const Settings = () => {
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        button, input {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .settings-card {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .settings-card:hover {
+          border-color: var(--primary-color) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
       `}</style>
     </div>
   );

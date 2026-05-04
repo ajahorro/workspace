@@ -13,8 +13,10 @@ import AdminSearch from '../components/AdminSearch';
 import NotificationPopover from '../components/NotificationPopover';
 import { confirmLogout } from '../utils/logoutConfirm.jsx';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useTheme } from '../context/ThemeContext';
 
 const AdminLayout = () => {
+  const { theme } = useTheme();
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,19 +96,18 @@ const AdminLayout = () => {
 
   const sidebarStyle = {
     width: '280px',
-    background: 'var(--bg-panel)',
-    backdropFilter: 'var(--blur-amount)',
-    WebkitBackdropFilter: 'var(--blur-amount)',
-    borderRight: '1px solid var(--glass-border)',
+    background: 'var(--admin-sidebar)',
+    borderRight: '1px solid var(--admin-border)',
     display: 'flex',
     flexDirection: 'column',
-    padding: '2rem 1.5rem',
+    padding: '1.5rem 1rem',
     position: 'fixed',
     top: 0,
     left: isMobile ? (isSidebarOpen ? 0 : '-280px') : 0,
     height: '100vh',
     zIndex: 1000,
-    transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+    transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    boxShadow: '4px 0 20px rgba(0,0,0,0.02)'
   };
 
   const overlayStyle = {
@@ -122,45 +123,52 @@ const AdminLayout = () => {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', position: 'relative', overflow: 'hidden' }}>
-      {/* Subtle background glow removed for cleaner look as per "calmly colorful" instruction */}
+    <div className="admin-theme" data-theme={theme} style={{ display: 'flex', minHeight: '100vh', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', position: 'relative', overflow: 'hidden' }}>
       
       {/* Mobile Overlay */}
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
       <aside style={sidebarStyle}>
-        <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--panel-text)', opacity: 0.9, letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
-            SpeedWay AutoxMoto Detail Studio
+        <div style={{ marginBottom: '2.5rem', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: '950', color: 'var(--admin-brand)', letterSpacing: '1px', lineHeight: '1.2', textTransform: 'uppercase' }}>
+            SpeedWay Studio
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'var(--panel-text)' }}><X /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'var(--admin-text-primary)' }}><X size={20} /></button>}
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
           {navLinks.map((link) => {
             const Icon = link.icon;
-            const isActive = link.exact ? location.pathname === link.path : location.pathname.startsWith(link.path);
-
             return (
               <NavLink
                 key={link.name}
                 to={link.path}
                 end={link.exact}
-                  style={({ isActive: linkActive }) => ({
+                style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0.85rem 1.25rem',
-                  borderRadius: '0.5rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '0.6rem',
                   textDecoration: 'none',
-                  color: linkActive ? 'var(--panel-text)' : 'var(--panel-text)',
-                  opacity: linkActive ? 1 : 0.6,
-                  background: linkActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                  fontWeight: linkActive ? '800' : '500',
+                  color: isActive ? 'var(--admin-sidebar-active-text)' : 'var(--admin-text-secondary)',
+                  background: isActive ? 'var(--admin-sidebar-active-bg)' : 'transparent',
+                  fontWeight: isActive ? '800' : '500',
                   transition: 'all 0.2s ease',
-                  borderLeft: linkActive ? '3px solid var(--panel-text)' : '3px solid transparent',
                   fontSize: '0.9rem'
                 })}
+                onMouseEnter={(e) => {
+                  if (!location.pathname.startsWith(link.path)) {
+                    e.currentTarget.style.background = 'var(--admin-bg)';
+                    e.currentTarget.style.color = 'var(--admin-text-primary)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!location.pathname.startsWith(link.path)) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--admin-text-secondary)';
+                  }
+                }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <Icon size={18} color="currentColor" />
@@ -171,19 +179,19 @@ const AdminLayout = () => {
           })}
         </nav>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '2rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem' }}>
           <NavLink
             to="/admin/settings"
             style={({ isActive }) => ({
               display: 'flex',
               alignItems: 'center',
               gap: '1rem',
-              padding: '0.85rem 1.25rem',
-              borderRadius: '0.5rem',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.6rem',
               textDecoration: 'none',
-              color: 'var(--panel-text)',
-              opacity: isActive ? 1 : 0.6,
-              fontWeight: isActive ? '700' : '500',
+              color: isActive ? 'var(--admin-sidebar-active-text)' : 'var(--admin-text-secondary)',
+              background: isActive ? 'var(--admin-sidebar-active-bg)' : 'transparent',
+              fontWeight: isActive ? '800' : '600',
               fontSize: '0.9rem'
             })}
           >
@@ -194,10 +202,12 @@ const AdminLayout = () => {
           <button
             onClick={handleLogout}
             style={{
-              display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1.25rem',
-              borderRadius: '0.5rem', color: 'var(--panel-text)', opacity: 0.8, fontWeight: '700',
-              fontSize: '0.9rem', width: '100%', textAlign: 'left', cursor: 'pointer'
+              display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem',
+              borderRadius: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700',
+              fontSize: '0.9rem', width: '100%', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--admin-brand)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--admin-text-secondary)'}
           >
             <LogOut size={18} />
             Log Out
@@ -210,23 +220,22 @@ const AdminLayout = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: isMobile ? '0.75rem 1.25rem' : '1.25rem 2.5rem',
-          borderBottom: '1px solid var(--glass-border)',
-          background: 'var(--bg-panel)',
-          backdropFilter: 'var(--blur-amount)',
-          WebkitBackdropFilter: 'var(--blur-amount)',
+          padding: isMobile ? '0.75rem 1rem' : '1rem 2rem',
+          borderBottom: '1px solid var(--admin-border)',
+          background: 'var(--admin-card)',
           position: 'sticky',
           top: 0,
-          zIndex: 50
+          zIndex: 50,
+          boxShadow: 'var(--admin-card-shadow)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '2rem' }}>
             {isMobile && (
-              <button onClick={() => setIsSidebarOpen(true)} style={{ color: 'var(--panel-text)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => setIsSidebarOpen(true)} style={{ color: 'var(--admin-text-primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <Menu size={24} />
               </button>
             )}
             <div
-              style={{ fontSize: isMobile ? '1.2rem' : '1.6rem', fontWeight: '900', letterSpacing: '-1px', cursor: 'pointer', color: 'var(--panel-text)' }}
+              style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: '800', letterSpacing: '-1.5px', cursor: 'pointer', color: 'var(--admin-text-primary)' }}
               onClick={() => navigate('/admin')}
             >
               ADMIN
@@ -237,16 +246,18 @@ const AdminLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
             <div
               onClick={() => setShowNotifPopover(!showNotifPopover)}
-              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.8, color: 'var(--panel-text)' }}
+              style={{ position: 'relative', cursor: 'pointer', opacity: showNotifPopover ? 1 : 0.7, color: 'var(--admin-text-primary)', transition: 'all 0.2s' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => { if (!showNotifPopover) e.currentTarget.style.opacity = '0.7'; }}
             >
               <Bell size={20} />
               {unreadCount > 0 && (
                 <div style={{
                   position: 'absolute', top: '-4px', right: '-4px',
-                  background: '#ef4444', color: '#fff', fontSize: '0.5rem',
-                  fontWeight: 'bold', width: '14px', height: '14px',
+                  background: 'var(--admin-brand)', color: '#fff', fontSize: '0.6rem',
+                  fontWeight: 'bold', width: '16px', height: '16px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '50%', border: '1px solid var(--bg-panel)'
+                  borderRadius: '50%', border: '2px solid var(--admin-card)'
                 }}>{unreadCount}</div>
               )}
             </div>
@@ -259,13 +270,13 @@ const AdminLayout = () => {
                 onRead={fetchUnreadCount}
               />
             )}
-            <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)' }}></div>
+            <div style={{ width: '1px', height: '20px', background: 'var(--admin-border)' }}></div>
             <ProfileHeader />
           </div>
         </header>
 
         {isMobile && (
-          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--glass-border)', background: 'var(--bg-secondary)' }}>
+          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
             <AdminSearch />
           </div>
         )}

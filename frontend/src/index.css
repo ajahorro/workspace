@@ -1,24 +1,37 @@
 :root {
-  /* SPEEDWAY LIGHT PALETTE */
-  --bg-primary: #D7D7D5; /* Light Silver */
-  --bg-secondary: #C8C8C6; /* Granite Grayish for offset */
-  --bg-panel: rgba(190, 190, 190, 0.95); /* Gray Glassy Adjusted */
-  --bg-card: #340505; /* Wild Cherry Containers */
-  --bg-input: rgba(41, 45, 49, 0.08);
+  /* SPEEDWAY CUSTOMER/GLOBAL PALETTE */
+  --bg-primary: #F1F1EF; 
+  --bg-secondary: #FFFFFF;
+  --bg-panel: #EAEAEA;
+  --bg-card: #340505;
+  --bg-input: rgba(0, 0, 0, 0.05);
   
-  --text-primary: #40403F; /* Black Olive */
-  --text-secondary: rgba(64, 64, 63, 0.7);
-  --card-text: #ffffff; /* White text for red cards */
-  --panel-text: #40403F;
+  --text-primary: #1A1A19;
+  --text-secondary: #555554;
+  --card-text: #FFFFFF;
+  --panel-text: #1A1A19;
   
-  --primary-color: #340505;
+  --primary-color: #991B1B;
   --danger-color: #ef4444;
   --success-color: #10b981;
-  --border-color: rgba(64, 64, 63, 0.1);
-  --card-shadow: 0 10px 30px rgba(0,0,0,0.12);
-  --glass-border: rgba(64, 64, 63, 0.08);
-  --glass-red: rgba(52, 5, 5, 0.95);
-  --blur-amount: blur(15px);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --card-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(0, 0, 0, 0.04);
+  --glass-hover: rgba(0, 0, 0, 0.06);
+  --blur-amount: blur(10px);
+
+  /* NEW ADMIN SYSTEM - Professional & Breathable */
+  --admin-bg: #F8FAFC;
+  --admin-card: #FFFFFF;
+  --admin-sidebar: #FFFFFF;
+  --admin-border: #E5E7EB;
+  --admin-text-primary: #111827;
+  --admin-text-secondary: #6B7280;
+  --admin-brand: #991B1B;
+  --admin-brand-light: #FEE2E2;
+  --admin-input-bg: #F9FAFB;
+  --admin-input-border: #D1D5DB;
 }
 
 [data-theme="dark"] {
@@ -40,6 +53,8 @@
   --border-color: rgba(251, 255, 254, 0.1);
   --card-shadow: 0 10px 40px rgba(0,0,0,0.4);
   --glass-border: rgba(251, 255, 254, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-hover: rgba(255, 255, 255, 0.1);
   --glass-red: rgba(52, 5, 5, 0.9);
   --blur-amount: blur(20px);
 }
@@ -128,8 +143,119 @@ button {
   font-family: inherit;
 }
 
-/* Image Responsive */
-img {
-  max-width: 100%;
-  height: auto;
+/* Admin Theme Scoped Styles */
+.admin-theme {
+  /* LIGHT THEME VARIABLES (Default) */
+  --admin-bg: #F8FAFC;
+  --admin-card: #FFFFFF;
+  --admin-sidebar: #FFFFFF;
+  --admin-border: #E5E7EB;
+  --admin-text-primary: #111827;
+  --admin-text-secondary: #6B7280;
+  --admin-brand: #991B1B;
+  --admin-brand-light: #FEE2E2;
+  --admin-brand-hover: #7F1D1D;
+  --admin-input-bg: #F9FAFB;
+  --admin-input-border: #D1D5DB;
+  --admin-sidebar-active-bg: #FEE2E2;
+  --admin-sidebar-active-text: #991B1B;
+  --admin-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.admin-theme[data-theme="dark"] {
+  /* DARK THEME VARIABLES (🌙 Clean, Modern System) */
+  --admin-bg: #0F172A; /* deep slate */
+  --admin-card: #1F2933;
+  --admin-sidebar: #020617; /* almost black */
+  --admin-border: #374151;
+  --admin-text-primary: #E5E7EB;
+  --admin-text-secondary: #9CA3AF;
+  --admin-brand: #DC2626;
+  --admin-brand-light: rgba(220, 38, 38, 0.12); /* soft red bg */
+  --admin-brand-hover: #EF4444;
+  --admin-input-bg: #1F2937;
+  --admin-input-border: #374151;
+  --admin-input-text: #E5E7EB;
+  --admin-input-placeholder: #6B7280;
+  --admin-sidebar-active-bg: rgba(220, 38, 38, 0.15);
+  --admin-sidebar-active-text: #FCA5A5;
+  --admin-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+/* Global Input Overrides for Theme Consistency */
+[data-theme="dark"] input, 
+[data-theme="dark"] select, 
+[data-theme="dark"] textarea {
+  background-color: var(--admin-input-bg) !important;
+  color: var(--admin-input-text) !important;
+  border-color: var(--admin-input-border) !important;
+}
+
+[data-theme="dark"] input::placeholder {
+  color: var(--admin-input-placeholder) !important;
+}
+
+.admin-theme {
+  --text-primary: var(--admin-text-primary);
+  --text-secondary: var(--admin-text-secondary);
+  --bg-primary: var(--admin-bg);
+  --bg-secondary: var(--admin-card);
+  --bg-panel: var(--admin-card);
+  --bg-input: var(--admin-input-bg);
+  --card-text: var(--admin-text-primary);
+  --panel-text: var(--admin-text-primary);
+  --border-color: var(--admin-border);
+  --glass-border: var(--admin-border);
+  --glass-bg: var(--admin-input-bg);
+  --card-shadow: var(--admin-card-shadow);
+  --primary-color: var(--admin-brand);
+}
+
+.admin-theme h1 {
+  color: var(--admin-text-primary) !important;
+  letter-spacing: -1.5px !important;
+  font-weight: 800 !important;
+}
+
+.admin-theme p {
+  color: var(--admin-text-secondary) !important;
+}
+
+.admin-theme .badge {
+  background: var(--admin-brand-light) !important;
+  color: var(--admin-sidebar-active-text) !important;
+  border: 1px solid var(--admin-brand) !important;
+  box-shadow: none !important;
+  font-weight: 800 !important;
+}
+
+/* Glass reset for admin */
+.admin-theme .glass {
+  background: var(--admin-card) !important;
+  border: 1px solid var(--admin-border) !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--admin-card-shadow) !important;
+}
+
+.admin-theme input, 
+.admin-theme select, 
+.admin-theme textarea {
+  background-color: var(--admin-input-bg) !important;
+  border: 1px solid var(--admin-input-border) !important;
+  color: var(--admin-text-primary) !important;
+}
+
+.admin-theme input:focus, 
+.admin-theme select:focus, 
+.admin-theme textarea:focus {
+  border-color: var(--admin-brand) !important;
+  box-shadow: 0 0 0 4px var(--admin-brand-light) !important;
+  outline: none !important;
+}
+
+/* Specific Fix for Dark Mode Focus Glow */
+.admin-theme[data-theme="dark"] input:focus, 
+.admin-theme[data-theme="dark"] select:focus, 
+.admin-theme[data-theme="dark"] textarea:focus {
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25) !important;
 }

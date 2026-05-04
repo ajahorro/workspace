@@ -53,9 +53,14 @@ const Login = ({ isModal = false, onClose }) => {
     e.preventDefault();
     setIsLoading(true);
     const { error } = await signInWithPassword(email, password);
-    if (error) toast.error(error.message);
-    else {
-      toast.success('Welcome back!');
+    if (error) {
+      toast.error(error.message, {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
+    } else {
+      toast.success('Welcome back!', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
     }
     setIsLoading(false);
   };
@@ -63,21 +68,26 @@ const Login = ({ isModal = false, onClose }) => {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Passwords do not match', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
       return;
     }
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success('Password updated successfully! Please login.');
+      toast.success('Password updated successfully! Please login.', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
       setMode('LOGIN');
       setNewPassword('');
       setConfirmPassword('');
-      // Clean up URL
       navigate('/login', { replace: true });
     } catch (err) {
-      toast.error(err.message || 'Failed to update password');
+      toast.error(err.message || 'Failed to update password', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +99,10 @@ const Login = ({ isModal = false, onClose }) => {
 
     // Safety timer to warn about slow Supabase email provider
     const timer = setTimeout(() => {
-      toast('Still working on it. This may take a moment...', { icon: '⏳' });
+      toast('Still working on it. This may take a moment...', { 
+        icon: '⏳',
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
     }, 8000);
 
     try {
@@ -121,13 +134,18 @@ const Login = ({ isModal = false, onClose }) => {
       // Supabase returns a user with no identities if the email already exists
       if (data?.user && data.user.identities?.length === 0) {
         console.warn('User created but no identities found - email may already exist');
-        toast.error('Email already exists!', { id: 'auth-toast' });
+        toast.error('Email already exists!', { 
+          id: 'auth-toast',
+          style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+        });
         setIsLoading(false);
         return;
       }
 
       console.log('Signup successful for user:', data?.user?.id);
-      toast.success('Confirmation email sent! Check your inbox to verify your account.');
+      toast.success('Confirmation email sent! Check your inbox to verify your account.', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
       setMode('LOGIN');
       setEmail('');
       setPassword('');
@@ -136,7 +154,9 @@ const Login = ({ isModal = false, onClose }) => {
       console.error('Registration error full details:', error);
       console.error('Error message:', error.message);
       console.error('Error status:', error.status);
-      toast.error(error.message || 'Failed to send confirmation email. Please try again.');
+      toast.error(error.message || 'Failed to send confirmation email. Please try again.', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -162,18 +182,24 @@ const Login = ({ isModal = false, onClose }) => {
         });
         const result = await response.json();
         if (result.error) throw new Error(result.error);
-        toast.success('Recovery link sent to your personal email!');
+        toast.success('Recovery link sent to your personal email!', {
+          style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+        });
       } else {
         // Try standard Supabase reset (primary email)
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/login?reset=true`,
         });
         if (resetError) throw resetError;
-        toast.success('Password reset link sent to your email!');
+        toast.success('Password reset link sent to your email!', {
+          style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+        });
       }
       setMode('LOGIN');
     } catch (err) {
-      toast.error(err.message || 'Failed to send recovery link.');
+      toast.error(err.message || 'Failed to send recovery link.', {
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -181,30 +207,32 @@ const Login = ({ isModal = false, onClose }) => {
 
   const inputStyle = {
     width: '100%',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--glass-border)',
-    padding: '0.85rem 1rem 0.85rem 2.75rem',
+    background: 'var(--admin-bg)',
+    border: '1px solid var(--admin-border)',
+    padding: '1rem 1rem 1rem 3rem',
     borderRadius: '0.85rem',
-    color: 'var(--card-text)',
+    color: 'var(--admin-text-primary)',
     fontSize: '0.95rem',
     outline: 'none',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     boxSizing: 'border-box'
   };
 
   const buttonStyle = {
     width: '100%',
-    background: 'var(--card-text)',
-    color: 'var(--bg-card)',
-    padding: '1rem',
+    background: 'var(--admin-brand)',
+    color: '#FFFFFF',
+    padding: '1.1rem',
     borderRadius: '0.85rem',
     border: 'none',
-    fontWeight: '800',
-    fontSize: '1rem',
+    fontWeight: '900',
+    fontSize: '0.95rem',
     cursor: 'pointer',
     marginTop: '1.5rem',
     transition: 'all 0.2s ease',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+    boxShadow: '0 8px 25px rgba(169, 27, 24, 0.25)',
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
   };
 
   const overlayStyle = isModal ? {
@@ -232,13 +260,13 @@ const Login = ({ isModal = false, onClose }) => {
   const cardStyle = {
     width: '100%',
     maxWidth: '440px',
-    background: 'var(--bg-card)',
+    background: 'var(--admin-card)',
     padding: isMobile ? '2rem' : '3rem',
     borderRadius: '2rem',
     position: 'relative',
-    boxShadow: 'var(--card-shadow)',
-    border: '1px solid var(--glass-border)',
-    color: 'var(--card-text)',
+    boxShadow: 'var(--admin-card-shadow)',
+    border: '1px solid var(--admin-border)',
+    color: 'var(--admin-text-primary)',
     animation: 'modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
   };
 
@@ -291,28 +319,28 @@ const Login = ({ isModal = false, onClose }) => {
         )}
 
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '900', color: 'var(--card-text)', letterSpacing: '1px', textTransform: 'uppercase', lineHeight: '1.2' }}>SpeedWay AutoxMoto Detail Studio</h1>
-          <p style={{ color: 'var(--card-text)', opacity: 0.6, marginTop: '0.5rem', fontSize: '0.9rem' }}>
-            {mode === 'LOGIN' ? 'Welcome back' : mode === 'REGISTER' ? 'Create your account' : mode === 'RECOVER' ? 'Reset your password' : 'Verify your account'}
+          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '950', color: 'var(--admin-text-primary)', letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: '1.2' }}>SpeedWay Detail Studio</h1>
+          <p style={{ color: 'var(--admin-text-secondary)', opacity: 0.6, marginTop: '0.6rem', fontSize: '0.85rem', fontWeight: '600' }}>
+            {mode === 'LOGIN' ? 'WELCOME BACK' : mode === 'REGISTER' ? 'CREATE YOUR ACCOUNT' : mode === 'RECOVER' ? 'RESET YOUR PASSWORD' : 'VERIFY YOUR ACCOUNT'}
           </p>
         </div>
 
         {mode === 'LOGIN' && (
           <form onSubmit={handleLogin}>
             <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
-              <Mail size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Mail size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
             </div>
             <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
-              <Lock size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Lock size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Processing...' : 'Login'}</button>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem', fontSize: '0.9rem' }}>
-              <p style={{ margin: 0, color: 'var(--card-text)', opacity: 0.7 }}>
-                Don't have an account? <span onClick={() => setMode('REGISTER')} style={{ color: 'var(--card-text)', cursor: 'pointer', fontWeight: '900', textDecoration: 'underline' }}>Register</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginTop: '1.5rem', fontSize: '0.85rem' }}>
+              <p style={{ margin: 0, color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
+                Don't have an account? <span onClick={() => setMode('REGISTER')} style={{ color: 'var(--admin-brand)', cursor: 'pointer', fontWeight: '900', textDecoration: 'none' }}>Register</span>
               </p>
-              <span onClick={() => setMode('RECOVER')} style={{ color: 'var(--card-text)', cursor: 'pointer', fontWeight: '900', textDecoration: 'underline' }}>Forgot Password?</span>
+              <span onClick={() => setMode('RECOVER')} style={{ color: 'var(--admin-text-secondary)', cursor: 'pointer', fontWeight: '700', opacity: 0.6 }}>Forgot Password?</span>
             </div>
           </form>
         )}
@@ -320,24 +348,24 @@ const Login = ({ isModal = false, onClose }) => {
         {mode === 'REGISTER' && (
           <form onSubmit={handleStartRegister}>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
-              <User size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <User size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="text" placeholder="Full Name" required value={fullName} onChange={e => setFullName(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
-              <Mail size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Mail size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
-              <Phone size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Phone size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="tel" placeholder="Phone Number" required value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ position: 'relative', marginBottom: '1rem' }}>
-              <Lock size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Lock size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="password" placeholder="Create Password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="new-password" />
             </div>
-            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending Confirmation Email...' : 'Register'}</button>
-            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-              Already have an account? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
+            <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending...' : 'Register'}</button>
+            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
+              Already have an account? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--admin-brand)', cursor: 'pointer', fontWeight: '900' }}>Login</span>
             </p>
           </form>
         )}
@@ -346,27 +374,27 @@ const Login = ({ isModal = false, onClose }) => {
 
         {mode === 'RECOVER' && (
           <form onSubmit={handleRecover}>
-            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+            <p style={{ textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.6', fontWeight: '500', opacity: 0.8 }}>
               Enter your email address to receive a <br />password reset link.
             </p>
             <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
-              <Mail size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Mail size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Sending...' : 'Send Recovery Link'}</button>
-            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-              Remember your password? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
+            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
+              Remember your password? <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--admin-brand)', cursor: 'pointer', fontWeight: '900' }}>Login</span>
             </p>
           </form>
         )}
 
         {mode === 'RESET' && (
           <form onSubmit={handleResetPassword}>
-            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+            <p style={{ textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.6', fontWeight: '500', opacity: 0.8 }}>
               Create a new secure password for <br />your account.
             </p>
             <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
-              <Lock size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Lock size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input 
                 type="password" 
                 placeholder="New Password" 
@@ -378,7 +406,7 @@ const Login = ({ isModal = false, onClose }) => {
               />
             </div>
             <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
-              <Lock size={18} color="#64748b" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <Lock size={18} color="var(--admin-brand)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }} />
               <input 
                 type="password" 
                 placeholder="Confirm New Password" 
@@ -390,8 +418,8 @@ const Login = ({ isModal = false, onClose }) => {
               />
             </div>
             <button type="submit" disabled={isLoading} style={buttonStyle}>{isLoading ? 'Updating...' : 'Update Password'}</button>
-            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-              Back to <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '600' }}>Login</span>
+            <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
+              Back to <span onClick={() => setMode('LOGIN')} style={{ color: 'var(--admin-brand)', cursor: 'pointer', fontWeight: '900' }}>Login</span>
             </p>
           </form>
         )}

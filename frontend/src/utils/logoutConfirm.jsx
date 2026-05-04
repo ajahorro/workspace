@@ -23,15 +23,17 @@ export const confirmLogout = (onConfirm) => {
     >
       <div 
         style={{
-          background: 'var(--bg-secondary)',
+          background: 'var(--bg-panel)',
           width: '90%',
           maxWidth: '400px',
-          padding: 'min(2.5rem, 6vw)',
+          padding: '2rem',
           borderRadius: '1.5rem',
-          border: '1px solid var(--border-color)',
+          border: '1px solid var(--glass-border)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           position: 'relative',
-          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+          color: 'var(--panel-text)',
+          backdropFilter: 'blur(10px)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -39,45 +41,46 @@ export const confirmLogout = (onConfirm) => {
           onClick={() => toast.dismiss(t.id)}
           style={{
             position: 'absolute',
-            top: '1.25rem',
-            right: '1.25rem',
+            top: '1rem',
+            right: '1rem',
             background: 'transparent',
             border: 'none',
-            color: 'var(--text-secondary)',
+            color: 'var(--panel-text)',
             cursor: 'pointer',
             padding: '0.5rem',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'background 0.2s'
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: 0.4
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.opacity = 1; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = 0.4; }}
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
         <div style={{
           width: '64px',
           height: '64px',
-          background: 'rgba(255, 255, 255, 0.03)',
+          background: 'rgba(var(--primary-rgb), 0.1)',
           borderRadius: '1.25rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--text-primary)',
+          color: 'var(--primary-color)',
           margin: '0 auto 1.5rem auto',
-          border: '1px solid var(--border-color)'
+          border: '1px solid var(--glass-border)'
         }}>
-          <LogOut size={30} />
+          <LogOut size={28} />
         </div>
 
         <h2 style={{ 
-          fontSize: 'min(1.75rem, 8vw)', 
-          fontWeight: '900', 
+          fontSize: '1.5rem', 
+          fontWeight: '800', 
           margin: '0 0 0.75rem 0', 
-          color: 'var(--text-primary)',
+          color: 'var(--panel-text)',
           textAlign: 'center',
           letterSpacing: '-0.5px'
         }}>
@@ -85,11 +88,13 @@ export const confirmLogout = (onConfirm) => {
         </h2>
         
         <p style={{ 
-          fontSize: '0.95rem', 
-          color: 'var(--text-secondary)', 
-          margin: '0 0 2.5rem 0',
+          fontSize: '0.9rem', 
+          color: 'var(--panel-text)', 
+          margin: '0 0 2rem 0',
           textAlign: 'center',
-          lineHeight: '1.6'
+          lineHeight: '1.6',
+          opacity: 0.6,
+          fontWeight: '500'
         }}>
           Are you sure you want to end your session? You will need to log in again to access your account.
         </p>
@@ -99,18 +104,18 @@ export const confirmLogout = (onConfirm) => {
             onClick={() => toast.dismiss(t.id)}
             style={{ 
               flex: 1,
-              padding: '1rem', 
-              background: 'rgba(255, 255, 255, 0.03)', 
-              border: '1px solid var(--border-color)', 
-              color: 'var(--text-primary)', 
-              borderRadius: '0.75rem', 
+              padding: '0.875rem', 
+              background: 'transparent', 
+              border: '1px solid var(--glass-border)', 
+              color: 'var(--panel-text)', 
+              borderRadius: '0.875rem', 
               cursor: 'pointer', 
               fontWeight: '700',
-              fontSize: '0.9rem',
-              transition: 'all 0.2s'
+              fontSize: '0.85rem',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             Cancel
           </button>
@@ -121,19 +126,19 @@ export const confirmLogout = (onConfirm) => {
             }}
             style={{ 
               flex: 1,
-              padding: '1rem', 
-              background: '#ef4444', 
+              padding: '0.875rem', 
+              background: 'var(--primary-color)', 
               border: 'none', 
-              color: '#fff', 
-              borderRadius: '0.75rem', 
+              color: '#FFFFFF', 
+              borderRadius: '0.875rem', 
               cursor: 'pointer', 
               fontWeight: '800',
-              fontSize: '0.9rem',
-              transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+              fontSize: '0.85rem',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.2)'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
-            onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
             Log Out
           </button>

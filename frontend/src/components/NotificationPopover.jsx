@@ -39,11 +39,11 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
 
   const getIcon = (title, message) => {
     const text = (title + ' ' + message).toLowerCase();
-    if (text.includes('booking')) return <Calendar size={14} color="var(--primary-color)" />;
-    if (text.includes('payment')) return <CreditCard size={14} color="var(--success-color)" />;
-    if (text.includes('refund')) return <AlertTriangle size={14} color="var(--danger-color)" />;
-    if (text.includes('completed')) return <CheckCircle size={14} color="var(--success-color)" />;
-    return <Info size={14} color="var(--text-secondary)" />;
+    if (text.includes('booking')) return <Calendar size={14} color="var(--admin-brand)" />;
+    if (text.includes('payment')) return <CreditCard size={14} color="#10b981" />;
+    if (text.includes('refund')) return <AlertTriangle size={14} color="#ef4444" />;
+    if (text.includes('completed')) return <CheckCircle size={14} color="#10b981" />;
+    return <Info size={14} color="var(--admin-text-secondary)" />;
   };
 
   const getBasePath = () => {
@@ -90,24 +90,25 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
   return (
     <div ref={popoverRef} style={{
       ...(isMobile ? mobileStyles : desktopStyles),
-      background: 'var(--bg-secondary)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: '1.25rem',
-      boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+      background: '#FFFFFF',
+      border: '1px solid var(--admin-border)',
+      borderRadius: '1rem',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
       zIndex: 2000,
       overflow: 'hidden',
-      animation: 'popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+      animation: 'popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+      color: 'var(--admin-text-primary)'
     }}>
-      <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '900', letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.8, color: 'var(--panel-text)' }}>RECENT UPDATES</h3>
+      <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
+        <h3 style={{ margin: 0, fontSize: '0.8rem', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>Recent Updates</h3>
         <button 
           onClick={onClose}
           style={{ 
-            background: 'rgba(0,0,0,0.05)', 
+            background: 'transparent', 
             border: 'none', 
             borderRadius: '0.5rem', 
-            color: 'var(--panel-text)', 
-            opacity: 0.5,
+            color: 'var(--admin-text-secondary)', 
+            opacity: 0.6,
             padding: '0.4rem', 
             cursor: 'pointer',
             display: 'flex',
@@ -116,7 +117,7 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
             transition: 'all 0.2s'
           }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
         >
           <X size={18} />
         </button>
@@ -139,28 +140,29 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
               onClick={() => handleClick(n)}
               style={{ 
                 padding: '1.25rem 1.5rem', 
-                borderBottom: '1px solid var(--glass-border)',
+                borderBottom: '1px solid var(--admin-border)',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 display: 'flex',
                 gap: '1rem',
-                background: n.is_read ? 'transparent' : 'rgba(59, 130, 246, 0.05)'
+                background: n.is_read ? 'transparent' : 'var(--admin-brand-light)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? 'transparent' : 'rgba(59, 130, 246, 0.05)'}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
+              onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? 'transparent' : 'var(--admin-brand-light)'}
             >
               <div style={{ 
-                width: '36px', height: '36px', borderRadius: '0.5rem', 
-                background: 'rgba(0,0,0,0.1)', display: 'flex', 
+                width: '36px', height: '36px', borderRadius: '0.6rem', 
+                background: '#FFFFFF', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
-                border: '1px solid var(--glass-border)', flexShrink: 0
+                border: '1px solid var(--admin-border)', flexShrink: 0,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
               }}>
                 {getIcon(n.title, n.message)}
               </div>
               <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', fontWeight: '900', color: 'var(--panel-text)', opacity: n.is_read ? 0.6 : 1 }}>{n.title}</h4>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--panel-text)', opacity: 0.6, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</p>
-                <span style={{ fontSize: '0.65rem', color: 'var(--panel-text)', opacity: 0.3, fontWeight: '900', marginTop: '0.5rem', display: 'block' }}>
+                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)', opacity: n.is_read ? 0.6 : 1 }}>{n.title}</h4>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '500', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</p>
+                <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', opacity: 0.5, fontWeight: '800', marginTop: '0.5rem', display: 'block' }}>
                   {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -175,9 +177,9 @@ const NotificationPopover = ({ user, profile, onClose, onRead }) => {
           const path = getBasePath();
           navigate(path === '' ? '/notifications' : `${path}/notifications`); 
         }}
-        style={{ padding: '1rem', textAlign: 'center', background: 'rgba(0,0,0,0.05)', color: 'var(--panel-text)', opacity: 0.8, fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+        style={{ padding: '0.85rem', textAlign: 'center', background: '#FFFFFF', color: 'var(--admin-brand)', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', borderTop: '1px solid var(--admin-border)' }}
       >
-        SHOW ALL NOTIFICATIONS <ArrowRight size={14} />
+        VIEW ALL UPDATES <ArrowRight size={14} />
       </div>
 
       <style>{`

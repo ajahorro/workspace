@@ -56,7 +56,9 @@ const AdminNotifications = () => {
       .eq('user_id', user.id);
 
     if (!error) {
-      toast.success('All marked as read');
+      toast.success('All marked as read', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
       fetchNotifications();
       window.dispatchEvent(new Event('notificationsRead'));
     }
@@ -88,7 +90,9 @@ const AdminNotifications = () => {
     const { error } = await supabase.from('notifications').delete().eq('id', id);
     if (!error) {
       setNotifications(prev => prev.filter(n => n.id !== id));
-      toast.success('Deleted');
+      toast.success('Notification deleted', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
     }
   };
 
@@ -107,23 +111,19 @@ const AdminNotifications = () => {
       <PageHeader 
         badge="SYSTEM UPDATES"
         title="NOTIFICATIONS"
+        title="NOTIFICATIONS"
         subtitle={`You have ${notifications.filter(n => !n.is_read).length} unread updates.`}
-        onRefresh={() => { fetchNotifications(); toast.success('Refreshing...'); }}
+        onRefresh={() => { fetchNotifications(); toast.success('Refreshing...', { style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' } }); }}
       >
         {notifications.length > 0 && (
           <button 
             onClick={handleMarkAllRead}
             style={{ 
-              display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem 1.5rem', 
-              background: 'var(--bg-secondary)', border: 'var(--border-color)', 
-              color: '#fff', borderRadius: '5rem', cursor: 'pointer', 
-              fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.2s', textTransform: 'uppercase'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = '1';
+              display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1.25rem', 
+              background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', 
+              color: 'var(--admin-text-primary)', borderRadius: '0.75rem', cursor: 'pointer', 
+              fontSize: '0.85rem', fontWeight: '800', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
             }}
           >
             <CheckCheck size={16} /> Mark all read
@@ -133,21 +133,19 @@ const AdminNotifications = () => {
 
       {/* Search Bar */}
       <div style={{ 
-        background: 'var(--glass-bg)', 
-        backdropFilter: 'blur(var(--blur-amount))',
-        WebkitBackdropFilter: 'blur(var(--blur-amount))',
+        background: 'var(--admin-card)', 
         borderRadius: '1rem', 
-        border: '1px solid var(--glass-border)', 
+        border: '1px solid var(--admin-border)', 
         padding: '1rem',
-        boxShadow: 'var(--card-shadow)'
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-input)', padding: '0.85rem 1.5rem', borderRadius: '0.75rem', flex: 1, border: 'var(--border-color)' }}>
-          <Search size={18} color="var(--text-secondary)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--admin-input-bg)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--admin-input-border)' }}>
+          <Search size={18} color="var(--admin-text-secondary)" />
           <input 
             placeholder="Search notifications..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }} 
+            style={{ border: 'none', background: 'transparent', color: 'var(--admin-text-primary)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '700', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} 
           />
         </div>
       </div>
@@ -158,79 +156,73 @@ const AdminNotifications = () => {
         ) : filteredNotifications.length === 0 ? (
           <div style={{ 
             textAlign: 'center', padding: '6rem 2rem', 
-            background: 'var(--bg-card)', borderRadius: '1.5rem', 
-            border: '1px solid var(--glass-border)', color: 'var(--card-text)', boxShadow: 'var(--card-shadow)'
+            background: 'var(--admin-card)', borderRadius: '1.25rem', 
+            border: '1px solid var(--admin-border)', color: 'var(--admin-text-secondary)', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
           }}>
-            <Bell size={48} color="var(--card-text)" style={{ marginBottom: '1.5rem', opacity: 0.2 }} />
-            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--card-text)', opacity: 0.8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
-            <p style={{ margin: 0, color: 'var(--card-text)', opacity: 0.6, fontSize: '0.9rem', fontWeight: '600' }}>Try a different search term.</p>
+            <Bell size={48} color="var(--admin-text-secondary)" style={{ marginBottom: '1.5rem', opacity: 0.2 }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--admin-text-primary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>No matches found</h3>
+            <p style={{ margin: 0, color: 'var(--admin-text-secondary)', fontSize: '0.95rem', fontWeight: '600' }}>Try a different search term.</p>
           </div>
         ) : (
           filteredNotifications.map(n => (
             <div 
               key={n.id}
+              className="admin-notification-card"
               onClick={() => handleNotificationClick(n)}
               style={{ 
-                background: 'var(--bg-card)', 
-                opacity: n.is_read ? 0.7 : 1,
-                padding: '1.5rem', borderRadius: '1rem', 
-                border: '1px solid var(--glass-border)',
+                background: 'var(--admin-card)', 
+                opacity: n.is_read ? 0.8 : 1,
+                padding: '1.25rem 1.5rem', borderRadius: '1rem', 
+                border: '1px solid var(--admin-border)',
+                borderLeft: n.is_read ? '1px solid var(--admin-border)' : '4px solid var(--admin-brand)',
                 display: 'flex', gap: '1.5rem', cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 position: 'relative',
-                color: 'var(--card-text)',
-                boxShadow: 'var(--card-shadow)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateX(8px)';
-                e.currentTarget.style.opacity = '0.9';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateX(0)';
-                e.currentTarget.style.opacity = n.is_read ? 0.7 : 1;
+                color: 'var(--admin-text-primary)',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
               }}
             >
               <div style={{ 
                 width: '48px', height: '48px', borderRadius: '0.75rem', 
-                background: 'rgba(255, 255, 255, 0.15)', display: 'flex', 
+                background: 'var(--admin-bg)', display: 'flex', 
                 alignItems: 'center', justifyContent: 'center',
-                border: '1px solid rgba(255, 255, 255, 0.1)', flexShrink: 0
+                border: '1px solid var(--admin-border)', flexShrink: 0,
+                color: 'var(--admin-brand)'
               }}>
-                {getIcon(n.title, n.message)}
+                {React.cloneElement(getIcon(n.title, n.message), { color: 'currentColor' })}
               </div>
 
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: 'var(--card-text)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
                     {n.title}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--card-text)', opacity: 0.7, fontWeight: '800' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <button 
                       onClick={(e) => deleteNotification(e, n.id)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--card-text)', opacity: 0.3, cursor: 'pointer', padding: '0.25rem', transition: 'color 0.2s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = 0.3}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-secondary)', opacity: 0.4, cursor: 'pointer', padding: '0.25rem', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; e.currentTarget.style.color = '#ef4444'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.4; e.currentTarget.style.color = 'var(--admin-text-secondary)'; }}
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: 'var(--card-text)', opacity: 0.85, lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: 'var(--admin-text-secondary)', fontWeight: '500', lineHeight: '1.5' }}>
                   {n.message}
                 </p>
-                <div style={{ fontSize: '0.7rem', color: 'var(--card-text)', opacity: 0.5, fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   {new Date(n.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
 
               {!n.is_read && (
                 <div style={{ 
-                  position: 'absolute', top: '1.5rem', right: '1.5rem', 
-                  width: '6px', height: '6px', borderRadius: '50%', background: 'var(--card-text)',
-                  boxShadow: '0 0 10px var(--card-text)'
+                  position: 'absolute', top: '1.25rem', right: '1.25rem', 
+                  width: '8px', height: '8px', borderRadius: '50%', background: 'var(--admin-brand)',
+                  boxShadow: '0 0 8px var(--admin-brand)'
                 }}></div>
               )}
             </div>
@@ -239,6 +231,18 @@ const AdminNotifications = () => {
       </div>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .admin-notification-card {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .admin-notification-card:hover {
+          transform: translateX(8px);
+          border-color: var(--admin-brand) !important;
+          background: var(--admin-bg) !important;
+        }
+        button:hover {
+          border-color: var(--admin-brand) !important;
+          color: var(--admin-brand) !important;
+        }
       `}</style>
     </div>
   );
