@@ -32,6 +32,7 @@ const CustomerDashboard = () => {
 
       if (activeError) console.error('Dashboard: Booking query error:', activeError);
       if (activeData) setActiveBooking(activeData);
+      else setActiveBooking(null);
 
       const { data: historyData } = await supabase
         .from('bookings_v2')
@@ -44,7 +45,26 @@ const CustomerDashboard = () => {
       setLoading(false);
     };
 
-    fetchDashboardData();
+    if (user) {
+      fetchDashboardData();
+
+      // Real-time listener for dashboard updates
+      const channel = supabase
+        .channel(`customer-dashboard-live-${user.id}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'bookings_v2', 
+          filter: `customer_id=eq.${user.id}` 
+        }, () => {
+          fetchDashboardData();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user]);
 
   const processCancellation = async () => {
@@ -79,6 +99,29 @@ const CustomerDashboard = () => {
         type: 'warning',
         action_url: `/my-bookings/${activeBooking.id}`
       });
+
+      // Fix #21: Notify Admins & Assigned Staff of customer cancellation
+      try {
+        const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+        const recipients = [...(admins || [])];
+
+        // Add assigned staff to notifications
+        if (activeBooking?.staff_id) {
+          recipients.push({ id: activeBooking.staff_id });
+        }
+
+        if (recipients.length > 0) {
+          await supabase.from('notifications').insert(
+            recipients.map(r => ({
+              user_id: r.id,
+              title: 'Booking Cancelled by Customer 🛑',
+              message: `A customer has cancelled their booking scheduled for ${new Date(activeBooking.start_datetime).toLocaleDateString()}.`,
+              type: 'error',
+              action_url: activeBooking?.staff_id === r.id ? '/staff/tasks' : `/admin/bookings/${activeBooking.id}`
+            }))
+          );
+        }
+      } catch (adminErr) { console.error('Notification failed:', adminErr); }
 
       const { data: { session } } = await supabase.auth.getSession();
       

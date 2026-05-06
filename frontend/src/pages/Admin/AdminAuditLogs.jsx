@@ -29,7 +29,18 @@ const AdminAuditLogs = () => {
   const [filterType, setFilterType] = useState('All');
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  useEffect(() => {
+    fetchLogs();
 
+    const channel = supabase
+      .channel('admin-audit-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_events' }, () => fetchLogs())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -106,6 +117,8 @@ const AdminAuditLogs = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
+        showBack
+        onBack={() => navigate(-1)}
         badge="SYSTEM SECURITY"
         title="System Audit Trail"
         subtitle="Track all administrative actions and system changes"
@@ -221,7 +234,7 @@ const AdminAuditLogs = () => {
                       fontWeight: '800',
                       textTransform: 'uppercase'
                     }}>
-                      {log.event_type.replace('_', ' ')}
+                      {log.event_type.replace(/_/g, ' ')}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
                       by <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{log.profiles?.full_name || 'System'}</span>
@@ -295,7 +308,7 @@ const AdminAuditLogs = () => {
               }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Action</label>
-                  <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--admin-brand)' }}>{selectedLog.event_type.replace('_', ' ')}</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--admin-brand)' }}>{selectedLog.event_type.replace(/_/g, ' ')}</span>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.5px' }}>Entity</label>

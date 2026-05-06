@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Tesseract from 'tesseract.js';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History } from 'lucide-react';
+import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
 import BookingChat from '../../components/BookingChat';
@@ -31,6 +31,32 @@ const BookingDetails = () => {
       fetchBooking();
       fetchBusinessSettings();
       fetchRefund();
+
+      // Real-time listener for this specific booking
+      const channel = supabase
+        .channel(`booking-update-${id}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'bookings_v2', 
+          filter: `id=eq.${id}` 
+        }, () => {
+          fetchBooking();
+          fetchRefund();
+        })
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'payments_v2', 
+          filter: `booking_id=eq.${id}` 
+        }, () => {
+          fetchBooking();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [id, user]);
 
@@ -64,7 +90,8 @@ const BookingDetails = () => {
               name
             )
           ),
-          payments_v2 (*)
+          payments_v2 (*),
+          assigned_staff:profiles!staff_id(full_name)
         `)
         .eq('id', id)
         .eq('customer_id', user.id)
@@ -163,8 +190,12 @@ const BookingDetails = () => {
     }
   };
 
-  const getPaymentStatusDisplay = (status, bookingStatus) => {
-    if (bookingStatus === 'cancelled') return { label: 'CANCELLED', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+  const getPaymentStatusDisplay = (status, bookingStatus, paidAmount = 0) => {
+    // Fix #11: Show REFUND REQUIRED when booking is cancelled but customer had paid
+    if (bookingStatus === 'cancelled') {
+      if (paidAmount > 0) return { label: 'REFUND REQUIRED', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+      return { label: 'CANCELLED (UNPAID)', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    }
     switch (status) {
       case 'UNPAID': return { label: 'UNPAID', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
       case 'VERIFYING': return { label: 'VERIFYING', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
@@ -181,15 +212,17 @@ const BookingDetails = () => {
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + Number(p.amount), 0);
   const isVerifying = payments.some(p => p.status === 'FOR_VERIFICATION');
   const derivedPaymentStatus = totalPaid >= booking.total_price ? 'PAID' : (isVerifying ? 'VERIFYING' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID'));
-  const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status);
+  const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status, totalPaid);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: isMobile ? '5rem' : '0' }}>
       <PageHeader 
+        showBack
+        onBack={() => navigate(-1)}
         badge="BOOKING RECORD"
         title="Details"
         subtitle={`Summary for #${booking.id.slice(0, 8).toUpperCase()}`}
-        onRefresh={() => fetchBookingDetails()}
+        onRefresh={() => fetchBooking()}
       >
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
           <span style={{ padding: '0.45rem 1rem', background: status.bg, color: status.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', border: `1px solid ${status.color}33` }}>
@@ -206,15 +239,6 @@ const BookingDetails = () => {
           </span>
         </div>
       </PageHeader>
-
-      <button 
-        onClick={() => navigate('/my-bookings')}
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '800', fontSize: '0.85rem', padding: 0 }}
-      >
-        <ArrowLeft size={16} /> Back to Bookings
-      </button>
-
-
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem' }}>
         {/* Left Column */}
@@ -278,12 +302,29 @@ const BookingDetails = () => {
           </div>
 
           {/* Activity Trail (Desktop Only or simplified on mobile) */}
+          {booking.assigned_staff && (
+            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                <User size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', opacity: 0.6 }}>Assigned Technician</div>
+                <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{booking.assigned_staff.full_name}</div>
+              </div>
+            </div>
+          )}
+
           {!isMobile && (
-            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '600', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-primary)' }}>
-                <History size={18} color="var(--admin-brand)" /> Activity Trail
+            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.5rem', boxShadow: 'var(--admin-card-shadow)', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(var(--admin-brand-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <History size={18} color="var(--admin-brand)" />
+                </div>
+                Activity Trail
               </h2>
-              <BookingAuditTrail bookingId={id} />
+              <div style={{ padding: '0.5rem 0' }}>
+                <BookingAuditTrail bookingId={id} />
+              </div>
             </div>
           )}
 
@@ -312,25 +353,55 @@ const BookingDetails = () => {
             </div>
           </div>
 
-          {/* Payment Status */}
+          {/* Payment Section - Replicated from Admin for Professional Look */}
           <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <Banknote size={18} color="var(--admin-brand)" /> Payment
+             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
+              <Banknote size={18} color="var(--admin-brand)" /> Payment & Balance
             </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '600' }}>Status</span>
-                  <span style={{ fontWeight: '800', color: paymentStatus.color }}>{paymentStatus.label}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '600' }}>Method</span>
-                  <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{booking.payment_method || 'CASH'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '600' }}>Total</span>
-                  <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</span>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>Grand Total</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--admin-border)' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>Total Paid</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#10b981' }}>₱{totalPaid.toLocaleString()}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>Balance Due</span>
+                <div style={{ 
+                  padding: '0.3rem 0.6rem', 
+                  borderRadius: '0.4rem', 
+                  background: (booking.total_price - totalPaid) === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                  color: (booking.total_price - totalPaid) === 0 ? '#10b981' : '#f59e0b',
+                  fontSize: '0.75rem',
+                  fontWeight: '900'
+                }}>
+                  ₱{(booking.total_price - totalPaid).toLocaleString()}
                 </div>
               </div>
+            </div>
+
+            {/* Mini Transaction History */}
+            {payments.length > 0 && (
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--admin-border)' }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.75rem', opacity: 0.5 }}>Transaction History</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {payments.map((p, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem', border: '1px solid var(--admin-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{p.method}</span>
+                        <span style={{ fontSize: '0.6rem', fontWeight: '900', color: p.status === 'PAID' ? '#10b981' : '#f59e0b', background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '0.2rem' }}>{p.status}</span>
+                      </div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{Number(p.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Receipt Upload Section */}
@@ -375,8 +446,8 @@ const BookingDetails = () => {
             </div>
           )}
 
-          {/* Cancel Button */}
-          {(booking.status === 'scheduled') && (
+          {/* Cancel Button - Only visible if not ongoing/finished */}
+          {(booking.status === 'scheduled' && booking.service_status !== 'IN_PROGRESS' && booking.service_status !== 'FINISHED') && (
             <button 
               onClick={() => setShowCancelModal(true)}
               style={{ 
@@ -458,14 +529,34 @@ const BookingDetails = () => {
                     
                     if (error) throw error;
                     if (!data || data.length === 0) throw new Error('Update failed.');
-                    
-                    await supabase.from('notifications').insert({
-                      user_id: user.id,
-                      title: 'Booking Cancelled',
-                      message: `Your booking for ${new Date(booking.start_datetime).toLocaleDateString()} has been cancelled.`,
-                      type: 'warning',
-                      action_url: `/my-bookings/${id}`
-                    });
+                // Notify customer via DB
+      if (booking.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: booking.customer_id,
+          title: `Booking CANCELLED 🔄`,
+          message: `Your booking status has been updated to cancelled.`,
+          type: 'error',
+          action_url: `/my-bookings/${id}`
+        });
+      }
+               // Fix: Notify Admins & Staff of cancellation
+                    try {
+                      const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+                      const recipients = [...(admins || [])];
+                      if (booking?.staff_id) recipients.push({ id: booking.staff_id });
+
+                      if (recipients.length > 0) {
+                        await supabase.from('notifications').insert(
+                          recipients.map(r => ({
+                            user_id: r.id,
+                            title: 'Booking Cancelled by Customer 🛑',
+                            message: `The booking for ${new Date(booking.start_datetime).toLocaleDateString()} has been cancelled.`,
+                            type: 'error',
+                            action_url: booking?.staff_id === r.id ? '/staff/tasks' : `/admin/bookings/${id}`
+                          }))
+                        );
+                      }
+                    } catch (notifErr) { console.error(notifErr); }
 
                     supabase.functions.invoke('send-email', {
                       body: { type: 'booking_cancelled', to: user.email, data: { date: new Date(booking.start_datetime).toLocaleDateString() } }

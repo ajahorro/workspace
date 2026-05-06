@@ -14,6 +14,7 @@ import NotificationPopover from '../components/NotificationPopover';
 import { confirmLogout } from '../utils/logoutConfirm.jsx';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTheme } from '../context/ThemeContext';
+import BrandLogo from '../components/BrandLogo';
 
 const AdminLayout = () => {
   const { theme } = useTheme();
@@ -128,16 +129,26 @@ const AdminLayout = () => {
 
   return (
     <div className="admin-theme" data-theme={theme} style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', color: 'var(--admin-text-primary)', position: 'relative', overflow: 'hidden' }}>
-      
+
       {/* Mobile Overlay */}
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
       <aside style={sidebarStyle}>
-        <div style={{ marginBottom: '2.5rem', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: '950', color: 'var(--admin-brand)', letterSpacing: '1px', lineHeight: '1.2', textTransform: 'uppercase' }}>
-            SpeedWay Studio
+        <div style={{ 
+          marginTop: '-10px', // Pull it up to remove the gap
+          padding: '0', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
+          marginBottom: '1rem',
+          overflow: 'visible'
+        }}>
+          <div style={{ cursor: 'pointer' }} onClick={() => navigate('/admin')}>
+            <BrandLogo width="260px" height="120px" />
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'var(--admin-text-primary)' }}><X size={20} /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ color: 'var(--admin-text-primary)', position: 'absolute', right: '1rem', top: '1rem' }}><X size={20} /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, overflowY: 'auto' }}>
@@ -245,20 +256,20 @@ const AdminLayout = () => {
               <Bell size={20} />
               {unreadCount > 0 && (
                 <div style={{
-                  position: 'absolute', 
-                  top: '-5px', 
+                  position: 'absolute',
+                  top: '-5px',
                   right: '-8px',
-                  background: 'var(--admin-brand)', 
-                  color: '#fff', 
+                  background: 'var(--admin-brand)',
+                  color: '#fff',
                   fontSize: '0.65rem',
-                  fontWeight: '900', 
-                  minWidth: '18px', 
+                  fontWeight: '900',
+                  minWidth: '18px',
                   height: '18px',
                   padding: '0 4px',
-                  display: 'flex', 
-                  alignItems: 'center', 
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'center',
-                  borderRadius: '10px', 
+                  borderRadius: '10px',
                   border: '2px solid var(--admin-card)',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                   fontFamily: 'sans-serif'

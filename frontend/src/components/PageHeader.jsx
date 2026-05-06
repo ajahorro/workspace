@@ -1,9 +1,9 @@
-import React from 'react';
-import { RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, ArrowLeft } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
-const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
-  const [isRotating, setIsRotating] = React.useState(false);
+const PageHeader = ({ title, subtitle, badge, onRefresh, children, showBack, onBack }) => {
+  const [isRotating, setIsRotating] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const handleRefresh = () => {
@@ -43,6 +43,30 @@ const PageHeader = ({ title, subtitle, badge, onRefresh, children }) => {
         gap: isMobile ? '1.25rem' : '0'
       }}>
         <div style={{ flex: 1, width: '100%' }}>
+          {showBack && (
+            <button 
+              onClick={onBack}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                background: isPortal ? 'var(--admin-card)' : 'transparent', 
+                border: isPortal ? '1px solid var(--admin-border)' : 'none', 
+                color: isPortal ? 'var(--admin-text-primary)' : 'var(--text-secondary)', 
+                padding: isPortal ? '0.5rem 1rem' : '0', 
+                borderRadius: '0.5rem',
+                fontSize: '0.75rem', 
+                fontWeight: '900', 
+                cursor: 'pointer',
+                marginBottom: '1rem',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              <ArrowLeft size={16} color={isPortal ? 'var(--admin-brand)' : 'currentColor'} /> Back
+            </button>
+          )}
+
           {badge && (
             <div className="badge" style={{ 
               display: 'inline-flex', 

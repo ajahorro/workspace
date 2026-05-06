@@ -5,7 +5,7 @@ import {
   ArrowLeft, Clock, CreditCard, User, Car, ClipboardList,
   History, CheckCircle, XCircle, AlertCircle, MessageCircle,
   Hash, Calendar, Phone, Shield, Activity, Play, CheckCircle2,
-  Package, Truck, Trash2, Banknote, Loader2
+  Package, Truck, Trash2, Banknote, Loader2, Eye, ArrowRight, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
@@ -27,6 +27,11 @@ const AdminBookingDetails = () => {
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [modalType, setModalType] = useState(null); // 'approve' or 'reject'
   const isMobile = useMediaQuery('(max-width: 1024px)');
 
   useEffect(() => {
@@ -34,7 +39,96 @@ const AdminBookingDetails = () => {
     fetchStaffList();
     fetchAuditLogs();
     fetchPayments();
+
+    // Fix #23: Real-time listener — Admin sees live updates from Staff actions
+    const channel = supabase
+      .channel(`admin-booking-detail-${id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bookings_v2',
+        filter: `id=eq.${id}`
+      }, () => {
+        fetchBookingDetails();
+        fetchAuditLogs();
+        fetchPayments();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
+
+  const handleVerifyPayment = async (p) => {
+    try {
+      const { data: { user: verifier } } = await supabase.auth.getUser();
+      const { error } = await supabase.rpc('verify_payment_v2', {
+        p_payment_id: p.id,
+        p_verifier_id: verifier?.id
+      });
+
+      if (error) throw error;
+      
+      toast.success('Payment Verified');
+      fetchPayments();
+      fetchAuditLogs();
+      fetchBookingDetails();
+
+      // Notify customer
+      if (booking.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: booking.customer_id,
+          title: 'Payment Verified! 💸',
+          message: `Your payment of ₱${p.amount?.toLocaleString()} has been verified successfully.`,
+          type: 'success',
+          action_url: `/my-bookings/${id}`
+        });
+      }
+    } catch (err) {
+      toast.error(err.message || 'Verification failed');
+    }
+  };
+
+  const handleRejectPayment = async (p) => {
+    try {
+      const { error } = await supabase
+        .from('payments_v2')
+        .update({ status: 'VOIDED' })
+        .eq('id', p.id);
+
+      if (error) throw error;
+
+      // Log the rejection event manually for transparency
+      // Note: Triggers now handle PAYMENT_STATE_CHANGE as well
+      await supabase.from('booking_events').insert({
+        booking_id: id,
+        actor_id: (await supabase.auth.getUser()).data.user?.id,
+        event_type: 'PAYMENT_REJECTED',
+        metadata: { 
+          details: `Payment receipt of ₱${p.amount?.toLocaleString()} was VOIDED (Rejected) by Admin.`,
+          amount: p.amount
+        }
+      });
+
+      toast.success('Status Updated');
+      fetchBookingDetails();
+      fetchAuditLogs();
+
+      // Notify customer (Operational logic remains, manual logging removed)
+      if (booking.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: booking.customer_id,
+          title: 'Receipt Rejected',
+          message: 'Your GCash receipt could not be verified. Please re-upload a clear, valid receipt.',
+          type: 'warning',
+          action_url: `/my-bookings/${id}`
+        });
+      }
+    } catch (err) {
+      toast.error('Rejection failed');
+    }
+  };
 
   const fetchBookingDetails = async () => {
     setLoading(true);
@@ -96,10 +190,6 @@ const AdminBookingDetails = () => {
 
   const handleStatusUpdate = async (newStatus) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const { data: { user } } = await supabase.auth.getUser();
-      
       const { error } = await supabase.from('bookings_v2').update({ status: newStatus }).eq('id', id);
       if (error) throw error;
 
@@ -110,8 +200,19 @@ const AdminBookingDetails = () => {
 
       if (booking.customer?.email) {
         sendStatusUpdateNotification(booking.customer.email, newStatus, {
-          date: new Date(booking.scheduled_at).toLocaleDateString(),
+          date: new Date(booking.start_datetime).toLocaleDateString(),
           vehicle: booking.vehicle_type
+        });
+      }
+
+      // Notify customer via DB
+      if (booking.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: booking.customer_id,
+          title: `Booking ${newStatus.toUpperCase()} 🔄`,
+          message: `Your booking status has been updated to ${newStatus.replace(/_/g, ' ')}.`,
+          type: newStatus === 'cancelled' ? 'error' : 'info',
+          action_url: `/my-bookings/${id}`
         });
       }
     } catch (error) { toast.error('Status update failed'); }
@@ -120,28 +221,62 @@ const AdminBookingDetails = () => {
   const handleAssignStaff = async (staffId) => {
     if (!staffId) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const previousStaffId = booking.staff_id;
       const { error } = await supabase.from('bookings_v2').update({ staff_id: staffId }).eq('id', id);
       if (error) throw error;
+
+      // Notify previous staff if they were replaced
+      if (previousStaffId && previousStaffId !== staffId) {
+        await supabase.from('notifications').insert({
+          user_id: previousStaffId,
+          title: 'Job Unassigned ⚠️',
+          message: `You have been unassigned from the ${booking.vehicle_type} job (${booking.plate_number || 'No Plate'}).`,
+          type: 'warning',
+          action_url: '/staff/tasks'
+        });
+      }
 
       // Manual logging removed, now handled by DB trigger
       toast.success('Staff Updated');
       fetchBookingDetails();
       fetchAuditLogs();
       
-      if (staff?.email) {
-        sendStaffAssignmentNotification(staff.email, {
-          vehicle: booking.vehicle_type, 
-          plate: booking.plate_number || 'N/A',
-          date: booking.scheduled_at ? new Date(booking.scheduled_at).toLocaleDateString() : 'N/A',
-          time: booking.scheduled_at ? new Date(booking.scheduled_at).toLocaleTimeString() : 'N/A',
-          services: booking.services?.join(', ') || 'Auto Detailing'
+      const assignedStaff = staffList.find(s => s.id === staffId);
+      if (assignedStaff?.id) {
+        // DB Notification for Staff
+        await supabase.from('notifications').insert({
+          user_id: assignedStaff.id,
+          title: 'New Job Assigned! 🛠️',
+          message: `You have been assigned to a ${booking.vehicle_type} (${booking.plate_number || 'No Plate'}).`,
+          type: 'info',
+          action_url: '/staff/tasks'
         });
+
+        if (assignedStaff.email) {
+          sendStaffAssignmentNotification(assignedStaff.email, {
+            vehicle: booking.vehicle_type, 
+            plate: booking.plate_number || 'N/A',
+            date: booking.start_datetime ? new Date(booking.start_datetime).toLocaleDateString() : 'N/A',
+            time: booking.start_datetime ? new Date(booking.start_datetime).toLocaleTimeString() : 'N/A',
+            services: services.map(s => s.service_name).join(', ') || 'Auto Detailing'
+          });
+        }
+
+        // Notify Customer of Assignment
+        if (booking.customer_id) {
+          await supabase.from('notifications').insert({
+            user_id: booking.customer_id,
+            title: 'Technician Assigned! 🛠️',
+            message: `${assignedStaff.full_name || 'A technician'} has been assigned to your ${booking.vehicle_type} job.`,
+            type: 'info',
+            action_url: `/my-bookings/${id}`
+          });
+        }
       }
-    } catch (error) { toast.error('Assignment error'); }
+    } catch (error) { 
+      console.error('Assignment error details:', error);
+      toast.error('Assignment error'); 
+    }
   };
 
   const handleRecordPayment = async () => {
@@ -151,7 +286,7 @@ const AdminBookingDetails = () => {
     }
     
     // Prevent overpayment at the UI level
-    const totalPaid = bookingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0);
     const balance = Math.max(0, (booking.total_price || 0) - totalPaid);
     
     if (amount > balance) {
@@ -174,6 +309,17 @@ const AdminBookingDetails = () => {
       fetchPayments();
       fetchAuditLogs();
       fetchBookingDetails();
+
+      // Notify customer
+      if (booking.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: booking.customer_id,
+          title: 'Payment Recorded! 💰',
+          message: `An admin has manually recorded a cash payment of ₱${amount.toLocaleString()} for your booking.`,
+          type: 'success',
+          action_url: `/my-bookings/${id}`
+        });
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to record payment');
@@ -184,7 +330,7 @@ const AdminBookingDetails = () => {
 
   if (loading || !booking) return <LoadingState message="Retrieving appointment records..." />;
 
-  const totalPaid = bookingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0);
   const balance = Math.max(0, (booking.total_price || 0) - totalPaid);
 
   const cardStyle = { background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', display: 'flex', flexDirection: 'column', color: 'var(--admin-text-primary)', boxShadow: 'var(--admin-card-shadow)' };
@@ -194,11 +340,13 @@ const AdminBookingDetails = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '4rem' }}>
-      <PageHeader badge={`REF: ${id.slice(0, 8).toUpperCase()}`} title="ADMIN CONTROL CENTER" subtitle="Full lifecycle management for this appointment.">
-        <button onClick={() => navigate('/admin/bookings')} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer' }}>
-          <ArrowLeft size={18} color="var(--admin-brand)" /> BACK
-        </button>
-      </PageHeader>
+      <PageHeader 
+        showBack 
+        onBack={() => navigate(-1)}
+        badge={`REF: ${id.slice(0, 8).toUpperCase()}`} 
+        title="ADMIN CONTROL CENTER" 
+        subtitle="Full lifecycle management for this appointment."
+      />
 
       {/* ADMIN LIFECYCLE CONTROLS (STICKY COMMAND BAR) */}
       <div style={{ 
@@ -241,7 +389,7 @@ const AdminBookingDetails = () => {
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={cardStyle}>
-            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ClipboardList size={18} color="var(--admin-brand)" /></div>Service Particulars</h3>
+            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ClipboardList size={18} color="var(--admin-brand)" /></div>Services</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {services.map((s, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: i < services.length - 1 ? '1px solid var(--admin-border)' : 'none' }}>
@@ -253,12 +401,14 @@ const AdminBookingDetails = () => {
                 </div>
               ))}
             </div>
+            
             <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Grand Total</span>
               <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{booking.total_price?.toLocaleString()}</span>
             </div>
-            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {balance > 0 ? (
+
+            <div style={{ marginTop: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {balance > 0 && booking.status !== 'cancelled' ? (
                 <button 
                   onClick={() => { setPaymentAmount(balance); setPaymentModal(true); }}
                   style={{ background: 'var(--admin-brand)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -266,7 +416,119 @@ const AdminBookingDetails = () => {
                   <Banknote size={16} /> RECORD PAYMENT
                 </button>
               ) : <div />}
-              <div style={{ padding: '0.4rem 0.8rem', borderRadius: '0.5rem', background: balance === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: balance === 0 ? '#10b981' : '#f59e0b', fontSize: '0.7rem', fontWeight: '900' }}>{balance === 0 ? 'FULLY PAID' : `BALANCE: ₱${balance.toLocaleString()}`}</div>
+              <div style={{ 
+                padding: '0.4rem 0.8rem', 
+                borderRadius: '0.5rem', 
+                background: booking.status === 'cancelled' && totalPaid > 0 
+                  ? 'rgba(239, 68, 68, 0.1)' 
+                  : (balance === 0 ? 'rgba(16, 185, 129, 0.1)' : (bookingPayments.some(p => p.status === 'FOR_VERIFICATION') ? 'rgba(139, 92, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)')), 
+                color: booking.status === 'cancelled' && totalPaid > 0 
+                  ? '#ef4444' 
+                  : (balance === 0 ? '#10b981' : (bookingPayments.some(p => p.status === 'FOR_VERIFICATION') ? '#8b5cf6' : '#f59e0b')), 
+                fontSize: '0.7rem', 
+                fontWeight: '900' 
+              }}>
+                {booking.status === 'cancelled' 
+                  ? (totalPaid > 0 ? (
+                      <button onClick={() => navigate('/admin/refunds')} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        REFUND REQUIRED <ArrowRight size={12} />
+                      </button>
+                    ) : 'CANCELLED (UNPAID)') 
+                  : (balance === 0 ? 'FULLY PAID' : (bookingPayments.some(p => p.status === 'FOR_VERIFICATION') ? 'VERIFICATION PENDING' : `BALANCE: ₱${balance.toLocaleString()}`))}
+              </div>
+            </div>
+
+            {/* INTEGRATED PAYMENTS HISTORY */}
+            <div style={{ borderTop: '1px solid var(--admin-border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+              <div style={{ ...labelStyle, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><CreditCard size={14} /> Transaction History</div>
+              {bookingPayments.length === 0 ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.75rem' }}>No payments recorded.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {bookingPayments.map((p, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                        {p.receipt_url ? (
+                          <div onClick={() => window.open(p.receipt_url, '_blank')} style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', overflow: 'hidden', border: '1px solid var(--admin-border)', cursor: 'pointer', flexShrink: 0 }}>
+                            <img src={p.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ) : (
+                          <div style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2, border: '1px solid var(--admin-border)' }}>
+                            <Banknote size={14} />
+                          </div>
+                        )}
+                        
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.8rem', textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none', opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1 }}>{p.method}</span>
+                            <span style={{ 
+                               fontSize: '0.6rem', 
+                               fontWeight: '900', 
+                               color: p.status === 'PAID' ? '#10b981' : (p.status === 'VOIDED' ? '#ef4444' : (p.status === 'SUPERSEDED' ? 'var(--admin-text-secondary)' : 'var(--admin-brand)')), 
+                               background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : (p.status === 'VOIDED' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(var(--admin-brand-rgb), 0.1)'), 
+                               padding: '0.1rem 0.4rem', 
+                               borderRadius: '0.2rem',
+                               fontStyle: p.status === 'SUPERSEDED' ? 'italic' : 'normal'
+                             }}>{p.status === 'FOR_VERIFICATION' ? 'PENDING' : p.status}</span>
+                             {p.receipt_attempt > 1 && (
+                               <span style={{ fontSize: '0.6rem', fontWeight: '900', color: 'var(--admin-text-secondary)', background: 'var(--admin-bg)', padding: '0.1rem 0.4rem', borderRadius: '0.2rem', opacity: 0.6 }}>
+                                 ATTEMPT #{p.receipt_attempt}
+                               </span>
+                             )}
+                          </div>
+                          {p.ocr_text && p.ocr_text.trim().length > 2 && (
+                            <div style={{ fontSize: '0.7rem', color: '#FFFFFF', fontStyle: 'italic', marginTop: '0.25rem', opacity: 0.8 }}>
+                              "{p.ocr_text.substring(0, 40)}..."
+                            </div>
+                          )}
+                          {p.status === 'SUPERSEDED' && (
+                            <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700', marginTop: '0.25rem', opacity: 0.6 }}>
+                              (Auto-archived: Covered by other payment)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ 
+                          fontWeight: '900', 
+                          color: p.status === 'PAID' ? '#10b981' : 'var(--admin-text-primary)', 
+                          fontSize: '0.95rem',
+                          opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1,
+                          textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none'
+                        }}>+₱{Number(p.amount).toLocaleString()}</div>
+                        {p.status === 'FOR_VERIFICATION' && (
+                          <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.25rem' }}>
+                            <button 
+                              onClick={() => {
+                                setSelectedPayment(p);
+                                setModalType('approve');
+                                setShowConfirmModal(true);
+                              }} 
+                              style={{ padding: '0.4rem 0.8rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              OK
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setSelectedPayment(p);
+                                setModalType('reject');
+                                setShowConfirmModal(true);
+                              }} 
+                              style={{ padding: '0.4rem 0.8rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              X
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div style={cardStyle}>
@@ -274,11 +536,22 @@ const AdminBookingDetails = () => {
             {booking.staff_id ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '0.75rem', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><User size={20} /></div><div><div style={labelStyle}>Assigned Lead</div><div style={valueStyle}>{booking.assigned_staff?.full_name}</div></div></div>
-                <button onClick={() => setBooking({ ...booking, staff_id: null })} style={{ background: 'var(--admin-card)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}>CHANGE</button>
+                {!(booking.status === 'completed' || booking.status === 'cancelled') && (
+                  <button onClick={() => setBooking({ ...booking, staff_id: null })} style={{ background: 'var(--admin-card)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer' }}>CHANGE</button>
+                )}
               </div>
             ) : (
-              <select onChange={(e) => handleAssignStaff(e.target.value)} style={{ width: '100%', padding: '1rem', borderRadius: '0.75rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', fontWeight: '800', fontSize: '0.95rem', appearance: 'none', cursor: 'pointer' }}>
-                <option value="">Select Technician...</option>
+              <select 
+                disabled={booking.status === 'completed' || booking.status === 'cancelled'}
+                onChange={(e) => handleAssignStaff(e.target.value)} 
+                style={{ 
+                  width: '100%', padding: '1rem', borderRadius: '0.75rem', 
+                  background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', 
+                  color: 'var(--admin-text-primary)', fontWeight: '800', fontSize: '0.95rem', 
+                  appearance: 'none', cursor: (booking.status === 'completed' || booking.status === 'cancelled') ? 'not-allowed' : 'pointer',
+                  opacity: (booking.status === 'completed' || booking.status === 'cancelled') ? 0.5 : 1
+                }}>
+                <option value="">{ (booking.status === 'completed' || booking.status === 'cancelled') ? 'No Technician Assigned' : 'Select Technician...' }</option>
                 {staffList.map(s => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
               </select>
             )}
@@ -290,26 +563,6 @@ const AdminBookingDetails = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={cardStyle}><h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Car size={18} color="var(--admin-brand)" /></div>Client & Vehicle</h3><div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}><div><div style={labelStyle}>Owner & Contact</div><div style={valueStyle}>{booking.customer?.full_name} <span style={{ color: 'var(--admin-brand)', fontSize: '0.9rem', marginLeft: '0.5rem', fontWeight: '800' }}>({booking.customer_phone || booking.customer?.phone_number || 'No Phone'})</span></div></div><div><div style={labelStyle}>Vehicle / Plate</div><div style={valueStyle}>{booking.vehicle_type} - {booking.plate_number || 'N/A'}</div></div><div><div style={labelStyle}>Scheduled</div><div style={valueStyle}>{new Date(booking.start_datetime).toLocaleString()}</div></div></div></div>
           
-          {/* PAYMENTS HISTORY */}
-          <div style={cardStyle}>
-            <h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CreditCard size={18} color="#f59e0b" /></div>Payments Log</h3>
-            {bookingPayments.length === 0 ? (
-              <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.8rem' }}>No payments recorded yet.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {bookingPayments.map((p, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--admin-bg)', borderRadius: '0.5rem', border: '1px solid var(--admin-border)' }}>
-                    <div>
-                      <div style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.85rem' }}>{p.method}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)' }}>{new Date(p.created_at).toLocaleString()}</div>
-                    </div>
-                    <div style={{ fontWeight: '900', color: '#10b981' }}>+₱{Number(p.amount).toLocaleString()}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div style={cardStyle}><h3 style={sectionTitleStyle}><div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History size={18} color="var(--admin-brand)" /></div>Audit History</h3><BookingAuditTrail logs={auditLogs} /></div>
         </div>
       </div>
@@ -347,6 +600,42 @@ const AdminBookingDetails = () => {
                 style={{ flex: 1, padding: '1rem', background: 'var(--admin-brand)', border: 'none', color: '#FFFFFF', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '800', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
               >
                 {submittingPayment ? <Loader2 size={18} className="spin" /> : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, backdropFilter: 'blur(10px)' }}>
+          <div style={{ background: 'var(--admin-card)', padding: '2.5rem', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', maxWidth: '400px', width: '90%', boxShadow: '0 25px 70px rgba(0,0,0,0.5)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: modalType === 'approve' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+              {modalType === 'approve' ? <CheckCircle2 size={30} color="#10b981" /> : <X size={30} color="#ef4444" />}
+            </div>
+            <h2 style={{ fontSize: '1.5rem', margin: '0 0 0.75rem 0', fontWeight: '900', color: 'var(--admin-text-primary)' }}>
+              {modalType === 'approve' ? 'Verify Payment' : 'Reject Payment'}
+            </h2>
+            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.95rem', margin: '0 0 2rem 0', fontWeight: '600', lineHeight: '1.5' }}>
+              Are you sure you want to {modalType === 'approve' ? 'approve' : 'reject'} the payment of <span style={{ color: 'var(--admin-text-primary)', fontWeight: '900' }}>₱{Number(selectedPayment?.amount).toLocaleString()}</span>? This action will be logged in the audit trail.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={() => { setShowConfirmModal(false); setSelectedPayment(null); }}
+                style={{ flex: 1, padding: '1rem', background: 'transparent', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '700' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  if (modalType === 'approve') handleVerifyPayment(selectedPayment);
+                  else handleRejectPayment(selectedPayment);
+                  setShowConfirmModal(false);
+                  setSelectedPayment(null);
+                }}
+                style={{ flex: 1, padding: '1rem', background: modalType === 'approve' ? '#10b981' : '#ef4444', border: 'none', color: '#FFFFFF', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '800' }}
+              >
+                {modalType === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
               </button>
             </div>
           </div>

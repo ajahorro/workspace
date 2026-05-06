@@ -107,10 +107,31 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   };
 
+  const updateProfile = async (updates) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+      
+      if (data) {
+        setProfile(data);
+        localStorage.setItem('speedway_profile', JSON.stringify(data));
+        return { data, error: null };
+      }
+      return { data: null, error };
+    } catch (err) {
+      return { data: null, error: err };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, profile, loading, 
       signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
+      updateProfile,
       signOut 
     }}>
       {children}

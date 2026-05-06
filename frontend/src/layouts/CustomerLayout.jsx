@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import BookingCartSidebar from '../components/Customer/BookingCartSidebar';
 import NotificationPopover from '../components/NotificationPopover';
 import ProfileHeader from '../components/ProfileHeader';
+import BrandLogo from '../components/BrandLogo';
 
 const CustomerLayout = () => {
   const navigate = useNavigate();
@@ -72,11 +73,8 @@ const CustomerLayout = () => {
         top: 0, 
         zIndex: 100 
       }}>
-        <Link to="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: '32px', height: '32px', background: 'var(--primary-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', color: '#000', fontSize: '1.2rem' }}>S</div>
-          <h1 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', letterSpacing: '0.5px', color: '#fff', lineHeight: '1.2', textTransform: 'uppercase' }}>
-            SpeedWay <span style={{ color: 'var(--primary-color)' }}>Studio</span>
-          </h1>
+        <Link to="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', marginTop: '-10px', marginBottom: '-10px' }}>
+          <BrandLogo width="180px" height="60px" />
         </Link>
 
         <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>

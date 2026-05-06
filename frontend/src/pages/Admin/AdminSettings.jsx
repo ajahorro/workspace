@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Save, Upload, Clock, Phone, Mail, MapPin, CreditCard, Check, Sparkles } from 'lucide-react';
+import { Save, Upload, Clock, Phone, Mail, MapPin, CreditCard, Check, Sparkles, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/PageHeader';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminSettings = () => {
+  const { user, profile, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [firstName, setFirstName] = useState(profile?.first_name || '');
+  const [lastName, setLastName] = useState(profile?.last_name || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [settings, setSettings] = useState({
     business_name: 'SpeedWay AutoxMoto Detail Studio',
     contact_number: '+63 912 345 6789',
@@ -54,7 +60,13 @@ const AdminSettings = () => {
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('business_settings').update(updateData).eq('id', true);
+      // Ensure we target the record correctly - either update by ID or use upsert
+      const { error } = await supabase
+        .from('business_settings')
+        .upsert({ 
+          id: settings.id || 1, // Fallback to 1 if no ID found
+          ...updateData 
+        });
       if (error) throw error;
       toast.success('Settings saved successfully!', {
         style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
@@ -63,6 +75,35 @@ const AdminSettings = () => {
       toast.error(err.message || 'Failed to save settings.', {
         style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQRUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setLoading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `gcash_qr_${Date.now()}.${fileExt}`;
+      const filePath = `settings/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('receipts') // Using the existing receipts bucket for settings
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(filePath);
+
+      setSettings({ ...settings, gcash_qr_url: publicUrl });
+      toast.success('QR Code uploaded! Don\'t forget to click Save Settings at the bottom.');
+    } catch (err) {
+      toast.error('Upload failed: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -105,6 +146,22 @@ const AdminSettings = () => {
     fontWeight: '600'
   };
 
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const { error } = await updateProfile({
+        first_name: firstName,
+        last_name: lastName
+      });
+      if (error) throw error;
+      toast.success('Profile updated successfully!');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
@@ -123,50 +180,98 @@ const AdminSettings = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
-          {/* Appearance Settings */}
-          <div className="setting-card" style={sectionStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-              <Sparkles size={20} color="var(--admin-brand)" />
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Appearance & Theme</h2>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '500' }}>
-              Personalize your workspace aesthetic. Choose between light, dark, or follow your system preferences.
-            </p>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(3, 1fr)', 
-              gap: '0.5rem', 
-              background: 'var(--admin-bg)', 
-              padding: '0.4rem', 
-              borderRadius: '0.85rem',
-              border: '1px solid var(--admin-border)'
-            }}>
-              {[
-                { id: 'light', label: 'LIGHT' },
-                { id: 'dark', label: 'DARK' },
-                { id: 'system', label: 'SYSTEM' }
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => toggleTheme(t.id)}
-                  style={{
-                    padding: '0.75rem 0.5rem',
-                    background: theme === t.id ? 'var(--admin-brand)' : 'transparent',
-                    color: theme === t.id ? '#FFFFFF' : 'var(--admin-text-secondary)',
-                    border: 'none',
-                    borderRadius: '0.6rem',
-                    fontSize: '0.75rem',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    boxShadow: theme === t.id ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none'
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
+           {/* Personal Profile Settings */}
+           <div className="setting-card" style={sectionStyle}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+               <User size={20} color="var(--admin-brand)" />
+               <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Personal Identity</h2>
+             </div>
+             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '500' }}>
+               Manage your professional name and identity across the system.
+             </p>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+               <div>
+                 <label style={labelStyle}>First Name</label>
+                 <input 
+                   style={inputStyle} 
+                   value={firstName}
+                   onChange={e => setFirstName(e.target.value)}
+                   placeholder="First Name"
+                 />
+               </div>
+               <div>
+                 <label style={labelStyle}>Last Name</label>
+                 <input 
+                   style={inputStyle} 
+                   value={lastName}
+                   onChange={e => setLastName(e.target.value)}
+                   placeholder="Last Name"
+                 />
+               </div>
+             </div>
+             <button 
+               onClick={handleSaveProfile}
+               disabled={loading}
+               style={{ 
+                 marginTop: '0.5rem', 
+                 padding: '0.75rem', 
+                 background: 'var(--admin-brand)', 
+                 color: 'white', 
+                 border: 'none', 
+                 borderRadius: '0.6rem', 
+                 fontSize: '0.8rem', 
+                 fontWeight: '800', 
+                 cursor: 'pointer' 
+               }}
+             >
+               UPDATE IDENTITY
+             </button>
+           </div>
+
+           {/* Appearance Settings */}
+           <div className="setting-card" style={sectionStyle}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+               <Sparkles size={20} color="var(--admin-brand)" />
+               <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Appearance & Theme</h2>
+             </div>
+             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '500' }}>
+               Personalize your workspace aesthetic. Choose between light, dark, or follow your system preferences.
+             </p>
+             <div style={{ 
+               display: 'grid', 
+               gridTemplateColumns: 'repeat(3, 1fr)', 
+               gap: '0.5rem', 
+               background: 'var(--admin-bg)', 
+               padding: '0.4rem', 
+               borderRadius: '0.85rem',
+               border: '1px solid var(--admin-border)'
+             }}>
+               {[
+                 { id: 'light', label: 'LIGHT' },
+                 { id: 'dark', label: 'DARK' },
+                 { id: 'system', label: 'SYSTEM' }
+               ].map((t) => (
+                 <button
+                   key={t.id}
+                   onClick={() => toggleTheme(t.id)}
+                   style={{
+                     padding: '0.75rem 0.5rem',
+                     background: theme === t.id ? 'var(--admin-brand)' : 'transparent',
+                     color: theme === t.id ? '#FFFFFF' : 'var(--admin-text-secondary)',
+                     border: 'none',
+                     borderRadius: '0.6rem',
+                     fontSize: '0.75rem',
+                     fontWeight: '800',
+                     cursor: 'pointer',
+                     transition: 'all 0.2s ease',
+                     boxShadow: theme === t.id ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none'
+                   }}
+                 >
+                   {t.label}
+                 </button>
+               ))}
+             </div>
+           </div>
         </div>
       </section>
 
@@ -279,27 +384,110 @@ const AdminSettings = () => {
                   textAlign: 'center',
                   background: 'var(--admin-bg)'
                 }}>
-                  <div style={{ width: '80px', height: '80px', background: 'var(--admin-card)', borderRadius: '0.75rem', margin: '0 auto 1rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.65rem', fontWeight: '800', border: '1px solid var(--admin-border)' }}>
-                    QR PREVIEW
-                  </div>
-                  <button style={{ 
+                  <div style={{ 
+                    width: '120px', 
+                    height: '120px', 
                     background: 'var(--admin-card)', 
-                    border: '1px solid var(--admin-border)', 
-                    color: 'var(--admin-text-primary)', 
-                    padding: '0.6rem 1.25rem', 
-                    borderRadius: '0.6rem', 
-                    fontSize: '0.8rem', 
-                    fontWeight: '800', 
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    margin: '0 auto'
+                    borderRadius: '0.75rem', 
+                    margin: '0 auto 1rem auto', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    overflow: 'hidden',
+                    border: '1px solid var(--admin-border)' 
                   }}>
+                    {settings.gcash_qr_url ? (
+                      <img src={settings.gcash_qr_url} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <span style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>NO QR SET</span>
+                    )}
+                  </div>
+                  <input 
+                    type="file" 
+                    id="qr-upload" 
+                    hidden 
+                    accept="image/*" 
+                    onChange={handleQRUpload} 
+                  />
+                  <button 
+                    onClick={() => document.getElementById('qr-upload').click()}
+                    style={{ 
+                      background: 'var(--admin-card)', 
+                      border: '1px solid var(--admin-border)', 
+                      color: 'var(--admin-text-primary)', 
+                      padding: '0.6rem 1.25rem', 
+                      borderRadius: '0.6rem', 
+                      fontSize: '0.8rem', 
+                      fontWeight: '800', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      margin: '0 auto'
+                    }}
+                  >
                     <Upload size={14} /> Replace QR
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+          {/* Password Security */}
+          <div className="setting-card" style={sectionStyle}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
+              <Lock size={20} color="var(--admin-brand)" /> Change Password
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label style={labelStyle}>Current Password</label>
+                <input 
+                  type="password"
+                  autoComplete="current-password"
+                  style={inputStyle} 
+                  placeholder="Enter current password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>New Password</label>
+                <input 
+                  type="password"
+                  autoComplete="new-password"
+                  style={inputStyle} 
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)} 
+                />
+              </div>
+              <button 
+                onClick={async () => {
+                   if (!currentPassword || !newPassword) {
+                     toast.error('Please fill both password fields');
+                     return;
+                   }
+                   const { error } = await supabase.auth.updateUser({ password: newPassword });
+                   if (error) toast.error(error.message);
+                   else {
+                     toast.success('Password updated successfully!');
+                     setCurrentPassword('');
+                     setNewPassword('');
+                   }
+                }}
+                style={{ 
+                  marginTop: '0.5rem', 
+                  padding: '0.75rem', 
+                  background: 'rgba(255,255,255,0.05)', 
+                  color: 'var(--admin-text-primary)', 
+                  border: '1px solid var(--admin-border)', 
+                  borderRadius: '0.6rem', 
+                  fontSize: '0.8rem', 
+                  fontWeight: '800', 
+                  cursor: 'pointer' 
+                }}
+              >
+                UPDATE PASSWORD
+              </button>
             </div>
           </div>
         </div>

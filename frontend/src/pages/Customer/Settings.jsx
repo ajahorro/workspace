@@ -1,199 +1,212 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { supabase } from '../../lib/supabase';
-import { User, Phone, Mail, Lock, Check, Save, ShieldCheck, MapPin } from 'lucide-react';
+import { User, Phone, Mail, Lock, Check, Save, Sparkles, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/PageHeader';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Settings = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1024px)');
 
   // Form states
-  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [firstName, setFirstName] = useState(profile?.first_name || '');
+  const [lastName, setLastName] = useState(profile?.last_name || '');
   const [phone, setPhone] = useState(profile?.phone_number || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    
-    if (!fullName.trim()) {
-      toast.error('Full Name is mandatory', {
-        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
-      });
-      return;
-    }
-
     setLoading(true);
     try {
-      // 1. Update Auth Email if changed
-      if (email !== user.email) {
-        const { error: authError } = await supabase.auth.updateUser({ email });
-        if (authError) throw authError;
-        toast.success('Confirmation email sent to new address!', {
-          style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
-        });
-      }
-
-      // 2. Update Profile Data
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          phone_number: phone,
-          notification_preference: 'EMAIL'
-        })
-        .eq('id', user.id);
-
+      const { error } = await updateProfile({
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: phone
+      });
       if (error) throw error;
-      
-      toast.success('Profile updated successfully!', {
-        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
-      });
-      // Refresh page to sync context (or we could use a context update method)
-      setTimeout(() => window.location.reload(), 1000);
+      toast.success('Profile updated successfully!');
     } catch (err) {
-      toast.error(err.message, {
-        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
-      });
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const isMobile = useMediaQuery('(max-width: 1024px)');
+  const sectionStyle = {
+    background: 'var(--admin-card)',
+    borderRadius: '1.25rem',
+    border: '1px solid var(--admin-border)',
+    padding: isMobile ? '1.25rem' : '1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.5rem',
+    boxShadow: 'var(--admin-card-shadow)',
+    color: 'var(--admin-text-primary)'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '0.75rem',
+    fontWeight: '800',
+    color: 'var(--admin-text-secondary)',
+    marginBottom: '0.5rem',
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '0.85rem 1rem',
+    background: 'var(--admin-bg)',
+    border: '1px solid var(--admin-border)',
+    borderRadius: '0.75rem',
+    color: 'var(--admin-text-primary)',
+    fontSize: '0.95rem',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    boxSizing: 'border-box'
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader 
         badge="ACCOUNT SETTINGS"
-        title="SETTINGS"
-        subtitle="Manage your personal information and preferences."
+        title="Settings"
+        subtitle="Manage your personal identity and application preferences."
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
         
-        {/* Profile Info Column */}
-        <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-          <h2 style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--admin-text-primary)' }}>Personal Information</h2>
+        {/* Personal Identity */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <User size={20} color="var(--admin-brand)" />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>Personal Identity</h2>
+          </div>
           
-          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Full Name *</label>
-              <div style={{ position: 'relative' }}>
-                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>First Name</label>
                 <input 
-                  type="text" 
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
+                  style={inputStyle} 
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
                 />
               </div>
-            </div>
- 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Email Address</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
+              <div>
+                <label style={labelStyle}>Last Name</label>
                 <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
-                />
-              </div>
-              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.5, fontWeight: '600' }}>Note: Changing your email will require verification.</p>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', opacity: 0.6 }}>Phone Number</label>
-              <div style={{ position: 'relative' }}>
-                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-brand)' }} />
-                <input 
-                  type="tel" 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+63 9XX XXX XXXX"
-                  style={{ width: '100%', padding: '1rem 1rem 1rem 3rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1rem', outline: 'none' }}
+                  style={inputStyle} 
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
                 />
               </div>
             </div>
 
+            <div>
+              <label style={labelStyle}>Phone Number</label>
+              <input 
+                style={inputStyle} 
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="+63 9XX XXX XXXX"
+              />
+            </div>
 
             <button 
               type="submit"
               disabled={loading}
-              style={{ marginTop: '1rem', width: '100%', padding: '1.1rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 10px 20px rgba(169, 27, 24, 0.2)' }}
+              style={{ 
+                marginTop: '0.5rem', 
+                padding: '1rem', 
+                background: 'var(--admin-brand)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '0.75rem', 
+                fontWeight: '900', 
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(169, 27, 24, 0.2)'
+              }}
             >
-              {loading ? 'Saving...' : 'Save Profile Changes'}
+              {loading ? 'Saving...' : 'UPDATE PROFILE'}
             </button>
           </form>
         </div>
 
-        {/* Right Column: Theme & Legal */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          {/* Appearance */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
-            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>Appearance</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {['system', 'light', 'dark'].map(t => (
-                <div 
-                  key={t}
-                  onClick={() => toggleTheme(t)}
-                  style={{ 
-                    padding: '1rem', borderRadius: '0.75rem', border: theme === t ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)', 
-                    background: theme === t ? 'var(--admin-bg)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s' 
-                  }}
-                >
-                  <div style={{ 
-                    width: '32px', height: '32px', borderRadius: '4px', 
-                    background: t === 'light' ? '#fff' : t === 'dark' ? '#0f172a' : 'linear-gradient(135deg, #fff 50%, #0f172a 50%)',
-                    border: '1px solid var(--admin-border)'
-                  }}></div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: '700', textTransform: 'capitalize', color: theme === t ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)' }}>{t} Mode</span>
-                </div>
-              ))}
-            </div>
+        {/* Appearance */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Sparkles size={20} color="var(--admin-brand)" />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>Appearance</h2>
           </div>
-
-          {/* Legal */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '2rem', boxShadow: 'var(--admin-card-shadow)' }}>
-            <h2 style={{ fontSize: '1.1rem', margin: '0 0 1.5rem 0', fontWeight: '800', textTransform: 'uppercase', color: 'var(--admin-text-primary)' }}>Terms & Privacy</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div>
-                <h3 style={{ fontSize: '0.8rem', color: 'var(--admin-brand)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>SERVICE USAGE</h3>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', lineHeight: '1.5', fontWeight: '500', opacity: 0.6 }}>Premium vehicle care provided by SpeedWay. All bookings are subject to availability and pricing confirmation.</p>
-              </div>
-              <div>
-                <h3 style={{ fontSize: '0.8rem', color: 'var(--admin-brand)', fontWeight: '900', margin: '0 0 0.4rem 0' }}>CANCELLATIONS</h3>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--admin-text-secondary)', lineHeight: '1.5', fontWeight: '500', opacity: 0.6 }}>Must be requested 24h prior. Late cancellations may be subject to a non-refundable deposit policy.</p>
-              </div>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+            {['system', 'light', 'dark'].map(t => (
+              <button
+                key={t}
+                onClick={() => toggleTheme(t)}
+                style={{
+                  padding: '1rem 0.5rem',
+                  background: theme === t ? 'var(--admin-brand)' : 'var(--admin-bg)',
+                  color: theme === t ? 'white' : 'var(--admin-text-secondary)',
+                  border: theme === t ? 'none' : '1px solid var(--admin-border)',
+                  borderRadius: '0.75rem',
+                  fontSize: '0.7rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {t}
+              </button>
+            ))}
           </div>
+        </div>
 
+        {/* Password Security */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Lock size={20} color="var(--admin-brand)" />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>Security</h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div>
+              <label style={labelStyle}>New Password</label>
+              <input 
+                type="password"
+                style={inputStyle} 
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                if (!newPassword) return;
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) toast.error(error.message);
+                else {
+                  toast.success('Password updated!');
+                  setNewPassword('');
+                }
+              }}
+              style={{ padding: '0.85rem', background: 'rgba(255,255,255,0.05)', color: 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
+            >
+              CHANGE PASSWORD
+            </button>
+          </div>
         </div>
 
       </div>
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        button, input {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .settings-card {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .settings-card:hover {
-          border-color: var(--primary-color) !important;
-          transform: translateY(-2px);
-          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
+        button, input { transition: all 0.3s ease; }
       `}</style>
     </div>
   );

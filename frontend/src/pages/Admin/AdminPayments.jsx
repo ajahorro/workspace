@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CheckCircle, AlertCircle, Search, RotateCw, Filter, CreditCard, XCircle, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import LoadingState from '../../components/LoadingState';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const AdminPayments = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 1024px)');
   const [payments, setPayments] = useState([]);
@@ -16,6 +17,16 @@ const AdminPayments = () => {
 
   useEffect(() => {
     fetchPayments();
+
+    const channel = supabase
+      .channel('admin-payments-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments_v2' }, () => fetchPayments())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => fetchPayments())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchPayments = async () => {
@@ -102,14 +113,11 @@ const AdminPayments = () => {
 
   const handleVerifyPayment = async (payment) => {
     try {
-      const { error } = await supabase
-        .from('payments_v2')
-        .update({
-          status: 'PAID',
-          verified_by: (await supabase.auth.getUser()).data.user.id,
-          verified_at: new Date().toISOString()
-        })
-        .eq('id', payment.id);
+      const { data: { user: verifier } } = await supabase.auth.getUser();
+      const { error } = await supabase.rpc('verify_payment_v2', {
+        p_payment_id: payment.id,
+        p_verifier_id: verifier?.id
+      });
 
       if (error) throw error;
 
@@ -121,7 +129,7 @@ const AdminPayments = () => {
           message: `Your payment of ₱${payment.amount?.toLocaleString()} has been verified successfully.`,
           type: 'success',
           action_url: `/my-bookings/${payment.booking_id}`
-        }).catch(() => {});
+        });
       }
 
       // Trigger email
@@ -145,24 +153,76 @@ const AdminPayments = () => {
     }
   };
 
+  // Fix #3: Reject payment handler — reverts to UNPAID so customer can re-upload
+  const handleRejectPayment = async (payment) => {
+    try {
+      const { error } = await supabase
+        .from('payments_v2')
+        .update({ status: 'UNPAID', receipt_url: null, reference_number: null })
+        .eq('id', payment.id);
+
+      if (error) throw error;
+
+      // Notify customer of rejection
+      if (payment.booking?.customer_id) {
+        await supabase.from('notifications').insert({
+          user_id: payment.booking.customer_id,
+          title: 'Receipt Rejected',
+          message: 'Your GCash receipt could not be verified. Please re-upload a clear, valid receipt.',
+          type: 'warning',
+          action_url: `/my-bookings/${payment.booking_id}`
+        });
+      }
+
+      toast.error('Payment rejected. Customer has been notified to re-upload.');
+      fetchPayments();
+    } catch (err) {
+      toast.error(`Rejection error: ${err.message}`);
+    }
+  };
+
   const ViewReceiptModal = ({ payment, onClose }) => (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '1rem' : '2rem', backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', padding: isMobile ? '1.5rem' : '2rem', maxWidth: '500px', width: '100%', position: 'relative', border: '1px solid var(--admin-border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', color: 'var(--admin-text-primary)' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><XCircle size={24} /></button>
-        <h3 style={{ margin: '0 0 1.5rem 0', fontWeight: '800', fontSize: '1.25rem', color: 'var(--admin-text-primary)' }}>GCash Receipt</h3>
-        <div style={{ width: '100%', height: isMobile ? '300px' : '400px', background: 'var(--admin-bg)', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid var(--admin-border)' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '1rem' : '2rem', backdropFilter: 'blur(8px)' }}>
+      <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', padding: isMobile ? '1.5rem' : '2.5rem', maxWidth: '600px', width: '100%', position: 'relative', border: '1px solid var(--admin-border)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', color: 'var(--admin-text-primary)' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-secondary)', cursor: 'pointer', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XCircle size={24} /></button>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(var(--admin-brand-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CreditCard size={24} color="var(--admin-brand)" />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontWeight: '900', fontSize: '1.5rem' }}>Verify GCash Receipt</h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)' }}>Amount: ₱{payment.amount?.toLocaleString()} • Ref: {payment.reference_number || 'N/A'}</div>
+          </div>
+        </div>
+
+        <div style={{ width: '100%', height: isMobile ? '350px' : '450px', background: 'var(--admin-bg)', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--admin-border)', position: 'relative' }}>
           <img src={payment.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
-        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>REFERENCE</div>
-            <div style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '1.1rem' }}>{payment.reference_number || 'N/A'}</div>
+
+        {payment.ocr_text && (
+          <div style={{ marginTop: '1.5rem', background: 'rgba(255, 255, 255, 0.03)', padding: '1.25rem', borderRadius: '1rem', border: '1px solid var(--admin-border)' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '800', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={14} /> OCR System Analysis
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontStyle: 'italic', opacity: 0.9, lineHeight: '1.5' }}>
+              "{payment.ocr_text}"
+            </div>
           </div>
+        )}
+
+        <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={() => { handleRejectPayment(payment); onClose(); }}
+            style={{ flex: 1, padding: '1rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            REJECT RECEIPT
+          </button>
           <button
             onClick={() => { handleVerifyPayment(payment); onClose(); }}
-            style={{ width: isMobile ? '100%' : 'auto', padding: '0.85rem 2rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(153, 27, 27, 0.2)' }}
+            style={{ flex: 2, padding: '1rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 12px rgba(var(--admin-brand-rgb), 0.3)' }}
           >
-            Verify Now
+            APPROVE & SETTLE
           </button>
         </div>
       </div>
@@ -191,8 +251,8 @@ const AdminPayments = () => {
         onRefresh={() => { fetchPayments(); toast.success('Refreshing transactions...'); }}
       />
 
-      <div style={{ ...containerStyle, padding: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--admin-input-bg)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--admin-input-border)' }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ ...containerStyle, padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--admin-input-bg)', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--admin-input-border)' }}>
           <Search size={18} color="var(--admin-text-secondary)" />
           <input
             placeholder="Search Reference, ID or Customer..."
@@ -201,6 +261,25 @@ const AdminPayments = () => {
             style={{ border: 'none', background: 'transparent', color: 'var(--admin-text-primary)', width: '100%', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }}
           />
         </div>
+        <button 
+          onClick={() => setSearchTerm(searchTerm === 'FOR_VERIFICATION' ? '' : 'FOR_VERIFICATION')}
+          style={{ 
+            padding: '0.75rem 1.5rem', 
+            borderRadius: '0.75rem', 
+            background: searchTerm === 'FOR_VERIFICATION' ? 'rgba(var(--admin-brand-rgb), 0.1)' : 'var(--admin-card)', 
+            border: `1px solid ${searchTerm === 'FOR_VERIFICATION' ? 'var(--admin-brand)' : 'var(--admin-border)'}`,
+            color: searchTerm === 'FOR_VERIFICATION' ? 'var(--admin-brand)' : 'var(--admin-text-primary)',
+            fontWeight: '800',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Filter size={16} /> {searchTerm === 'FOR_VERIFICATION' ? 'Showing Pending' : 'Show Pending Only'}
+        </button>
       </div>
 
       {loading ? (
@@ -227,7 +306,7 @@ const AdminPayments = () => {
                   </div>
                   <div>
                     <div style={{ fontSize: '0.6rem', color: 'var(--card-text)', opacity: 0.6, fontWeight: '800', textTransform: 'uppercase' }}>Status</div>
-                    <div style={{ color: getStatusColor(payment.status), fontSize: '0.85rem', fontWeight: '900' }}>{payment.status?.replace('_', ' ')}</div>
+                    <div style={{ color: getStatusColor(payment.status), fontSize: '0.85rem', fontWeight: '900' }}>{payment.status?.replace(/_/g, ' ')}</div>
                   </div>
                 </div>
 
@@ -257,46 +336,54 @@ const AdminPayments = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--admin-bg)', borderBottom: '1px solid var(--admin-border)' }}>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>ID</th>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Customer</th>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Amount</th>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Method / Ref</th>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Status</th>
-                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Action</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Ref</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Client</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Receipt</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Analysis</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Financials</th>
+                <th style={{ padding: '1rem 1.5rem', color: 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase' }}>Decision</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.map(payment => (
-                <tr key={payment.id} style={{ borderBottom: '1px solid var(--admin-border)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--admin-bg)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                <tr key={payment.id} style={{ borderBottom: '1px solid var(--admin-border)' }}>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                    <button 
+                      onClick={() => navigate(`/admin/bookings/${payment.booking_id}`)}
+                      style={{ background: 'rgba(var(--admin-brand-rgb), 0.1)', color: 'var(--admin-brand)', padding: '0.4rem 0.6rem', borderRadius: '0.4rem', fontWeight: '900', fontSize: '0.65rem', border: '1px solid rgba(var(--admin-brand-rgb), 0.2)', cursor: 'pointer' }}
+                    >
                       #{payment.id.split('-')[0].toUpperCase()}
-                    </span>
+                    </button>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.9rem' }}>
-                      {payment.booking?.customer?.full_name || 'Unknown'}
-                    </div>
+                    <div style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.85rem' }}>{payment.booking?.customer?.full_name || 'User'}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>{new Date(payment.created_at).toLocaleDateString()}</div>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '1.1rem' }}>
-                      ₱{payment.amount?.toLocaleString()}
-                    </span>
-                  </td>
-                  <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.85rem' }}>{payment.method}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)' }}>{payment.reference_number}</div>
-                  </td>
-                  <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <div className="badge" style={{ padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', color: getStatusColor(payment.status) }}>{payment.status?.replace('_', ' ')}</div>
-                  </td>
-                  <td style={{ padding: '1.25rem 1.5rem' }}>
-                    {payment.status === 'FOR_VERIFICATION' && payment.method === 'GCASH' ? (
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button onClick={() => setViewingPayment(payment)} style={{ padding: '0.5rem 1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', color: 'var(--admin-text-primary)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}>VIEW</button>
-                        <button onClick={() => handleVerifyPayment(payment)} style={{ padding: '0.5rem 1.5rem', background: 'var(--admin-brand)', border: 'none', color: '#FFFFFF', borderRadius: '0.5rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.75rem' }}>VERIFY</button>
+                    {payment.receipt_url ? (
+                      <div onClick={() => setViewingPayment(payment)} style={{ width: '40px', height: '54px', background: 'var(--admin-bg)', borderRadius: '0.4rem', overflow: 'hidden', border: '1px solid var(--admin-border)', cursor: 'pointer' }}>
+                        <img src={payment.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
-                    ) : <span style={{ opacity: 0.3, fontSize: '0.75rem', fontWeight: '700' }}>SETTLED</span>}
+                    ) : <span style={{ opacity: 0.2 }}>—</span>}
+                  </td>
+                  <td style={{ padding: '1.25rem 1.5rem', maxWidth: '200px' }}>
+                    {payment.ocr_text && payment.ocr_text.trim().length > 2 ? (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-primary)', fontStyle: 'italic', background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '0.4rem', borderLeft: '2px solid var(--admin-brand)', lineHeight: '1.4' }}>
+                        {payment.ocr_text.length > 60 ? payment.ocr_text.substring(0, 60) + '...' : payment.ocr_text}
+                      </div>
+                    ) : <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-primary)', fontWeight: '800', letterSpacing: '0.5px' }}>{payment.method === 'GCASH' ? 'LOW QUALITY' : 'N/A'}</span>}
+                  </td>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
+                    <div style={{ fontWeight: '900', color: 'var(--admin-text-primary)', fontSize: '1rem' }}>₱{payment.amount?.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: '900', color: payment.status === 'PAID' ? '#10b981' : 'var(--admin-brand)' }}>{payment.status}</div>
+                  </td>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
+                    {payment.status === 'FOR_VERIFICATION' ? (
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button onClick={() => window.confirm('Approve?') && handleVerifyPayment(payment)} style={{ padding: '0.4rem 0.8rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '0.3rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.65rem' }}>APPROVE</button>
+                        <button onClick={() => window.confirm('Reject?') && handleRejectPayment(payment)} style={{ padding: '0.4rem 0.8rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '0.3rem', cursor: 'pointer', fontSize: '0.65rem', fontWeight: '900' }}>REJECT</button>
+                      </div>
+                    ) : <span style={{ opacity: 0.2, fontSize: '0.65rem', fontWeight: '900' }}>SETTLED</span>}
                   </td>
                 </tr>
               ))}

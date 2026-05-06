@@ -25,7 +25,7 @@ const LandingPage = () => {
           .eq('is_active', true);
         if (!error && data) setServices(data);
       } catch (err) {
-        console.log('Services fetch silenced');
+
       } finally {
         setIsLoadingServices(false);
       }
@@ -47,7 +47,7 @@ const LandingPage = () => {
   }, [user, profile, navigate]);
 
   const handleCheckout = () => {
-    console.log('LandingPage: handleCheckout called', { hasUser: !!user });
+
     if (!user) {
       setShowLoginModal(true);
     } else {

@@ -9,6 +9,7 @@ import NotificationPopover from '../components/NotificationPopover';
 import { confirmLogout } from '../utils/logoutConfirm.jsx';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTheme } from '../context/ThemeContext';
+import BrandLogo from '../components/BrandLogo';
 
 const BlurGlow = ({ top, left, right, bottom, size, color }) => (
   <div style={{
@@ -120,11 +121,21 @@ const StaffLayout = () => {
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
       <aside style={sidebarStyle}>
-        <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--panel-text)', letterSpacing: '0.5px', marginBottom: '2rem', lineHeight: '1.2' }}>
-            SpeedWay AutoxMoto Detail Studio
+        <div style={{ 
+          marginTop: '-10px', 
+          padding: '0', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
+          marginBottom: '2rem',
+          overflow: 'visible'
+        }}>
+          <div style={{ cursor: 'pointer' }} onClick={() => navigate('/staff')}>
+            <BrandLogo width="260px" height="120px" />
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--panel-text)', opacity: 0.5, cursor: 'pointer' }}><X /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--panel-text)', position: 'absolute', right: '1rem', top: '1.5rem', opacity: 0.5, cursor: 'pointer' }}><X /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>

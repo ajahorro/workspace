@@ -19,9 +19,22 @@ const AdminRefunds = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('PENDING'); // PENDING, PROCESSED, ALL
   const [selectedItem, setSelectedItem] = useState(null);
+  // Fix #9: Replace window.confirm() with modal state
+  const [confirmRefundItem, setConfirmRefundItem] = useState(null);
 
   useEffect(() => {
     fetchRefundData();
+
+    const channel = supabase
+      .channel('admin-refunds-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => fetchRefundData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments_v2' }, () => fetchRefundData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds_v2' }, () => fetchRefundData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchRefundData = async () => {
@@ -99,8 +112,7 @@ const AdminRefunds = () => {
   };
 
   const handleProcessRefund = async (item) => {
-    if (!window.confirm('Mark this refund as processed? Ensure you have sent the money back via GCash.')) return;
-
+    // Fix #9: No longer uses window.confirm() — modal triggers this directly
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const paidPayment = item.payments.find(p => p.status === 'PAID');
@@ -182,6 +194,8 @@ const AdminRefunds = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <PageHeader
+        showBack
+        onBack={() => navigate(-1)}
         badge="FINANCIAL RECONCILIATION"
         title="REFUND HUB"
         subtitle="Manage money-back requests for cancelled bookings."
@@ -346,7 +360,7 @@ const AdminRefunds = () => {
                 </button>
                 {selectedItem.refundStatus !== 'PROCESSED' && (
                   <button
-                    onClick={() => handleProcessRefund(selectedItem)}
+                    onClick={() => setConfirmRefundItem(selectedItem)}
                     style={{ flex: 1, padding: '0.85rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(153, 27, 27, 0.2)' }}
                   >
                     Mark Refunded
@@ -362,6 +376,35 @@ const AdminRefunds = () => {
           )}
         </div>
       </div>
+
+      {/* Fix #9: Confirm Refund Modal — replaces window.confirm() */}
+      {confirmRefundItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)', padding: '1.5rem' }}>
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', padding: '2.5rem', width: '100%', maxWidth: '420px', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', color: 'var(--admin-text-primary)' }}>
+            <div style={{ width: '64px', height: '64px', background: 'rgba(16,185,129,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+              <CheckCircle size={32} color="#10b981" />
+            </div>
+            <h2 style={{ margin: '0 0 0.75rem 0', fontWeight: '900', fontSize: '1.35rem' }}>Confirm Refund?</h2>
+            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '2rem', opacity: 0.8 }}>
+              Please ensure you have sent <strong style={{ color: 'var(--admin-text-primary)' }}>₱{confirmRefundItem.totalPaid?.toLocaleString()}</strong> back to the customer via GCash before confirming.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmRefundItem(null)}
+                style={{ flex: 1, padding: '1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { handleProcessRefund(confirmRefundItem); setConfirmRefundItem(null); }}
+                style={{ flex: 1, padding: '1rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
+              >
+                Yes, Refunded
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

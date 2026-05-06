@@ -123,7 +123,7 @@ const ProfileHeader = () => {
               textTransform: 'uppercase',
               letterSpacing: '1px'
             }}>
-              {profile?.role?.replace('_', ' ') || 'Customer'}
+              {profile?.role?.replace(/_/g, ' ') || 'Customer'}
             </span>
           </div>
 

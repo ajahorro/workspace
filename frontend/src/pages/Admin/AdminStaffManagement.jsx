@@ -249,6 +249,7 @@ const AdminStaffManagement = () => {
                 <input 
                   type="text" 
                   name="fullName"
+                  autoComplete="name"
                   placeholder="Juan Dela Cruz"
                   value={formData.fullName}
                   onChange={handleInputChange}
@@ -273,6 +274,7 @@ const AdminStaffManagement = () => {
                 <input 
                   type="email" 
                   name="email"
+                  autoComplete="username"
                   placeholder="juan@example.com"
                   value={formData.email}
                   onChange={handleInputChange}

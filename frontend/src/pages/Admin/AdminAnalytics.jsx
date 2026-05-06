@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { 
   BarChart3, 
@@ -24,6 +25,7 @@ import LoadingState from '../../components/LoadingState';
 
 const AdminAnalytics = () => {
   const isMobile = useMediaQuery('(max-width: 1024px)');
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('All Time');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,12 +50,31 @@ const AdminAnalytics = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // Get all bookings
+      // Fix #18: Apply date filtering based on selected timeRange
+      const now = new Date();
+      let startDate = null;
+      if (timeRange === 'Today') {
+        startDate = new Date(now); startDate.setHours(0, 0, 0, 0);
+      } else if (timeRange === 'This Week') {
+        startDate = new Date(now); startDate.setDate(now.getDate() - now.getDay()); startDate.setHours(0,0,0,0);
+      } else if (timeRange === 'This Month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
       let query = supabase.from('bookings_v2').select('*');
+      if (startDate) query = query.gte('created_at', startDate.toISOString());
       
       const { data: bookings } = await query;
-      const { data: payments } = await supabase.from('payments_v2').select('*').eq('status', 'PAID');
-      const { data: bServices } = await supabase.from('booking_services_v2').select('service_id, services_v2(name)');
+
+      let paymentsQuery = supabase.from('payments_v2').select('*').eq('status', 'PAID');
+      if (startDate) paymentsQuery = paymentsQuery.gte('created_at', startDate.toISOString());
+      const { data: payments } = await paymentsQuery;
+
+      let bServicesQuery = supabase.from('booking_services_v2').select('booking_id, service_id, services_v2(name)');
+      if (bookings && bookings.length > 0) {
+        bServicesQuery = bServicesQuery.in('booking_id', bookings.map(b => b.id));
+      }
+      const { data: bServices } = await bServicesQuery;
 
       if (bookings) {
         const total = bookings.length;
@@ -296,9 +317,12 @@ const AdminAnalytics = () => {
             Your revenue has been derived from {stats.completed} successful details. 
             Peak demand is typically at {stats.peakHours[0]?.time || 'N/A'}.
           </p>
-          <div style={{ marginTop: '2rem', padding: '1rem 2rem', background: '#FFFFFF', color: 'var(--admin-brand)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.9rem' }}>
+          <button
+            onClick={() => navigate('/admin/audit-logs')}
+            style={{ marginTop: '2rem', padding: '1rem 2rem', background: '#FFFFFF', color: 'var(--admin-brand)', borderRadius: '0.75rem', fontWeight: '800', fontSize: '0.9rem', border: 'none', cursor: 'pointer' }}
+          >
             VIEW FULL REPORT
-          </div>
+          </button>
         </div>
       </div>
 

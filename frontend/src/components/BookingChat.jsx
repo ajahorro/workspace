@@ -90,13 +90,13 @@ const BookingChat = ({ bookingId }) => {
       const filePath = `chat_media/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('bookings_v2')
+        .from('chat_media')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('bookings_v2')
+        .from('chat_media')
         .getPublicUrl(filePath);
 
       // Determine media type
@@ -138,7 +138,45 @@ const BookingChat = ({ bookingId }) => {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
       setNewMessage(messageToSend);
+      return;
     }
+
+    // 🔔 Notify the other party
+    try {
+      const { data: booking } = await supabase
+        .from('bookings_v2')
+        .select('customer_id, staff_id')
+        .eq('id', bookingId)
+        .single();
+
+      if (booking) {
+        const isCustomer = user.id === booking.customer_id;
+        const recipients = [];
+
+        if (isCustomer) {
+          // Notify Staff and Admins
+          if (booking.staff_id) recipients.push(booking.staff_id);
+          const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+          if (admins) admins.forEach(a => recipients.push(a.id));
+        } else {
+          // Staff or Admin sent - Notify Customer
+          recipients.push(booking.customer_id);
+        }
+
+        const uniqueRecipients = [...new Set(recipients)].filter(r => r !== user.id);
+        if (uniqueRecipients.length > 0) {
+          await supabase.from('notifications').insert(
+            uniqueRecipients.map(r => ({
+              user_id: r,
+              title: `New Message from ${profile?.full_name || 'Support'} 💬`,
+              message: messageToSend.length > 50 ? messageToSend.substring(0, 50) + '...' : messageToSend,
+              type: 'info',
+              action_url: isCustomer ? `/admin/bookings/${bookingId}` : `/my-bookings/${bookingId}`
+            }))
+          );
+        }
+      }
+    } catch (notifErr) { console.error('Chat notification failed:', notifErr); }
   };
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)' }}>Loading chat...</div>;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Play, CheckSquare, DollarSign, Clock } from 'lucide-react';
+import { Play, CheckSquare, DollarSign, Clock, X, Banknote } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { sendStatusUpdateNotification, sendPaymentReceiptNotification } from '../../services/EmailService';
@@ -14,8 +14,31 @@ const StaffTasks = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
 
+  // Fix #1: Cash collection modal state (replaces browser prompt())
+  const [cashModal, setCashModal] = useState({ open: false, bookingId: null, balance: 0 });
+  const [cashInput, setCashInput] = useState('');
+
   useEffect(() => {
-    if (user) fetchTasks();
+    if (user) {
+      fetchTasks();
+
+      // Fix #2: Real-time listener — re-fetch tasks whenever bookings assigned to this staff change
+      const channel = supabase
+        .channel(`staff-tasks-${user.id}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'bookings_v2',
+          filter: `staff_id=eq.${user.id}`
+        }, () => {
+          fetchTasks();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user]);
 
   const fetchTasks = async () => {
@@ -34,7 +57,6 @@ const StaffTasks = () => {
       .order('start_datetime', { ascending: true });
 
     if (data) {
-      // Map to expected format
       const mappedTasks = data.map(t => ({
         ...t,
         booking_services: t.booking_services.map(bs => ({ service_name: bs.service?.name })),
@@ -75,12 +97,12 @@ const StaffTasks = () => {
         updateData = { service_status: 'IN_PROGRESS', status: 'in_progress' };
         title = 'Service Started';
         message = `Great news! We've started working on your ${task.vehicle_brand}.`;
-        sendStatusUpdateNotification(task.customer.email, 'STARTED', bookingInfo);
+        sendStatusUpdateNotification(task.customer.email, 'in_progress', bookingInfo);
       } else if (type === 'finish') {
         updateData = { service_status: 'FINISHED', status: 'completed' };
         title = 'Service Completed';
         message = `Your detailing service is finished! Your car is ready for pick up.`;
-        sendStatusUpdateNotification(task.customer.email, 'FINISHED', bookingInfo);
+        sendStatusUpdateNotification(task.customer.email, 'completed', bookingInfo);
       } else if (type === 'pay') {
         const { error: payErr } = await supabase.rpc('record_payment_v2', {
           p_booking_id: bookingId,
@@ -118,17 +140,21 @@ const StaffTasks = () => {
           if (admins && admins.length > 0) {
             const adminNotifs = admins.map(admin => ({
               user_id: admin.id,
-              title: `Staff Action: ${title}`,
-              message: `Staff ${user.email} updated ${task.vehicle_brand} ${task.vehicle_model}: ${message}`,
+              title,
+              message: `[STAFF UPDATE] ${message}`,
               type: 'info',
               action_url: `/admin/bookings/${task.id}`
             }));
             await supabase.from('notifications').insert(adminNotifs);
           }
         } catch (adminErr) {
-          console.error('Failed to notify admins of staff action:', adminErr);
+          console.error('Admin notification failed:', adminErr);
         }
       }
+
+      toast.success(title || 'Action completed', {
+        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
+      });
 
       await fetchTasks();
     } catch (err) {
@@ -140,11 +166,27 @@ const StaffTasks = () => {
     }
   };
 
-  const handleCollectCash = async (bookingId, totalAmount) => {
-    const amount = prompt(`Enter amount collected (Total due: ₱${totalAmount}):`, totalAmount);
-    if (!amount || isNaN(amount) || amount <= 0) return;
-    
-    await handleAction('pay', bookingId, { amount: parseFloat(amount) });
+  // Fix #1: Proper modal-based cash collection (replaces browser prompt())
+  // Fix #6: Shows remaining balance, not total price
+  const openCashModal = (bookingId, totalPrice, totalPaid) => {
+    const balance = Math.max(0, totalPrice - totalPaid);
+    setCashModal({ open: true, bookingId, balance });
+    setCashInput(String(balance));
+  };
+
+  const handleCashModalSubmit = async () => {
+    const amount = parseFloat(cashInput);
+    if (!cashInput || isNaN(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount.');
+      return;
+    }
+    if (amount > cashModal.balance) {
+      toast.error(`Amount cannot exceed the balance of ₱${cashModal.balance}`);
+      return;
+    }
+    setCashModal({ open: false, bookingId: null, balance: 0 });
+    setCashInput('');
+    await handleAction('pay', cashModal.bookingId, { amount });
   };
 
   const cardStyle = {
@@ -211,7 +253,9 @@ const StaffTasks = () => {
             const isFinished = task.service_status === 'FINISHED';
             
             const totalPaid = task.payments.filter(p => p.status === 'PAID').reduce((s, p) => s + Number(p.amount), 0);
-            const needsCashCollection = isFinished && task.payment_method === 'CASH' && totalPaid < task.total_price;
+            // Fix #6: Calculate remaining balance, not just total
+            const balance = Math.max(0, task.total_price - totalPaid);
+            const needsCashCollection = isFinished && task.payment_method === 'CASH' && balance > 0;
 
             return (
               <div key={task.id} style={cardStyle}>
@@ -224,8 +268,9 @@ const StaffTasks = () => {
                         {task.plate_number}
                       </div>
                     </div>
+                    {/* Fix #22: Use regex replace for all underscores */}
                     <span style={statusBadgeStyle(task.service_status)}>
-                      {task.service_status.replace('_', ' ')}
+                      {task.service_status.replace(/_/g, ' ')}
                     </span>
                   </div>
                   
@@ -306,15 +351,16 @@ const StaffTasks = () => {
                     </button>
                   )}
 
+                  {/* Fix #1 & #6: Collect button now shows balance, opens modal instead of prompt() */}
                   {needsCashCollection && (
                     <button 
-                      onClick={() => handleCollectCash(task.id, task.total_price)}
+                      onClick={() => openCashModal(task.id, task.total_price, totalPaid)}
                       disabled={actionLoading === task.id}
                       style={{ flex: 1, padding: '1rem', background: '#fbbf24', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s ease' }}
                       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      <DollarSign size={18} /> COLLECT ₱{task.total_price}
+                      <Banknote size={18} /> COLLECT ₱{balance.toLocaleString()}
                     </button>
                   )}
 
@@ -330,8 +376,62 @@ const StaffTasks = () => {
         </div>
       )}
 
+      {/* Fix #1: Cash Collection Modal — replaces browser prompt() */}
+      {cashModal.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)', padding: '1.5rem' }}>
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', padding: '2.5rem', width: '100%', maxWidth: '400px', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', color: 'var(--admin-text-primary)', animation: 'modalFadeIn 0.3s ease' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '44px', height: '44px', background: 'rgba(251, 191, 36, 0.1)', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Banknote size={22} color="#fbbf24" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: '900', fontSize: '1rem' }}>COLLECT CASH</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>Balance Due</div>
+                </div>
+              </div>
+              <button onClick={() => { setCashModal({ open: false, bookingId: null, balance: 0 }); setCashInput(''); }} style={{ background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--admin-bg)', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'center', border: '1px solid var(--admin-border)' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Amount Due from Customer</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fbbf24' }}>₱{cashModal.balance.toLocaleString()}</div>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Amount Collected</label>
+              <input
+                type="number"
+                value={cashInput}
+                onChange={e => setCashInput(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '1rem', background: 'var(--admin-bg)', border: '2px solid #fbbf24', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '1.25rem', fontWeight: '800', outline: 'none', boxSizing: 'border-box', textAlign: 'center' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => { setCashModal({ open: false, bookingId: null, balance: 0 }); setCashInput(''); }}
+                style={{ flex: 1, padding: '1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCashModalSubmit}
+                style={{ flex: 2, padding: '1rem', background: '#fbbf24', color: '#000', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                Confirm & Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>

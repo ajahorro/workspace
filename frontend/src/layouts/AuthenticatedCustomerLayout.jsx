@@ -19,6 +19,7 @@ import { confirmLogout } from '../utils/logoutConfirm.jsx';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { Menu, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import BrandLogo from '../components/BrandLogo';
 
 const BlurGlow = ({ top, left, right, bottom, size, color }) => (
   <div style={{
@@ -135,11 +136,21 @@ const AuthenticatedCustomerLayout = () => {
       <BlurGlow bottom="-10%" right="-10%" size="600px" color="rgba(153, 27, 27, 0.2)" />
 
       <aside style={sidebarStyle}>
-        <div style={{ marginBottom: '3rem', paddingLeft: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '0.5px', marginBottom: '2.5rem', padding: '0 0.5rem', lineHeight: '1.2' }}>
-            SpeedWay AutoxMoto Detail Studio
+        <div style={{ 
+          marginTop: '-10px', 
+          padding: '0', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
+          marginBottom: '2rem',
+          overflow: 'visible'
+        }}>
+          <div style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+            <BrandLogo width="260px" height="120px" />
           </div>
-          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X /></button>}
+          {isMobile && <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', position: 'absolute', right: '1rem', top: '1.5rem', cursor: 'pointer' }}><X /></button>}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>

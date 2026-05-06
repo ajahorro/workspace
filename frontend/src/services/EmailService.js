@@ -1,9 +1,11 @@
-import { supabase } from '../lib/supabase';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export const sendBookingConfirmation = async (customerEmail, bookingData) => {
   try {
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: {
+    const response = await fetch(`${BACKEND_URL}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         type: 'booking_confirmed',
         to: customerEmail,
         data: {
@@ -12,10 +14,9 @@ export const sendBookingConfirmation = async (customerEmail, bookingData) => {
           totalPrice: bookingData.totalPrice,
           serviceName: bookingData.services || bookingData.vehicle
         }
-      }
+      })
     });
-    if (error) throw error;
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Email Service Error:', error);
     return { error };
@@ -24,8 +25,10 @@ export const sendBookingConfirmation = async (customerEmail, bookingData) => {
 
 export const sendStaffAssignmentNotification = async (staffEmail, bookingData) => {
   try {
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: {
+    const response = await fetch(`${BACKEND_URL}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         type: 'staff_assigned',
         to: staffEmail,
         data: {
@@ -35,10 +38,9 @@ export const sendStaffAssignmentNotification = async (staffEmail, bookingData) =
           plate: bookingData.plate,
           services: bookingData.services
         }
-      }
+      })
     });
-    if (error) throw error;
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Email Service Error:', error);
     return { error };
@@ -47,44 +49,36 @@ export const sendStaffAssignmentNotification = async (staffEmail, bookingData) =
 
 export const sendStatusUpdateNotification = async (customerEmail, status, bookingData) => {
   try {
-    // Note: Edge Function currently only has 'booking_confirmed', 'staff_assigned', 'booking_cancelled', 'payment_verified'. 
-    // We'll map status updates. If it's cancelled, we use booking_cancelled. Otherwise, we might need to add a generic status update to the edge function, or skip for now.
     if (status === 'cancelled') {
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: {
+      const response = await fetch(`${BACKEND_URL}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           type: 'booking_cancelled',
           to: customerEmail,
           data: { date: bookingData.date }
-        }
+        })
       });
-      if (error) throw error;
-      return data;
+      return await response.json();
+    }
+
+    if (status === 'completed' || status === 'finished') {
+      const response = await fetch(`${BACKEND_URL}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'booking_finished',
+          to: customerEmail,
+          data: { 
+            date: bookingData.date,
+            vehicle: bookingData.vehicle 
+          }
+        })
+      });
+      return await response.json();
     }
     
-    if (status === 'in_progress') {
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: {
-          type: 'service_started',
-          to: customerEmail,
-          data: { date: bookingData.date }
-        }
-      });
-      if (error) throw error;
-      return data;
-    }
-
-    if (status === 'completed') {
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: {
-          type: 'service_completed',
-          to: customerEmail,
-          data: { date: bookingData.date }
-        }
-      });
-      if (error) throw error;
-      return data;
-    }
-
+    console.log(`Skipping email for status: ${status} (No template supported)`);
     return { success: true };
   } catch (error) {
     console.error('Email Service Error:', error);
@@ -94,8 +88,10 @@ export const sendStatusUpdateNotification = async (customerEmail, status, bookin
 
 export const sendPaymentReceiptNotification = async (customerEmail, amount, bookingData) => {
   try {
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: {
+    const response = await fetch(`${BACKEND_URL}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         type: 'payment_verified',
         to: customerEmail,
         data: {
@@ -103,10 +99,27 @@ export const sendPaymentReceiptNotification = async (customerEmail, amount, book
           date: new Date().toLocaleDateString(),
           vehicle: bookingData.vehicle
         }
-      }
+      })
     });
-    if (error) throw error;
-    return data;
+    return await response.json();
+  } catch (error) {
+    console.error('Email Service Error:', error);
+    return { error };
+  }
+};
+
+export const sendVerificationCode = async (to, code) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'auth_verification',
+        to,
+        data: { code }
+      })
+    });
+    return await response.json();
   } catch (error) {
     console.error('Email Service Error:', error);
     return { error };

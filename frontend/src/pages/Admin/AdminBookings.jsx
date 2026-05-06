@@ -16,6 +16,12 @@ const AdminBookings = () => {
   const [searchTerm, setSearchTerm] = useState(location.state?.filter || '');
 
   useEffect(() => {
+    if (location.state?.filter) {
+      setSearchTerm(location.state.filter);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     fetchData();
 
     // Real-time subscription — re-fetch on any bookings_v2 change
@@ -34,9 +40,10 @@ const AdminBookings = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch bookings with their payments in one go
       const { data, error } = await supabase
         .from('bookings_v2')
-        .select('*')
+        .select('*, payments_v2(*)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -44,25 +51,37 @@ const AdminBookings = () => {
       if (data && data.length > 0) {
         const customerIds = [...new Set(data.map(b => b.customer_id).filter(Boolean))];
         
+        let profileMap = {};
         if (customerIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
+          const { data: profiles } = await supabase
             .from('profiles')
             .select('id, full_name')
             .in('id', customerIds);
-
-          if (!profilesError && profiles) {
-            const profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-            const combinedData = data.map(b => ({
-              ...b,
-              customer: profileMap[b.customer_id] || { full_name: 'Unknown' }
-            }));
-            setBookings(combinedData);
-          } else {
-            setBookings(data);
-          }
-        } else {
-          setBookings(data);
+          if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
         }
+
+        const combinedData = data.map(b => {
+          const payments = b.payments_v2 || [];
+          const totalPaid = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0);
+          const isPendingVerification = payments.some(p => p.status === 'FOR_VERIFICATION');
+          
+          let calcStatus = 'UNPAID';
+          if (totalPaid >= b.total_price && b.total_price > 0) {
+            calcStatus = 'PAID';
+          } else if (totalPaid >= (b.total_price * 0.3) && b.total_price > 0) {
+            calcStatus = 'DOWNPAYMENT_PAID';
+          } else if (isPendingVerification) {
+            calcStatus = 'VERIFYING';
+          }
+
+          return {
+            ...b,
+            customer: profileMap[b.customer_id] || { full_name: 'Unknown' },
+            calculatedPaymentStatus: calcStatus,
+            totalPaidAmount: totalPaid
+          };
+        });
+        setBookings(combinedData);
       } else {
         setBookings([]);
       }
@@ -75,6 +94,16 @@ const AdminBookings = () => {
   };
 
   const filteredBookings = bookings.filter(b => {
+    // Replicate Dashboard Workflow Logic for Searchability
+    let workflowStatus = b.service_status;
+    if (b.status === 'cancelled') {
+      workflowStatus = 'CANCELLED';
+    } else if (b.status === 'completed') {
+      workflowStatus = 'FINISHED';
+    } else if (!workflowStatus) {
+      workflowStatus = b.staff_id ? 'NOT_STARTED' : 'PENDING_ASSIGNMENT';
+    }
+
     const searchStr = `
       ${b.id} 
       ${b.customer?.full_name || ''} 
@@ -82,10 +111,13 @@ const AdminBookings = () => {
       ${b.vehicle_brand || ''} 
       ${b.vehicle_model || ''} 
       ${b.plate_number || ''} 
-      ${(b.service_status || 'NOT_STARTED').replace('_', ' ')} 
+      ${workflowStatus} 
+      ${workflowStatus.replace(/_/g, ' ')} 
       ${b.status || ''}
     `.toLowerCase();
-    return searchStr.includes(searchTerm.toLowerCase());
+    
+    const term = searchTerm.toLowerCase().replace(/_/g, ' ');
+    return searchStr.includes(searchTerm.toLowerCase()) || searchStr.includes(term);
   });
 
   const getStatusColor = (status) => {
@@ -95,16 +127,17 @@ const AdminBookings = () => {
       case 'cancelled': return '#ef4444';
       case 'IN_PROGRESS': return '#8b5cf6';
       case 'FINISHED': return '#10b981';
+      case 'PENDING_ASSIGNMENT': return '#f59e0b'; // Amber warning
       default: return 'var(--admin-text-secondary)';
     }
   };
 
   const getPaymentStatus = (booking) => {
-    const status = booking.payment_status || 'INITIATED';
-    if (status === 'COMPLETED' || status === 'VERIFIED' || status === 'PAID') return { label: 'PAID', color: '#10b981' };
-    if (status === 'FOR_VERIFICATION') return { label: 'VERIFYING', color: 'var(--admin-brand)' };
-    if (status === 'PARTIALLY_PAID' || status === 'DOWNPAYMENT_PAID') return { label: 'PARTIAL', color: 'var(--admin-brand)' };
-    return { label: 'UNPAID', color: 'var(--admin-brand)' };
+    const status = booking.calculatedPaymentStatus || 'UNPAID';
+    if (status === 'PAID') return { label: 'FULLY PAID', color: '#10b981' };
+    if (status === 'VERIFYING') return { label: 'VERIFYING', color: '#8b5cf6' };
+    if (status === 'DOWNPAYMENT_PAID') return { label: 'DOWNPAYMENT', color: '#3b82f6' };
+    return { label: 'UNPAID', color: '#ef4444' };
   };
 
   const containerStyle = {
@@ -188,7 +221,7 @@ const AdminBookings = () => {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                   <div style={{ color: pStatus.color, fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase' }}>
+                   <div style={{ color: pStatus.color, fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', background: `${pStatus.color}15`, padding: '0.2rem 0.6rem', borderRadius: '0.4rem', border: `1px solid ${pStatus.color}30` }}>
                      ₱{(booking.total_price || 0).toLocaleString()} • {pStatus.label}
                    </div>
                    <ArrowRight size={16} style={{ color: 'var(--card-text)', opacity: 0.3 }} />
@@ -251,7 +284,8 @@ const AdminBookings = () => {
                     <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ 
                         display: 'inline-flex', alignItems: 'center', gap: '0.4rem', 
-                        color: pStatus.color, fontSize: '0.8rem', fontWeight: '800'
+                        color: pStatus.color, fontSize: '0.8rem', fontWeight: '800',
+                        background: `${pStatus.color}15`, padding: '0.3rem 0.75rem', borderRadius: '0.5rem', border: `1px solid ${pStatus.color}30`
                       }}>
                         ₱{(booking.total_price || 0).toLocaleString()} • {pStatus.label}
                       </div>

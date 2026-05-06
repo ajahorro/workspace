@@ -18,13 +18,23 @@ const AdminSchedule = () => {
 
   useEffect(() => {
     fetchDailyBookings();
+
+    const channel = supabase
+      .channel('admin-schedule-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => fetchDailyBookings())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedDate]);
 
   const fetchDailyBookings = async () => {
     setLoading(true);
     try {
-      const startOfDay = `${selectedDate}T00:00:00.000Z`;
-      const endOfDay = `${selectedDate}T23:59:59.999Z`;
+      // Fix #16: Use +08:00 (Philippines timezone) instead of raw UTC Z to prevent date boundary bugs
+      const startOfDay = `${selectedDate}T00:00:00+08:00`;
+      const endOfDay = `${selectedDate}T23:59:59+08:00`;
 
       const { data, error } = await supabase
         .from('bookings_v2')
@@ -68,8 +78,9 @@ const AdminSchedule = () => {
     }
   };
 
-  const getBookingForHour = (hour) => {
-    return bookings.find(b => {
+  // Fix #17: Use filter() instead of find() to show ALL bookings per hour (not just first)
+  const getBookingsForHour = (hour) => {
+    return bookings.filter(b => {
       const startHour = new Date(b.start_datetime).getHours();
       return startHour === hour;
     });
@@ -156,7 +167,7 @@ const AdminSchedule = () => {
           <LoadingState message="Generating timeline..." />
         ) : (
           hours.map((hour) => {
-            const booking = getBookingForHour(hour);
+            const hourBookings = getBookingsForHour(hour);
             const isOccupied = isHourOccupied(hour);
             const displayHour = hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`;
 
@@ -180,57 +191,42 @@ const AdminSchedule = () => {
                   {displayHour}
                 </div>
 
-                <div style={{ flex: 1, padding: isMobile ? '1rem' : '1.5rem', position: 'relative' }}>
+                <div style={{ flex: 1, padding: isMobile ? '0.5rem' : '0.75rem', position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {!isOccupied && (
-                    <span style={{ color: 'var(--admin-text-secondary)', opacity: 0.2, fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Available</span>
+                    <span style={{ color: 'var(--admin-text-secondary)', opacity: 0.2, fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', padding: '0.75rem 0' }}>Available</span>
                   )}
 
-                  {booking && (
+                  {hourBookings.map((booking, bIdx) => (
                     <div 
+                      key={booking.id}
                       onClick={() => navigate(`/admin/bookings/${booking.id}`)}
                       style={{ 
-                        position: 'absolute',
-                        top: '0.5rem',
-                        left: '0.5rem',
-                        right: '0.5rem',
-                        height: `calc(${getDuration(booking.start_datetime, booking.end_datetime) * (isMobile ? 80 : 100)}px - 1rem)`,
                         background: 'var(--admin-card)',
                         border: '1px solid var(--admin-border)',
-                        borderLeft: '4px solid var(--admin-brand)',
+                        borderLeft: `4px solid ${bIdx === 0 ? 'var(--admin-brand)' : '#8b5cf6'}`,
                         borderRadius: '0.75rem',
-                        padding: isMobile ? '0.75rem' : '1.25rem',
-                        zIndex: 10,
+                        padding: isMobile ? '0.65rem' : '1rem',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '0.25rem',
-                        overflow: 'hidden',
                         color: 'var(--admin-text-primary)',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ color: 'var(--admin-brand)', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', textTransform: 'uppercase' }}>
+                        <div style={{ color: bIdx === 0 ? 'var(--admin-brand)' : '#8b5cf6', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', textTransform: 'uppercase' }}>
                           <Clock size={12} /> {getDuration(booking.start_datetime, booking.end_datetime)}H SESSION
                         </div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>{booking.vehicle_type}</div>
                       </div>
                       
-                      <h3 style={{ margin: '0.25rem 0', fontSize: isMobile ? '0.95rem' : '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{booking.customer?.full_name}</h3>
+                      <h3 style={{ margin: '0.1rem 0', fontSize: isMobile ? '0.85rem' : '1rem', fontWeight: '800', color: 'var(--admin-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{booking.customer?.full_name}</h3>
                       
-                      {!isMobile && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                          <span style={{ background: 'var(--admin-bg)', padding: '0.3rem 0.65rem', borderRadius: '0.5rem', fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '700', border: '1px solid var(--admin-border)' }}>
-                            {booking.vehicle_type}
-                          </span>
-                        </div>
-                      )}
- 
-                      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
-                        <div style={{ fontSize: '1rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>₱{(booking.total_price || 0).toLocaleString()}</div>
-                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>₱{(booking.total_price || 0).toLocaleString()}</div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )

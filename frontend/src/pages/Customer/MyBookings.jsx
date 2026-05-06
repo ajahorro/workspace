@@ -16,8 +16,27 @@ const MyBookings = () => {
   const [cancelPolicy, setCancelPolicy] = useState(null);
 
   useEffect(() => {
-    fetchBookings();
-    fetchBusinessSettings();
+    if (user) {
+      fetchBookings();
+      fetchBusinessSettings();
+
+      // Real-time listener for the customer's bookings
+      const channel = supabase
+        .channel(`my-bookings-live-${user.id}`)
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'bookings_v2', 
+          filter: `customer_id=eq.${user.id}` 
+        }, () => {
+          fetchBookings();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [user]);
 
   const fetchBusinessSettings = async () => {
@@ -128,6 +147,29 @@ const MyBookings = () => {
       });
       if (notifErr) console.error('Notification insert failed:', notifErr);
 
+      // Fix #21: Notify Admins & Assigned Staff of customer cancellation
+      try {
+        const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+        const recipients = [...(admins || [])];
+        
+        // Add assigned staff to notifications
+        if (cancelledBooking?.staff_id) {
+          recipients.push({ id: cancelledBooking.staff_id });
+        }
+
+        if (recipients.length > 0) {
+          await supabase.from('notifications').insert(
+            recipients.map(r => ({
+              user_id: r.id,
+              title: 'Booking Cancelled by Customer 🛑',
+              message: `A customer cancelled the booking for ${new Date(cancelledBooking?.start_datetime).toLocaleDateString()}.`,
+              type: 'error',
+              action_url: cancelledBooking?.staff_id === r.id ? '/staff/tasks' : `/admin/bookings/${cancelledBooking?.id}`
+            }))
+          );
+        }
+      } catch (adminErr) { console.error('Cancel notification failed:', adminErr); }
+
       // Send Cancellation Email
       if (user.email && cancelledBooking) {
         supabase.functions.invoke('send-email', {
@@ -193,7 +235,7 @@ const MyBookings = () => {
                 const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + Number(p.amount), 0);
                 const isVerifying = payments.some(p => p.status === 'FOR_VERIFICATION');
                 const derivedPaymentStatus = totalPaid >= booking.total_price ? 'PAID' : (isVerifying ? 'VERIFYING' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID'));
-                const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status);
+                const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status, totalPaid);
 
                 return (
                   <div 
@@ -364,7 +406,9 @@ const MyBookings = () => {
                             <ChevronRight size={14} /> View
                           </button>
                           
+                          {/* Fix #20: Actually enforce cancellation window policy */}
                           {(booking.status === 'scheduled') && (
+                            isWithinCancellationWindow(booking.start_datetime) ? (
                             <button 
                               onClick={() => handleCancelRequest(booking)}
                               style={{ 
@@ -383,6 +427,11 @@ const MyBookings = () => {
                             >
                               Cancel
                             </button>
+                            ) : (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '600', padding: '0.5rem', opacity: 0.6 }}>
+                              Cancel window closed
+                            </span>
+                            )
                           )}
                         </div>
                       </td>

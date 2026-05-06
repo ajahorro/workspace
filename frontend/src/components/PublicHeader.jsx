@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import BrandLogo from './BrandLogo';
 
 const PublicHeader = ({ setShowLoginModal }) => {
   const navigate = useNavigate();
@@ -46,7 +47,9 @@ const PublicHeader = ({ setShowLoginModal }) => {
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
       }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: '900', letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); navigate('/'); }}>SpeedWay AutoxMoto Detail Studio</div>
+          <div style={{ cursor: 'pointer' }} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); navigate('/'); }}>
+            <BrandLogo height="45px" />
+          </div>
         </div>
 
         <nav style={{ display: 'flex', gap: '2rem', alignItems: 'center', flex: 2, justifyContent: 'center' }} className="desktop-nav">

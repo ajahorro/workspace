@@ -11,6 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/PageHeader';
+import { sendBookingConfirmation } from '../../services/EmailService';
 
 const BookAppointment = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ const BookAppointment = () => {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState(null);
   const [ocrVerified, setOcrVerified] = useState(false);
+  const [ocrText, setOcrText] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,12 +64,14 @@ const BookAppointment = () => {
     const fetchSlots = async () => {
       if (!date) return;
 
-      // Use admin settings with safe fallbacks
-      const openingHour  = parseInt(businessSettings?.opening_hour?.split(':')[0] ?? '8');
-      const openingMin   = parseInt(businessSettings?.opening_hour?.split(':')[1] ?? '0');
-      const closingHour  = parseInt(businessSettings?.closing_hour?.split(':')[0] ?? '18');
-      const closingMin   = parseInt(businessSettings?.closing_hour?.split(':')[1] ?? '0');
-      // Always use 60-min (hourly) intervals — service duration is tracked per-service, not per slot
+      // Use settings from DB if available, otherwise use defaults
+      const settings = businessSettings || { opening_hour: '08:00:00', closing_hour: '18:00:00', max_bookings_per_slot: 3 };
+      
+      const openingHour  = parseInt(settings.opening_hour?.split(':')[0] ?? '8');
+      const openingMin   = parseInt(settings.opening_hour?.split(':')[1] ?? '0');
+      const closingHour  = parseInt(settings.closing_hour?.split(':')[0] ?? '18');
+      const closingMin   = parseInt(settings.closing_hour?.split(':')[1] ?? '0');
+      
       const slotDuration = 60;
 
       // Generate all expected slots for the day from open to close
@@ -82,7 +86,7 @@ const BookAppointment = () => {
         cursor.setTime(cursor.getTime() + slotDuration * 60000);
       }
 
-      // Fetch already-booked slots from DB to exclude them
+      // Fetch counts of booked slots
       const startOfDay = new Date(`${date}T00:00:00`);
       startOfDay.setHours(0, 0, 0, 0);
       const { data: bookedData } = await supabase
@@ -92,13 +96,15 @@ const BookAppointment = () => {
         .lte('slot_start', new Date(startOfDay.getTime() + 86400000).toISOString())
         .eq('is_available', false);
 
-      const bookedTimes = new Set((bookedData || []).map(d => {
-        // Normalize to local hour+minute to avoid UTC vs local mismatch
+      const bookingCounts = (bookedData || []).reduce((acc, d) => {
         const s = new Date(d.slot_start);
-        return `${s.getHours()}:${s.getMinutes()}`;
-      }));
+        const key = `${s.getHours()}:${s.getMinutes()}`;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
 
-      // Filter out booked slots and apply same-day 1-hour buffer
+      // Filter out slots that have reached max capacity
+      const maxCapacity = businessSettings?.max_bookings_per_slot || 3;
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const isToday = date === todayStr;
@@ -106,7 +112,7 @@ const BookAppointment = () => {
 
       const available = generatedSlots.filter(slot => {
         const key = `${slot.getHours()}:${slot.getMinutes()}`;
-        if (bookedTimes.has(key)) return false;
+        if ((bookingCounts[key] || 0) >= maxCapacity) return false;
         if (isToday && slot <= bufferTime) return false;
         return true;
       });
@@ -142,11 +148,23 @@ const BookAppointment = () => {
         logger: m => { if (m.status === 'recognizing text') setOcrProgress(parseInt(m.progress * 100)); }
       });
       const cleanText = text.toLowerCase();
-      if (!cleanText.includes('athea') || !cleanText.includes(businessSettings?.gcash_number?.replace(/\s/g, '') || '')) {
-        setOcrError('UNVERIFIED: Incorrect receipt. Must be sent to Athea Jayne Ahorro.');
+      setOcrText(text); // Save full text for admin review
+      
+      // Dynamically check against gcash_name from business settings
+      const gcashName = (businessSettings?.gcash_name || '').toLowerCase().trim();
+      const gcashNumber = (businessSettings?.gcash_number || '').replace(/\s/g, '');
+      const nameKeyword = gcashName.split(' ')[0];
+      const nameMatch = nameKeyword ? cleanText.includes(nameKeyword) : true;
+      const numberMatch = gcashNumber ? cleanText.includes(gcashNumber) : true;
+
+      if (!nameMatch || !numberMatch) {
+        const displayName = businessSettings?.gcash_name || 'the shop GCash account';
+        setOcrError(`UNVERIFIED: OCR analysis suggests this may be an incorrect receipt. Admins will review.`);
+        setOcrVerified(false);
       } else {
         setOcrVerified(true);
-        toast.success('Receipt Verified!');
+        setOcrError(null);
+        toast.success('OCR Check Passed!');
       }
     } catch (err) {
       setOcrError('Scan failed. Ensure clear receipt image.');
@@ -158,6 +176,15 @@ const BookAppointment = () => {
   const processBooking = async () => {
     setSubmitting(true);
     try {
+      // Fix #15: Server-side guard — block CASH payment for high-value bookings
+      const totalAmount = selectedServiceIds.reduce((sum, id) => {
+        const svc = services.find(s => s.id === id);
+        const pricing = svc?.pricing?.find(p => p.vehicle_type === vehicle.type);
+        return sum + (pricing?.price || 0);
+      }, 0);
+      if (totalAmount >= 1000 && paymentMethod === 'CASH') {
+        throw new Error('CASH payment is not allowed for bookings above ₱1,000. Please use GCash.');
+      }
       // Convert 12-hour (AM/PM) back to 24-hour for the database
       let [timePart, modifier] = time.split(' ');
       let [hours, minutes] = timePart.split(':');
@@ -207,7 +234,8 @@ const BookAppointment = () => {
             p_booking_id: bookingId,
             p_amount: amount,
             p_method: 'GCASH',
-            p_receipt_url: publicUrl
+            p_receipt_url: publicUrl,
+            p_ocr_text: ocrText
           });
 
           if (payErr) {
@@ -257,19 +285,14 @@ const BookAppointment = () => {
         console.error('Failed to notify admins:', adminNotifErr);
       }
 
-      // 2. Send Email Confirmation
-      supabase.functions.invoke('send-email', {
-        body: {
-          type: 'booking_confirmed',
-          to: user.email,
-          data: {
-            date: new Date(scheduledStart).toLocaleDateString(),
-            time: formattedTime,
-            totalPrice: totalAmount,
-            serviceName: `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || vehicle.type || 'Vehicle'
-          }
-        }
-      }).catch(err => console.error('Email trigger failed:', err));
+      // 2. Send Email Confirmation via Local Backend
+      sendBookingConfirmation(user.email, {
+        date: new Date(scheduledStart).toLocaleDateString(),
+        time: formattedTime,
+        totalPrice: totalAmount,
+        serviceName: `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() || vehicle.type || 'Vehicle',
+        vehicle: `${vehicle.brand || ''} ${vehicle.model || ''} (${vehicle.type})`
+      }).catch(err => console.error('Email trigger failure:', err));
 
       toast.success('Booking Successful!', {
         style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
@@ -586,7 +609,7 @@ const BookAppointment = () => {
               <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--admin-border)' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: '900', letterSpacing: '2px', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>Payment</span>
               </div>
-              <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 {/* Method Toggle */}
                 <div>
                   <p style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1px', marginBottom: '0.75rem' }}>PAYMENT METHOD</p>
@@ -609,13 +632,42 @@ const BookAppointment = () => {
                       <button onClick={() => setPaymentOption('FULL')} style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', borderRadius: '2rem', border: '1px solid var(--admin-brand)', background: paymentOption === 'FULL' ? 'var(--admin-brand)' : 'transparent', color: paymentOption === 'FULL' ? '#FFFFFF' : 'var(--admin-brand)', fontWeight: '900', cursor: 'pointer' }}>FULL PAYMENT</button>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', opacity: 0.5, color: 'var(--admin-text-primary)' }}>Send {paymentOption === 'DOWNPAYMENT' ? 'Downpayment (30%)' : 'Full Payment'} To:</p>
-                      <p style={{ fontSize: '2.25rem', fontWeight: '900', color: 'var(--admin-brand)', margin: 0 }}>₱{paymentOption === 'DOWNPAYMENT' ? (totalAmount * 0.3).toFixed(0) : totalAmount}</p>
+                      <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', opacity: 0.6, color: 'var(--admin-text-primary)', fontWeight: '700' }}>Send {paymentOption === 'DOWNPAYMENT' ? 'Downpayment (30%)' : 'Full Payment'} To:</p>
+                      <p style={{ fontSize: '2.75rem', fontWeight: '950', color: 'var(--admin-brand)', margin: '0 0 1rem 0', letterSpacing: '-1px' }}>₱{paymentOption === 'DOWNPAYMENT' ? (totalAmount * 0.3).toFixed(0) : totalAmount}</p>
                     </div>
-                    <img src={businessSettings?.gcash_qr_url} style={{ width: '140px', borderRadius: '1rem', border: '2px solid var(--admin-border)' }} alt="QR" />
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ fontWeight: '900', color: 'var(--admin-text-primary)', margin: '0 0 0.25rem 0' }}>{businessSettings?.gcash_number}</p>
-                      <p style={{ opacity: 0.6, color: 'var(--admin-text-secondary)', margin: 0, fontSize: '0.85rem' }}>{businessSettings?.gcash_name}</p>
+                    
+                    {/* ENLARGED & ZOOMED QR CODE */}
+                      <div style={{ 
+                        background: '#fff', 
+                        padding: '1rem', 
+                        borderRadius: '2.5rem', 
+                        boxShadow: '0 25px 70px rgba(0,0,0,0.5)',
+                        border: '10px solid #007dfe', 
+                        marginBottom: '1.5rem',
+                        width: '100%', 
+                        maxWidth: '400px', // Wider but still vertical
+                        height: '600px', // Tall to fit the whole template
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxSizing: 'border-box'
+                      }}>
+                        <img 
+                          src={businessSettings?.gcash_qr_url} 
+                          style={{ 
+                            width: '100%', 
+                            height: '100%',
+                            display: 'block',
+                            objectFit: 'contain', // No more cutting off!
+                          }} 
+                          alt="GCash QR Code" 
+                        />
+                      </div>
+
+                    <div style={{ textAlign: 'center', background: 'rgba(0, 125, 254, 0.05)', padding: '1rem 2rem', borderRadius: '1rem', width: '100%', boxSizing: 'border-box' }}>
+                      <p style={{ fontWeight: '950', color: '#007dfe', margin: '0 0 0.25rem 0', fontSize: '1.25rem', letterSpacing: '1px' }}>{businessSettings?.gcash_number}</p>
+                      <p style={{ fontWeight: '800', color: 'var(--admin-text-primary)', margin: 0, fontSize: '0.9rem', textTransform: 'uppercase' }}>{businessSettings?.gcash_name}</p>
                     </div>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--admin-card)', padding: '1rem 1.25rem', borderRadius: '1rem', cursor: 'pointer', border: '1px dashed var(--admin-brand)', width: '100%', boxSizing: 'border-box' }}>
                       <Upload size={18} color="var(--admin-brand)" />
@@ -634,7 +686,7 @@ const BookAppointment = () => {
                   <span style={{ fontSize: '0.85rem', opacity: 0.7, color: 'var(--admin-text-primary)', fontWeight: '600', lineHeight: '1.5' }}>I agree to the cancellation and shop policies.</span>
                 </label>
 
-                <button onClick={processBooking} disabled={submitting || (paymentMethod === 'GCASH' && !ocrVerified) || !agreedToPolicy} style={{ width: '100%', background: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-input-bg)' : 'var(--admin-brand)', color: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'var(--admin-text-secondary)' : '#FFFFFF', padding: '1.25rem', borderRadius: '1rem', fontWeight: '900', fontSize: '1rem', border: 'none', cursor: (paymentMethod === 'GCASH' && !ocrVerified || !agreedToPolicy) ? 'not-allowed' : 'pointer', letterSpacing: '1px' }}>
+                <button onClick={processBooking} disabled={submitting || (paymentMethod === 'GCASH' && !receipt) || !agreedToPolicy} style={{ width: '100%', background: ((paymentMethod === 'GCASH' && !receipt) || !agreedToPolicy) ? 'var(--admin-input-bg)' : 'var(--admin-brand)', color: ((paymentMethod === 'GCASH' && !receipt) || !agreedToPolicy) ? 'var(--admin-text-secondary)' : '#FFFFFF', padding: '1.25rem', borderRadius: '1rem', fontWeight: '900', fontSize: '1rem', border: 'none', cursor: ((paymentMethod === 'GCASH' && !receipt) || !agreedToPolicy) ? 'not-allowed' : 'pointer', letterSpacing: '1px' }}>
                   {submitting ? 'PROCESSING...' : 'SECURE BOOKING NOW'}
                 </button>
               </div>
