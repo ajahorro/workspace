@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Calendar, FileText, Bell, ChevronRight, Clock, User, Phone, Car, CreditCard, CalendarPlus, History, AlertTriangle } from 'lucide-react';
+import { Calendar, FileText, Bell, ChevronRight, Clock, User, Phone, Car, CreditCard, CalendarPlus, History, AlertTriangle, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/PageHeader';
@@ -12,7 +12,8 @@ const CustomerDashboard = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 1024px)');
   const [activeBooking, setActiveBooking] = useState(null);
-  const [recentHistory, setRecentHistory] = useState([]);
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [historyBookings, setHistoryBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -26,29 +27,35 @@ const CustomerDashboard = () => {
         .select('*, booking_services_v2(services_v2(name)), payments_v2(*)')
         .eq('customer_id', user.id)
         .eq('status', 'scheduled')
-        .order('start_datetime', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .order('start_datetime', { ascending: true });
 
       if (activeError) console.error('Dashboard: Booking query error:', activeError);
-      if (activeData) setActiveBooking(activeData);
-      else setActiveBooking(null);
+      
+      let active = null;
+      let upcoming = [];
+      if (activeData && activeData.length > 0) {
+        active = activeData[0];
+        upcoming = activeData.slice(1);
+      }
+      
+      setActiveBooking(active);
+      setUpcomingBookings(upcoming);
 
       const { data: historyData } = await supabase
         .from('bookings_v2')
-        .select('id, start_datetime, status')
+        .select('id, start_datetime, status, booking_services_v2(services_v2(name))')
         .eq('customer_id', user.id)
+        .in('status', ['completed', 'cancelled'])
         .order('start_datetime', { ascending: false })
         .limit(3);
 
-      if (historyData) setRecentHistory(historyData);
+      if (historyData) setHistoryBookings(historyData);
       setLoading(false);
     };
 
     if (user) {
       fetchDashboardData();
 
-      // Real-time listener for dashboard updates
       const channel = supabase
         .channel(`customer-dashboard-live-${user.id}`)
         .on('postgres_changes', { 
@@ -100,12 +107,10 @@ const CustomerDashboard = () => {
         action_url: `/my-bookings/${activeBooking.id}`
       });
 
-      // Fix #21: Notify Admins & Assigned Staff of customer cancellation
       try {
         const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
         const recipients = [...(admins || [])];
 
-        // Add assigned staff to notifications
         if (activeBooking?.staff_id) {
           recipients.push({ id: activeBooking.staff_id });
         }
@@ -157,7 +162,6 @@ const CustomerDashboard = () => {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2.1fr 1fr', gap: '1.5rem', flex: 1 }}>
-        {/* Left Column: Active Booking */}
         <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.5rem' : '2rem', boxShadow: 'var(--admin-card-shadow)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>
@@ -231,23 +235,42 @@ const CustomerDashboard = () => {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  style={{
-                    padding: '0.85rem 1.5rem',
-                    background: 'rgba(239, 68, 68, 0.05)',
-                    border: '1px solid #ef4444',
-                    color: '#ef4444',
-                    borderRadius: '0.75rem',
-                    cursor: 'pointer',
-                    fontWeight: '800',
-                    fontSize: '0.8rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px'
-                  }}
-                >
-                  Cancel Booking
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => navigate(`/my-bookings/${activeBooking.id}`)}
+                    style={{
+                      padding: '0.85rem 1.5rem',
+                      background: 'var(--admin-brand)',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      borderRadius: '0.75rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      fontSize: '0.8rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    style={{
+                      padding: '0.85rem 1.5rem',
+                      background: 'rgba(239, 68, 68, 0.05)',
+                      border: '1px solid #ef4444',
+                      color: '#ef4444',
+                      borderRadius: '0.75rem',
+                      cursor: 'pointer',
+                      fontWeight: '800',
+                      fontSize: '0.8rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </>
             );
@@ -268,39 +291,61 @@ const CustomerDashboard = () => {
           )}
         </div>
 
-        {/* Right Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-            <h2 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>
-              <History size={16} color="var(--admin-brand)" />
-              Recent History
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              {recentHistory.length > 0 ? (
-                recentHistory.map(item => (
-                  <div key={item.id} onClick={() => navigate(`/my-bookings/${item.id}`)} style={{ padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', cursor: 'pointer', background: 'var(--admin-bg)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: '800', fontSize: '0.8rem', color: 'var(--admin-text-primary)' }}>#{item.id.substring(0, 4).toUpperCase()}</span>
-                      <span style={{ fontSize: '0.65rem', color: item.status === 'cancelled' ? '#ef4444' : '#10b981', fontWeight: '900', textTransform: 'uppercase' }}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>{new Date(item.start_datetime).toLocaleDateString()}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>
+                <History size={16} color="var(--admin-brand)" />
+                Recent History
+              </h2>
+              <button onClick={() => navigate('/my-bookings')} style={{ background: 'transparent', border: 'none', color: 'var(--admin-brand)', fontSize: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', textTransform: 'uppercase' }}>
+                View All <ArrowRight size={12} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {historyBookings.length > 0 ? historyBookings.map(item => (
+                <div key={item.id} onClick={() => navigate(`/my-bookings/${item.id}`)} style={{ padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--admin-bg)' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{new Date(item.start_datetime).toLocaleDateString()}</h3>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>{item.booking_services_v2?.[0]?.services_v2?.name || 'Service'}</span>
                   </div>
-                ))
-              ) : (
-                <div style={{ padding: '1rem 0', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.8rem', fontWeight: '600', opacity: 0.3 }}>
-                  No service history yet.
+                  <span style={{ fontSize: '0.65rem', fontWeight: '900', padding: '0.25rem 0.6rem', borderRadius: '2rem', background: item.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: item.status === 'completed' ? '#10b981' : '#ef4444' }}>
+                    {item.status.toUpperCase()}
+                  </span>
+                </div>
+              )) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
+                  No recent history.
                 </div>
               )}
             </div>
-            <button onClick={() => navigate('/my-bookings')} style={{ width: '100%', padding: '0.75rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: '800' }}>
-              VIEW ALL <ChevronRight size={14} />
-            </button>
+          </div>
+
+          <div style={{ background: 'var(--admin-card)', borderRadius: '1.25rem', border: '1px solid var(--admin-border)', padding: '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
+            <h2 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>
+              <Calendar size={16} color="var(--admin-brand)" />
+              Upcoming Bookings
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {upcomingBookings.length > 0 ? upcomingBookings.map(item => (
+                <div key={item.id} onClick={() => navigate(`/my-bookings/${item.id}`)} style={{ padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--admin-bg)' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{new Date(item.start_datetime).toLocaleDateString()}</h3>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>{item.booking_services_v2?.[0]?.services_v2?.name || 'Service'}</span>
+                  </div>
+                  <span style={{ fontSize: '0.65rem', fontWeight: '900', padding: '0.25rem 0.6rem', borderRadius: '2rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+                    UPCOMING
+                  </span>
+                </div>
+              )) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
+                  No other upcoming bookings.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
       {/* Slim Premium CTA Banner */}
       <div style={{ 
         marginTop: '2rem', 

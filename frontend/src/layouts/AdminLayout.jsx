@@ -78,6 +78,7 @@ const AdminLayout = () => {
     { name: 'Staff Management', path: '/admin/staff', icon: Users },
     { name: 'Users', path: '/admin/users', icon: User },
     { name: 'Notifications', path: '/admin/notifications', icon: Bell },
+    { name: 'Profile', path: '/admin/profile', icon: User },
   ];
 
   const bottomLinks = [

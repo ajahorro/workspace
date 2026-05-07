@@ -31,6 +31,7 @@ import LandingPage from './pages/LandingPage';
 import Faq from './pages/Faq';
 import ProfilePage from './pages/ProfilePage';
 import StaffNotifications from './pages/Staff/StaffNotifications';
+import StaffHistory from './pages/Staff/StaffHistory';
 
 function App() {
 
@@ -96,6 +97,7 @@ function App() {
         {/* Staff Routes */}
         <Route path="/staff" element={<ProtectedRoute allowedRoles={['STAFF', 'ADMIN', 'SUPER_ADMIN']}><StaffLayout /></ProtectedRoute>}>
           <Route index element={<StaffTasks />} />
+          <Route path="history" element={<StaffHistory />} />
           <Route path="settings" element={<StaffSettings />} />
           <Route path="notifications" element={<StaffNotifications />} />
           <Route path="profile" element={<ProfilePage />} />
@@ -104,6 +106,7 @@ function App() {
         {/* Admin Routes */}
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="bookings/:id" element={<AdminBookingDetails />} />
           <Route path="payments" element={<AdminPayments />} />

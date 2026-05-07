@@ -68,10 +68,10 @@ const AdminBookings = () => {
           let calcStatus = 'UNPAID';
           if (totalPaid >= b.total_price && b.total_price > 0) {
             calcStatus = 'PAID';
-          } else if (totalPaid >= (b.total_price * 0.3) && b.total_price > 0) {
-            calcStatus = 'DOWNPAYMENT_PAID';
           } else if (isPendingVerification) {
             calcStatus = 'VERIFYING';
+          } else if (totalPaid >= (b.total_price * 0.3) && b.total_price > 0) {
+            calcStatus = 'DOWNPAYMENT_PAID';
           }
 
           return {

@@ -18,17 +18,27 @@ const BookingAuditTrail = ({ bookingId, logs, isAdmin = false }) => {
   const fetchEvents = async () => {
     if (!bookingId) return;
     setLoading(true);
-    // We pull from booking_events which is our "Source of Truth" for security
+    // Switch to audit_logs as the single source of truth for Activity Trail
     const { data, error } = await supabase
-      .from('booking_events')
-      .select(`
-        *,
-        actor:profiles!actor_id(full_name, role)
-      `)
+      .from('audit_logs')
+      .select('*')
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: true });
 
-    if (!error && data) setEvents(data);
+    if (!error && data) {
+      // Map audit_logs schema to the internal component structure
+      const mapped = data.map(log => ({
+        id: log.id,
+        created_at: log.created_at,
+        event_type: log.action_type,
+        metadata: { details: log.details },
+        actor: {
+          full_name: log.actor_name,
+          role: log.actor_role
+        }
+      }));
+      setEvents(mapped);
+    }
     setLoading(false);
   };
 

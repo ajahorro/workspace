@@ -41,6 +41,7 @@ const AdminSchedule = () => {
         .select('*')
         .gte('start_datetime', startOfDay)
         .lte('start_datetime', endOfDay)
+        .neq('status', 'cancelled')
         .order('start_datetime', { ascending: true });
 
       if (error) throw error;

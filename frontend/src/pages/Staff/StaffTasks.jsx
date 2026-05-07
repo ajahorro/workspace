@@ -104,10 +104,13 @@ const StaffTasks = () => {
         message = `Your detailing service is finished! Your car is ready for pick up.`;
         sendStatusUpdateNotification(task.customer.email, 'completed', bookingInfo);
       } else if (type === 'pay') {
-        const { error: payErr } = await supabase.rpc('record_payment_v2', {
+        const { error: payErr } = await supabase.rpc('submit_payment', {
           p_booking_id: bookingId,
           p_amount: payload.amount,
-          p_method: 'CASH'
+          p_method: 'CASH',
+          p_reference: null,
+          p_receipt_url: null,
+          p_ocr_text: null
         });
         if (payErr) throw payErr;
 

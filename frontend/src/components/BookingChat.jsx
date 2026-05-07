@@ -290,7 +290,7 @@ const BookingChat = ({ bookingId }) => {
                   <span style={{ fontSize: '0.65rem', color: 'var(--card-text)', opacity: 0.4, fontWeight: '900' }}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  {!isMe && <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: '950', textTransform: 'uppercase' }}>Customer</span>}
+                  {!isMe && <span style={{ fontSize: '0.65rem', color: 'var(--primary-color)', fontWeight: '950', textTransform: 'uppercase' }}>{profile?.role === 'CUSTOMER' ? 'Admin / Support' : 'Customer'}</span>}
                 </div>
               </div>
             );

@@ -63,14 +63,20 @@ const AdminBookingDetails = () => {
   const handleVerifyPayment = async (p) => {
     try {
       const { data: { user: verifier } } = await supabase.auth.getUser();
-      const { error } = await supabase.rpc('verify_payment_v2', {
-        p_payment_id: p.id,
-        p_verifier_id: verifier?.id
-      });
+      
+      // Direct update — no RPC needed
+      const { error } = await supabase
+        .from('payments_v2')
+        .update({ 
+          status: 'PAID', 
+          verified_by: verifier?.id, 
+          verified_at: new Date().toISOString() 
+        })
+        .eq('id', p.id);
 
       if (error) throw error;
       
-      toast.success('Payment Verified');
+      toast.success('Payment Approved — amount recorded!');
       fetchPayments();
       fetchAuditLogs();
       fetchBookingDetails();
@@ -80,52 +86,44 @@ const AdminBookingDetails = () => {
         await supabase.from('notifications').insert({
           user_id: booking.customer_id,
           title: 'Payment Verified! 💸',
-          message: `Your payment of ₱${p.amount?.toLocaleString()} has been verified successfully.`,
+          message: `Your payment of ₱${p.amount?.toLocaleString()} has been verified and recorded successfully.`,
           type: 'success',
           action_url: `/my-bookings/${id}`
         });
       }
     } catch (err) {
+      console.error('Approve error:', err);
       toast.error(err.message || 'Verification failed');
     }
   };
 
   const handleRejectPayment = async (p) => {
     try {
+      // Reset to UNPAID so customer can re-upload
       const { error } = await supabase
         .from('payments_v2')
-        .update({ status: 'VOIDED' })
+        .update({ status: 'UNPAID', receipt_url: null, ocr_text: null })
         .eq('id', p.id);
 
       if (error) throw error;
 
-      // Log the rejection event manually for transparency
-      // Note: Triggers now handle PAYMENT_STATE_CHANGE as well
-      await supabase.from('booking_events').insert({
-        booking_id: id,
-        actor_id: (await supabase.auth.getUser()).data.user?.id,
-        event_type: 'PAYMENT_REJECTED',
-        metadata: { 
-          details: `Payment receipt of ₱${p.amount?.toLocaleString()} was VOIDED (Rejected) by Admin.`,
-          amount: p.amount
-        }
-      });
-
-      toast.success('Status Updated');
+      toast.success('Receipt rejected — customer will be notified.');
+      fetchPayments();
       fetchBookingDetails();
       fetchAuditLogs();
 
-      // Notify customer (Operational logic remains, manual logging removed)
+      // Notify customer with detailed rejection message
       if (booking.customer_id) {
         await supabase.from('notifications').insert({
           user_id: booking.customer_id,
-          title: 'Receipt Rejected',
-          message: 'Your GCash receipt could not be verified. Please re-upload a clear, valid receipt.',
+          title: 'Proof of Payment Rejected',
+          message: 'Please re-upload the correct proof of payment. The earlier one you submitted has been rejected by the admin due to it being unclear, payment was never received, or other details.',
           type: 'warning',
           action_url: `/my-bookings/${id}`
         });
       }
     } catch (err) {
+      console.error('Reject error:', err);
       toast.error('Rejection failed');
     }
   };
@@ -167,7 +165,11 @@ const AdminBookingDetails = () => {
 
   const fetchPayments = async () => {
     const { data } = await supabase.from('payments_v2').select('*').eq('booking_id', id).order('created_at', { ascending: true });
-    if (data) setBookingPayments(data.filter(p => p.amount > 0));
+    if (data) {
+      // Filter out UNPAID placeholders, keeping actual transactions like FOR_VERIFICATION and PAID
+      const filteredPayments = data.filter(p => p.status !== 'UNPAID');
+      setBookingPayments(filteredPayments);
+    }
   };
 
   const fetchStaffList = async () => {
@@ -176,15 +178,22 @@ const AdminBookingDetails = () => {
   };
 
   const fetchAuditLogs = async () => {
-    const { data } = await supabase.from('booking_events').select('*').eq('booking_id', id).order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('booking_id', id)
+      .order('created_at', { ascending: true });
+    
     if (data) {
-      const actorIds = [...new Set(data.map(log => log.actor_id).filter(Boolean))];
-      let profileMap = {};
-      if (actorIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', actorIds);
-        if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-      }
-      setAuditLogs(data.map(log => ({ ...log, actor: profileMap[log.actor_id] || { full_name: 'System' } })));
+      setAuditLogs(data.map(log => ({
+        ...log,
+        event_type: log.action_type,
+        metadata: { details: log.details },
+        actor: {
+          full_name: log.actor_name,
+          role: log.actor_role
+        }
+      })));
     }
   };
 
@@ -295,10 +304,13 @@ const AdminBookingDetails = () => {
 
     setSubmittingPayment(true);
     try {
-      const { error } = await supabase.rpc('record_payment_v2', {
+      const { error } = await supabase.rpc('submit_payment', {
         p_booking_id: id,
         p_amount: amount,
-        p_method: 'CASH'
+        p_method: 'CASH',
+        p_reference: null,
+        p_receipt_url: null,
+        p_ocr_text: null
       });
 
       if (error) throw error;
@@ -446,86 +458,75 @@ const AdminBookingDetails = () => {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {bookingPayments.map((p, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                        {p.receipt_url ? (
-                          <div onClick={() => window.open(p.receipt_url, '_blank')} style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', overflow: 'hidden', border: '1px solid var(--admin-border)', cursor: 'pointer', flexShrink: 0 }}>
-                            <img src={p.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                        ) : (
-                          <div style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2, border: '1px solid var(--admin-border)' }}>
-                            <Banknote size={14} />
-                          </div>
-                        )}
-                        
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.8rem', textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none', opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1 }}>{p.method}</span>
-                            <span style={{ 
-                               fontSize: '0.6rem', 
-                               fontWeight: '900', 
-                               color: p.status === 'PAID' ? '#10b981' : (p.status === 'VOIDED' ? '#ef4444' : (p.status === 'SUPERSEDED' ? 'var(--admin-text-secondary)' : 'var(--admin-brand)')), 
-                               background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : (p.status === 'VOIDED' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(var(--admin-brand-rgb), 0.1)'), 
-                               padding: '0.1rem 0.4rem', 
-                               borderRadius: '0.2rem',
-                               fontStyle: p.status === 'SUPERSEDED' ? 'italic' : 'normal'
-                             }}>{p.status === 'FOR_VERIFICATION' ? 'PENDING' : p.status}</span>
-                             {p.receipt_attempt > 1 && (
-                               <span style={{ fontSize: '0.6rem', fontWeight: '900', color: 'var(--admin-text-secondary)', background: 'var(--admin-bg)', padding: '0.1rem 0.4rem', borderRadius: '0.2rem', opacity: 0.6 }}>
-                                 ATTEMPT #{p.receipt_attempt}
-                               </span>
-                             )}
-                          </div>
-                          {p.ocr_text && p.ocr_text.trim().length > 2 && (
-                            <div style={{ fontSize: '0.7rem', color: '#FFFFFF', fontStyle: 'italic', marginTop: '0.25rem', opacity: 0.8 }}>
-                              "{p.ocr_text.substring(0, 40)}..."
+                    <React.Fragment key={idx}>
+                      {p.status === 'FOR_VERIFICATION' ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1rem', background: 'rgba(var(--admin-brand-rgb), 0.05)', borderRadius: '0.75rem', border: '1px dashed var(--admin-brand)', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--admin-brand)', animation: 'pulse 1.5s infinite', boxShadow: '0 0 10px rgba(var(--admin-brand-rgb), 0.4)' }}></div>
+                            <div>
+                              <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>Customer submitted proof of payment</span>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>Awaiting your verification</span>
                             </div>
-                          )}
-                          {p.status === 'SUPERSEDED' && (
-                            <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700', marginTop: '0.25rem', opacity: 0.6 }}>
-                              (Auto-archived: Covered by other payment)
-                            </div>
-                          )}
+                          </div>
+                          <button 
+                            onClick={() => navigate('/admin/payments')}
+                            style={{ padding: '0.6rem 1rem', background: 'var(--admin-brand)', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(var(--admin-brand-rgb), 0.3)' }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                          >
+                            PROCEED TO VERIFICATION
+                          </button>
                         </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ 
-                          fontWeight: '900', 
-                          color: p.status === 'PAID' ? '#10b981' : 'var(--admin-text-primary)', 
-                          fontSize: '0.95rem',
-                          opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1,
-                          textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none'
-                        }}>+₱{Number(p.amount).toLocaleString()}</div>
-                        {p.status === 'FOR_VERIFICATION' && (
-                          <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.25rem' }}>
-                            <button 
-                              onClick={() => {
-                                setSelectedPayment(p);
-                                setModalType('approve');
-                                setShowConfirmModal(true);
-                              }} 
-                              style={{ padding: '0.4rem 0.8rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                              OK
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setSelectedPayment(p);
-                                setModalType('reject');
-                                setShowConfirmModal(true);
-                              }} 
-                              style={{ padding: '0.4rem 0.8rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', transition: 'transform 0.2s' }}
-                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                              X
-                            </button>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                            {p.receipt_url ? (
+                              <div onClick={() => window.open(p.receipt_url, '_blank')} style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', overflow: 'hidden', border: '1px solid var(--admin-border)', cursor: 'pointer', flexShrink: 0 }}>
+                                <img src={p.receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            ) : (
+                              <div style={{ width: '32px', height: '42px', background: 'var(--admin-bg)', borderRadius: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2, border: '1px solid var(--admin-border)' }}>
+                                <Banknote size={14} />
+                              </div>
+                            )}
+                            
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)', fontSize: '0.8rem', textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none', opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1 }}>{p.method}</span>
+                                <span style={{ 
+                                  fontSize: '0.6rem', 
+                                  fontWeight: '900', 
+                                  color: p.status === 'PAID' ? '#10b981' : (p.status === 'VOIDED' ? '#ef4444' : 'var(--admin-text-secondary)'), 
+                                  background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : (p.status === 'VOIDED' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)'), 
+                                  padding: '0.1rem 0.4rem', 
+                                  borderRadius: '0.2rem',
+                                  fontStyle: p.status === 'SUPERSEDED' ? 'italic' : 'normal'
+                                }}>{p.status}</span>
+                              </div>
+                              {p.ocr_text && p.ocr_text.trim().length > 2 && (
+                                <div style={{ fontSize: '0.7rem', color: '#FFFFFF', fontStyle: 'italic', marginTop: '0.25rem', opacity: 0.8 }}>
+                                  "{p.ocr_text.substring(0, 40)}..."
+                                </div>
+                              )}
+                              {p.status === 'SUPERSEDED' && (
+                                <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700', marginTop: '0.25rem', opacity: 0.6 }}>
+                                  (Auto-archived: Covered by other payment)
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ 
+                              fontWeight: '900', 
+                              color: p.status === 'PAID' ? '#10b981' : 'var(--admin-text-primary)', 
+                              fontSize: '0.95rem',
+                              opacity: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 0.4 : 1,
+                              textDecoration: (p.status === 'VOIDED' || p.status === 'SUPERSEDED') ? 'line-through' : 'none'
+                            }}>+₱{Number(p.amount).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               )}

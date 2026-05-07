@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { ClipboardList, Settings, LogOut, Bell, Menu, X } from 'lucide-react';
+import { ClipboardList, Settings, LogOut, Bell, Menu, X, History } from 'lucide-react';
 import ProfileHeader from '../components/ProfileHeader';
 import AdminSearch from '../components/AdminSearch';
 import NotificationPopover from '../components/NotificationPopover';
@@ -76,6 +76,7 @@ const StaffLayout = () => {
   const navLinks = [
     { name: 'Tasks', path: '/staff', icon: ClipboardList, exact: true },
     { name: 'Notifications', path: '/staff/notifications', icon: Bell },
+    { name: 'History of Services', path: '/staff/history', icon: History },
   ];
 
   const bottomLinks = [

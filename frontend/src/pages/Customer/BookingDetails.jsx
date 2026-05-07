@@ -125,35 +125,47 @@ const BookingDetails = () => {
 
       const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName);
 
-      // 2. Perform OCR check (Basic confirmation)
-      const worker = await Tesseract.createWorker({
-        logger: m => {
-          if (m.status === 'recognizing text') setOcrProgress(Math.round(m.progress * 100));
-        }
-      });
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
+      // 2. OCR scan — use simple API (worker API crashes with DataCloneError)
+      let text = '';
+      try {
+        const result = await Tesseract.recognize(file, 'eng', {
+          logger: m => { if (m.status === 'recognizing text') setOcrProgress(Math.round(m.progress * 100)); }
+        });
+        text = result.data.text || '';
+      } catch (ocrErr) {
+        console.warn('OCR scan failed, proceeding without text:', ocrErr);
+        text = '';
+      }
 
       const textUpper = text.toUpperCase();
       const isGCash = textUpper.includes('GCASH') || textUpper.includes('REF NO') || textUpper.includes('SUCCESS');
 
       if (!isGCash) {
-        setOcrError("This doesn't look like a valid GCash receipt. Please ensure the screenshot is clear.");
-        // We still allow it but warn them? No, let's be strict for "premium" feel.
-        return;
+        setOcrError("Warning: This doesn't look like a standard GCash receipt, but it has been submitted for admin review.");
       }
 
-      // 3. Record Payment
-      const { error: payErr } = await supabase.rpc('record_payment_v2', {
-        p_booking_id: id,
-        p_amount: booking.total_price - totalPaid, // Pay remaining balance
-        p_method: 'GCASH',
-        p_receipt_url: publicUrl
-      });
+      // Calculate total paid so far
+      const totalPaid = (booking.payments_v2 || [])
+        .filter(p => p.status === 'PAID')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
 
-      if (payErr) throw payErr;
+      // 3. Record Payment — Direct INSERT, no RPC
+      const { error: payErr } = await supabase
+        .from('payments_v2')
+        .insert({
+          booking_id: id,
+          amount: booking.total_price - totalPaid,
+          method: 'GCASH',
+          status: 'FOR_VERIFICATION',
+          receipt_url: publicUrl,
+          ocr_text: text || '',
+          receipt_attempt: 1
+        });
+
+      if (payErr) {
+        console.error('Payment insert failed:', payErr);
+        throw payErr;
+      }
 
       toast.success('Receipt uploaded! Awaiting verification.');
       fetchBooking();

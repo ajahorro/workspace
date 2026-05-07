@@ -65,7 +65,7 @@ const AdminDashboard = () => {
           .from('audit_logs')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(3);
+          .limit(5);
         setAuditLogs(logs || []);
 
         if (bookings && bookings.length > 0) {
@@ -130,30 +130,20 @@ const AdminDashboard = () => {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayBookingsCount = data.filter(b => b.start_datetime?.startsWith(todayStr)).length;
   
-  const activityItems = [
-    ...notifications.map(n => ({
-      id: n.id,
-      title: n.title || 'Notification',
-      subtitle: n.message || 'System update',
-      date: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: 'NOTIFICATION',
-      path: n.action_url || '/admin/notifications'
-    })),
-    ...auditLogs.map(l => ({
+  const activityItems = auditLogs.map(l => ({
       id: l.id,
-      title: (l.action || 'activity').replace(/_/g, ' '),
-      subtitle: l.entity_type || 'system',
+      title: (l.action_type || 'Activity').replace(/_/g, ' '),
+      subtitle: l.details || 'System event',
       date: new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'LOG',
       path: '/admin/audit-logs'
-    }))
-  ].slice(0, 5);
+  })).slice(0, 5);
   // 1. Build master Attention Needed list
   const attentionItems = [];
   
   // Priority 1: Payments needing verification (URGENT)
   payments.filter(p => p.status === 'FOR_VERIFICATION').forEach(p => {
-    const booking = bookingMap[p.booking_id];
+    const booking = data.find(b => b.id === p.booking_id);
     attentionItems.push({
       id: p.booking_id,
       customer: booking?.customer?.full_name || 'Unknown',
@@ -288,7 +278,10 @@ const AdminDashboard = () => {
         
         {/* RECENT ACTIVITY (MIXED FEED) */}
         <div style={{ ...panelStyle, padding: 0, overflow: 'hidden', opacity: 0.9 }}>
-          <div style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div 
+            onClick={() => navigate('/admin/audit-logs')}
+            style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+          >
             <h3 style={{ margin: 0, fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>System Activity</h3>
             <ArrowRight size={14} style={{ color: 'var(--admin-text-secondary)', opacity: 0.3 }} />
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Save, Upload, Clock, Phone, Mail, MapPin, CreditCard, Check, Sparkles, Lock } from 'lucide-react';
+import { Save, Upload, Clock, Phone, Mail, MapPin, CreditCard, Check, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/PageHeader';
 import { useTheme } from '../../context/ThemeContext';
@@ -11,10 +11,6 @@ const AdminSettings = () => {
   const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [firstName, setFirstName] = useState(profile?.first_name || '');
-  const [lastName, setLastName] = useState(profile?.last_name || '');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [settings, setSettings] = useState({
     business_name: 'SpeedWay AutoxMoto Detail Studio',
     contact_number: '+63 912 345 6789',
@@ -91,13 +87,13 @@ const AdminSettings = () => {
       const filePath = `settings/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('receipts') // Using the existing receipts bucket for settings
+        .from('public_assets')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('receipts')
+        .from('public_assets')
         .getPublicUrl(filePath);
 
       setSettings({ ...settings, gcash_qr_url: publicUrl });
@@ -146,22 +142,6 @@ const AdminSettings = () => {
     fontWeight: '600'
   };
 
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    try {
-      const { error } = await updateProfile({
-        first_name: firstName,
-        last_name: lastName
-      });
-      if (error) throw error;
-      toast.success('Profile updated successfully!');
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
@@ -172,111 +152,8 @@ const AdminSettings = () => {
         subtitle="Manage your studio's operational parameters and personal appearance preferences."
       />
 
-      {/* SYSTEM SETTINGS GROUP */}
-      <section>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '0.75rem', fontWeight: '950', color: 'var(--admin-text-secondary)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>System Configuration</h2>
-          <div style={{ height: '1px', flex: 1, background: 'var(--admin-border)', opacity: 0.5 }}></div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
-           {/* Personal Profile Settings */}
-           <div className="setting-card" style={sectionStyle}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-               <User size={20} color="var(--admin-brand)" />
-               <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Personal Identity</h2>
-             </div>
-             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '500' }}>
-               Manage your professional name and identity across the system.
-             </p>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-               <div>
-                 <label style={labelStyle}>First Name</label>
-                 <input 
-                   style={inputStyle} 
-                   value={firstName}
-                   onChange={e => setFirstName(e.target.value)}
-                   placeholder="First Name"
-                 />
-               </div>
-               <div>
-                 <label style={labelStyle}>Last Name</label>
-                 <input 
-                   style={inputStyle} 
-                   value={lastName}
-                   onChange={e => setLastName(e.target.value)}
-                   placeholder="Last Name"
-                 />
-               </div>
-             </div>
-             <button 
-               onClick={handleSaveProfile}
-               disabled={loading}
-               style={{ 
-                 marginTop: '0.5rem', 
-                 padding: '0.75rem', 
-                 background: 'var(--admin-brand)', 
-                 color: 'white', 
-                 border: 'none', 
-                 borderRadius: '0.6rem', 
-                 fontSize: '0.8rem', 
-                 fontWeight: '800', 
-                 cursor: 'pointer' 
-               }}
-             >
-               UPDATE IDENTITY
-             </button>
-           </div>
-
-           {/* Appearance Settings */}
-           <div className="setting-card" style={sectionStyle}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-               <Sparkles size={20} color="var(--admin-brand)" />
-               <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--admin-text-primary)' }}>Appearance & Theme</h2>
-             </div>
-             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--admin-text-secondary)', marginBottom: '1.5rem', fontWeight: '500' }}>
-               Personalize your workspace aesthetic. Choose between light, dark, or follow your system preferences.
-             </p>
-             <div style={{ 
-               display: 'grid', 
-               gridTemplateColumns: 'repeat(3, 1fr)', 
-               gap: '0.5rem', 
-               background: 'var(--admin-bg)', 
-               padding: '0.4rem', 
-               borderRadius: '0.85rem',
-               border: '1px solid var(--admin-border)'
-             }}>
-               {[
-                 { id: 'light', label: 'LIGHT' },
-                 { id: 'dark', label: 'DARK' },
-                 { id: 'system', label: 'SYSTEM' }
-               ].map((t) => (
-                 <button
-                   key={t.id}
-                   onClick={() => toggleTheme(t.id)}
-                   style={{
-                     padding: '0.75rem 0.5rem',
-                     background: theme === t.id ? 'var(--admin-brand)' : 'transparent',
-                     color: theme === t.id ? '#FFFFFF' : 'var(--admin-text-secondary)',
-                     border: 'none',
-                     borderRadius: '0.6rem',
-                     fontSize: '0.75rem',
-                     fontWeight: '800',
-                     cursor: 'pointer',
-                     transition: 'all 0.2s ease',
-                     boxShadow: theme === t.id ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none'
-                   }}
-                 >
-                   {t.label}
-                 </button>
-               ))}
-             </div>
-           </div>
-        </div>
-      </section>
-
       {/* BUSINESS SETTINGS GROUP */}
-      <section>
+      <section style={{ animation: 'fadeIn 0.5s ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '0.75rem', fontWeight: '950', color: 'var(--admin-text-secondary)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Business Operations</h2>
           <div style={{ height: '1px', flex: 1, background: 'var(--admin-border)', opacity: 0.5 }}></div>
@@ -430,64 +307,6 @@ const AdminSettings = () => {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-          {/* Password Security */}
-          <div className="setting-card" style={sectionStyle}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
-              <Lock size={20} color="var(--admin-brand)" /> Change Password
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div>
-                <label style={labelStyle}>Current Password</label>
-                <input 
-                  type="password"
-                  autoComplete="current-password"
-                  style={inputStyle} 
-                  placeholder="Enter current password"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.target.value)} 
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>New Password</label>
-                <input 
-                  type="password"
-                  autoComplete="new-password"
-                  style={inputStyle} 
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)} 
-                />
-              </div>
-              <button 
-                onClick={async () => {
-                   if (!currentPassword || !newPassword) {
-                     toast.error('Please fill both password fields');
-                     return;
-                   }
-                   const { error } = await supabase.auth.updateUser({ password: newPassword });
-                   if (error) toast.error(error.message);
-                   else {
-                     toast.success('Password updated successfully!');
-                     setCurrentPassword('');
-                     setNewPassword('');
-                   }
-                }}
-                style={{ 
-                  marginTop: '0.5rem', 
-                  padding: '0.75rem', 
-                  background: 'rgba(255,255,255,0.05)', 
-                  color: 'var(--admin-text-primary)', 
-                  border: '1px solid var(--admin-border)', 
-                  borderRadius: '0.6rem', 
-                  fontSize: '0.8rem', 
-                  fontWeight: '800', 
-                  cursor: 'pointer' 
-                }}
-              >
-                UPDATE PASSWORD
-              </button>
             </div>
           </div>
         </div>

@@ -230,17 +230,24 @@ const BookAppointment = () => {
           
           const amount = paymentOption === 'DOWNPAYMENT' ? (totalAmount * 0.3) : totalAmount;
           
-          const { error: payErr } = await supabase.rpc('record_payment_v2', {
-            p_booking_id: bookingId,
-            p_amount: amount,
-            p_method: 'GCASH',
-            p_receipt_url: publicUrl,
-            p_ocr_text: ocrText
-          });
+          // Direct INSERT — no RPC function dependency
+          const { error: payErr } = await supabase
+            .from('payments_v2')
+            .insert({
+              booking_id: bookingId,
+              amount: amount,
+              method: 'GCASH',
+              status: 'FOR_VERIFICATION',
+              receipt_url: publicUrl,
+              ocr_text: ocrText || '',
+              receipt_attempt: 1
+            });
 
           if (payErr) {
-            console.error('Payment record failed:', payErr);
+            console.error('Payment insert failed:', payErr);
             toast.error('Booking saved, but payment registration failed.');
+          } else {
+            console.log('Payment recorded successfully with FOR_VERIFICATION status');
           }
         }
       }
@@ -646,7 +653,7 @@ const BookAppointment = () => {
                         marginBottom: '1.5rem',
                         width: '100%', 
                         maxWidth: '400px', // Wider but still vertical
-                        height: '600px', // Tall to fit the whole template
+                        height: 'auto', // Responsive height to eliminate white space on mobile
                         overflow: 'hidden',
                         display: 'flex',
                         alignItems: 'center',
@@ -657,9 +664,9 @@ const BookAppointment = () => {
                           src={businessSettings?.gcash_qr_url} 
                           style={{ 
                             width: '100%', 
-                            height: '100%',
+                            height: 'auto',
                             display: 'block',
-                            objectFit: 'contain', // No more cutting off!
+                            objectFit: 'contain',
                           }} 
                           alt="GCash QR Code" 
                         />

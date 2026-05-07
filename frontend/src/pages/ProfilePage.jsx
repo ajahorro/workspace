@@ -183,9 +183,6 @@ const ProfilePage = () => {
             <div style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', borderRadius: '1.5rem', background: 'var(--admin-bg)', border: '2px solid var(--admin-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <User size={isMobile ? 40 : 48} color="var(--admin-text-secondary)" strokeWidth={1.5} />
             </div>
-            <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', width: '36px', height: '36px', borderRadius: '0.75rem', background: 'var(--admin-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '4px solid var(--admin-card)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <Camera size={16} color="#FFFFFF" />
-            </div>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
