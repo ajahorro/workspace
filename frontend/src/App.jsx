@@ -20,6 +20,7 @@ import AdminSchedule from './pages/Admin/AdminSchedule';
 import AdminNotifications from './pages/Admin/AdminNotifications';
 import AdminRefunds from './pages/Admin/AdminRefunds';
 import AdminAnalytics from './pages/Admin/AdminAnalytics';
+import AdminSalesReport from './pages/Admin/AdminSalesReport';
 import AdminAuditLogs from './pages/Admin/AdminAuditLogs';
 import AdminStaffManagement from './pages/Admin/AdminStaffManagement';
 import AdminUserManagement from './pages/Admin/AdminUserManagement';
@@ -114,6 +115,7 @@ function App() {
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="refunds" element={<AdminRefunds />} />
           <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="sales-report" element={<AdminSalesReport />} />
           <Route path="audit-logs" element={<AdminAuditLogs />} />
           <Route path="staff" element={<AdminStaffManagement />} />
           <Route path="users" element={<AdminUserManagement />} />

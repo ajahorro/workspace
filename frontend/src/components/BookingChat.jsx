@@ -144,7 +144,7 @@ const BookingChat = ({ bookingId }) => {
     // 🔔 Notify the other party
     try {
       const { data: booking } = await supabase
-        .from('bookings_v2')
+        .from('bookings')
         .select('customer_id, staff_id')
         .eq('id', bookingId)
         .single();
@@ -198,9 +198,20 @@ const BookingChat = ({ bookingId }) => {
         scrollBehavior: 'smooth'
       }}>
         {messages.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: 'var(--card-text)', opacity: 0.3 }}>
-            <MessageCircle size={48} />
-            <p style={{ fontSize: '0.9rem', fontWeight: '800' }}>No messages yet. Send a photo or message to start.</p>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.25rem', padding: '2rem', textAlign: 'center' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--glass-border)' }}>
+              <MessageCircle size={32} style={{ color: 'var(--admin-brand)', opacity: 0.5 }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff', marginBottom: '0.5rem' }}>Direct Line to Staff</p>
+              <p style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-secondary)', lineHeight: '1.5', maxWidth: '240px' }}>
+                Need to change something or send a photo of your vehicle? Message us here for real-time support.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+               <span style={{ padding: '0.35rem 0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '5rem', fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>PRE-WASH CHECK</span>
+               <span style={{ padding: '0.35rem 0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '5rem', fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>PHOTO PROOF</span>
+            </div>
           </div>
         ) : (
           messages.map((msg) => {

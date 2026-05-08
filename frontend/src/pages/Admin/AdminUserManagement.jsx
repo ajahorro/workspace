@@ -101,8 +101,7 @@ const AdminUserManagement = () => {
     const emailLower = u.email?.toLowerCase() || '';
     return u.was_staff === true || 
            emailLower.endsWith('@speed.way') || 
-           emailLower.endsWith('@speedway.com') ||
-           emailLower.endsWith('@renew.com');
+           emailLower.endsWith('@speedway.com');
   };
 
   const filteredUsers = users.filter(u => 
@@ -148,7 +147,7 @@ const AdminUserManagement = () => {
               style={{ 
                 width: '100%', 
                 padding: '1rem 1.25rem 1rem 3.5rem', 
-                background: 'var(--admin-card)', 
+                background: 'var(--admin-input-bg)', 
                 border: '1px solid var(--admin-border)', 
                 borderRadius: '1rem', 
                 color: 'var(--admin-text-primary)', 
@@ -411,7 +410,7 @@ const AdminUserManagement = () => {
                     <div style={{ textAlign: 'right', minWidth: '120px' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.15rem', opacity: 0.7 }}>TOTAL VALUE</div>
                       <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--admin-brand)' }}>
-                        ₱{booking.total_price?.toLocaleString()}
+                        ₱{booking.total_amount?.toLocaleString()}
                       </div>
                     </div>
                   </div>

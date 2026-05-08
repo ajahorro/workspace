@@ -129,6 +129,7 @@ const ProfileHeader = () => {
 
           {/* Menu items */}
           <div style={{ padding: '0.5rem' }}>
+
             <button 
               onClick={() => { setIsOpen(false); navigate(getProfilePath()); }}
               style={{ 
@@ -151,6 +152,7 @@ const ProfileHeader = () => {
             >
               <User size={16} color="var(--admin-brand)" opacity={0.8} /> My Profile
             </button>
+
             <button 
               onClick={() => { setIsOpen(false); navigate(getSettingsPath()); }}
               style={{ 

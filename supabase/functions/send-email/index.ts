@@ -29,7 +29,7 @@ serve(async (req) => {
       case 'booking_confirmed':
         subject = 'Booking Confirmed! 🚗✨'
         html = `
-          <h1>RENEW Auto Detailing</h1>
+          <h1>SpeedWay AutoxMoto Detail Studio</h1>
           <p>Your booking for <strong>${data.serviceName}</strong> has been confirmed.</p>
           <p><strong>Date:</strong> ${data.date}</p>
           <p><strong>Time:</strong> ${data.time}</p>
@@ -59,7 +59,7 @@ serve(async (req) => {
           <h1>Service Completed</h1>
           <p>Your vehicle is ready to go! Our team has finished the service.</p>
           <p><strong>Date:</strong> ${data.date}</p>
-          <p>Thank you for choosing RENEW Auto Detailing.</p>
+          <p>Thank you for choosing SpeedWay AutoxMoto Detail Studio.</p>
         `
         break
 
@@ -86,7 +86,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'RENEW Auto Detailing <onboarding@resend.dev>',
+        from: 'SpeedWay AutoxMoto Detail Studio <onboarding@resend.dev>',
         to,
         subject,
         html,

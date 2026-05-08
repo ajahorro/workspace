@@ -24,9 +24,9 @@ const AdminDashboard = () => {
     // Global operational listener
     const channel = supabase
       .channel('admin-dashboard-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments_v2' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds_v2' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds' }, () => fetchData())
       .subscribe();
 
     return () => {
@@ -38,18 +38,18 @@ const AdminDashboard = () => {
       try {
         // Fetch bookings
         const { data: bookings, error: bookingsError } = await supabase
-          .from('bookings_v2')
+          .from('bookings')
           .select('*')
           .order('created_at', { ascending: false });
 
         if (bookingsError) throw bookingsError;
 
         // Fetch payments
-        const { data: payData } = await supabase.from('payments_v2').select('*');
+        const { data: payData } = await supabase.from('payments').select('*');
         setPayments(payData || []);
 
         // Fetch refunds
-        const { data: refData } = await supabase.from('refunds_v2').select('*');
+        const { data: refData } = await supabase.from('refunds').select('*');
         setRefunds(refData || []);
 
         // Fetch notifications
@@ -100,7 +100,7 @@ const AdminDashboard = () => {
 
   // Metrics calculation
   let totalBookings = data.length;
-  // Financials from payments_v2
+  // Financials from payments
   const totalRevenue = payments
     .filter(p => p.status === 'PAID')
     .reduce((sum, p) => sum + Number(p.amount), 0);
@@ -108,23 +108,20 @@ const AdminDashboard = () => {
   const pendingVerificationsCount = payments.filter(p => p.status === 'FOR_VERIFICATION').length;
   const refundRequestsCount = refunds.filter(r => r.status === 'PENDING').length;
 
-  const bookingStats = { scheduled: 0, completed: 0, cancelled: 0 };
-  const serviceStats = { PENDING_ASSIGNMENT: 0, NOT_STARTED: 0, IN_PROGRESS: 0, FINISHED: 0 };
-
+  const opStats = { queued: 0, in_progress: 0, completed: 0 };
   data.forEach(b => {
-    if (bookingStats.hasOwnProperty(b.status)) bookingStats[b.status]++;
-    
-    // Fix: Workflow tracker logic
-    if (b.status === 'cancelled') return; // Cancelled bookings are removed from workflow
-    
-    let sStatus = b.service_status;
-    if (b.status === 'completed') {
-      sStatus = 'FINISHED'; // All completed bookings are "Finished"
-    } else if (!sStatus) {
-      sStatus = b.staff_id ? 'NOT_STARTED' : 'PENDING_ASSIGNMENT';
+    const sStatus = b.service_status || 'queued';
+    if (opStats.hasOwnProperty(sStatus)) {
+      opStats[sStatus]++;
     }
+  });
 
-    if (serviceStats.hasOwnProperty(sStatus)) serviceStats[sStatus]++;
+  const appStats = { scheduled: 0, completed: 0, cancelled: 0, no_show: 0 };
+  data.forEach(b => {
+    const status = b.status || 'scheduled';
+    if (appStats.hasOwnProperty(status)) {
+      appStats[status]++;
+    }
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -154,25 +151,16 @@ const AdminDashboard = () => {
     });
   });
 
-  // Priority 2: Payments Rejected or Awaiting (Scheduled but no PAID records)
-  data.filter(b => b.status === 'scheduled').forEach(b => {
-    const bookingPayments = payments.filter(p => p.booking_id === b.id);
-    const totalPaid = bookingPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0);
-    const hasPending = bookingPayments.some(p => p.status === 'FOR_VERIFICATION');
-
-    // If scheduled, has no successful payments, and not currently pending verification, it needs follow-up
-    if (totalPaid === 0 && !hasPending) {
-      if (!attentionItems.find(item => item.id === b.id)) {
-        attentionItems.push({
-          id: b.id,
-          customer: b.customer?.full_name || 'Unknown',
-          date: new Date(b.start_datetime).toLocaleDateString(),
-          amount: b.total_price || 0,
-          type: 'PAYMENT REQ',
-          priority: 2
-        });
-      }
-    }
+  // Priority 2: Unpaid Appointments
+  data.filter(b => b.status === 'scheduled' && b.payment_status === 'unpaid').forEach(b => {
+    attentionItems.push({
+      id: b.id,
+      customer: b.customer?.full_name || 'Unknown',
+      date: new Date(b.start_datetime).toLocaleDateString(),
+      amount: b.total_amount || 0,
+      type: 'UNPAID',
+      priority: 2
+    });
   });
 
   // Priority 3: Missing assignments (Not closed, no staff_id)
@@ -182,7 +170,7 @@ const AdminDashboard = () => {
         id: b.id,
         customer: b.customer?.full_name || 'Unknown',
         date: new Date(b.start_datetime).toLocaleDateString(),
-        amount: b.total_price || 0,
+        amount: b.total_amount || 0,
         type: 'ASSIGNMENT',
         priority: 3
       });
@@ -198,14 +186,15 @@ const AdminDashboard = () => {
   };
 
   const getStatusDotColor = (status) => {
-    switch(status) {
-      case 'scheduled': return 'var(--admin-brand)';
+    switch (status) {
+      case 'queued': return 'var(--admin-text-secondary)';
+      case 'in_progress': return '#a855f7';
       case 'completed': return '#10b981';
       case 'cancelled': return '#ef4444';
-      case 'NOT_STARTED': return '#CBD5E1';
-      case 'IN_PROGRESS': return '#8b5cf6';
-      case 'FINISHED': return '#10b981';
-      default: return 'var(--admin-text-primary)';
+      case 'paused': return '#f59e0b'; // Keeping for compatibility if any records exist
+      case 'no_show': return '#f59e0b';
+      case 'scheduled': return '#3b82f6';
+      default: return 'var(--admin-border)';
     }
   };
 
@@ -311,46 +300,24 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* WORKFLOW (IMPORTANT) */}
         <div style={{ ...panelStyle, background: 'linear-gradient(145deg, var(--admin-card), rgba(var(--admin-brand-rgb), 0.02))' }}>
           <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '2px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Activity size={18} color="var(--admin-brand)" /> Workflow
+            <Activity size={18} color="var(--admin-brand)" /> Operation Status
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-            {Object.entries(serviceStats).map(([status, count]) => {
-              if (status === 'PENDING_ASSIGNMENT') return null;
-              return (
-                <div 
-                  key={status} 
-                  onClick={() => handleStatusClick(status)}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = 0.7}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = 1}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status), boxShadow: status === 'IN_PROGRESS' ? '0 0 8px rgba(139, 92, 246, 0.4)' : 'none' }}></div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{status.replace(/_/g, ' ')}</span>
-                  </div>
-                  <span style={{ fontSize: '0.95rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{count.toString().padStart(2, '0')}</span>
-                </div>
-              );
-            })}
-            
-            <div style={{ height: '1px', background: 'var(--admin-border)', margin: '0.75rem 0', opacity: 0.5 }}></div>
-
-            {Object.entries(bookingStats).map(([status, count]) => (
+            {Object.entries(opStats).map(([status, count]) => (
               <div 
                 key={status} 
                 onClick={() => handleStatusClick(status)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = 0.7}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = 1}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateX(8px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateX(0)'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status), opacity: 0.7 }}></div>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{status}</span>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusDotColor(status), boxShadow: status === 'in_progress' ? '0 0 8px rgba(168, 85, 247, 0.4)' : 'none' }}></div>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{status.replace('_', ' ')}</span>
                 </div>
-                <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>{count.toString().padStart(2, '0')}</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{count.toString().padStart(2, '0')}</span>
               </div>
             ))}
           </div>

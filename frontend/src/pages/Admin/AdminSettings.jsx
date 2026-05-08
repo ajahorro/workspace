@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Save, Upload, Clock, Phone, Mail, MapPin, CreditCard, Check, Lock } from 'lucide-react';
+import { Save, Upload, Clock, CreditCard, Sparkles, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/PageHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const AdminSettings = () => {
-  const { user, profile, updateProfile } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const isMobile = useMediaQuery('(max-width: 1024px)');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [settings, setSettings] = useState({
@@ -32,10 +34,10 @@ const AdminSettings = () => {
       const { data, error } = await supabase.from('business_settings').select('*').maybeSingle();
       if (error) throw error;
       if (data) {
-        setSettings({
-          ...settings,
+        setSettings(prev => ({
+          ...prev,
           ...data,
-        });
+        }));
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -56,21 +58,16 @@ const AdminSettings = () => {
         updated_at: new Date().toISOString()
       };
 
-      // Ensure we target the record correctly - either update by ID or use upsert
       const { error } = await supabase
         .from('business_settings')
         .upsert({ 
-          id: settings.id || 1, // Fallback to 1 if no ID found
+          id: settings.id || 1,
           ...updateData 
         });
       if (error) throw error;
-      toast.success('Settings saved successfully!', {
-        style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
-      });
+      toast.success('Settings saved successfully!');
     } catch (err) {
-      toast.error(err.message || 'Failed to save settings.', {
-        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
-      });
+      toast.error(err.message || 'Failed to save settings.');
     } finally {
       setLoading(false);
     }
@@ -96,8 +93,8 @@ const AdminSettings = () => {
         .from('public_assets')
         .getPublicUrl(filePath);
 
-      setSettings({ ...settings, gcash_qr_url: publicUrl });
-      toast.success('QR Code uploaded! Don\'t forget to click Save Settings at the bottom.');
+      setSettings(prev => ({ ...prev, gcash_qr_url: publicUrl }));
+      toast.success('QR Code uploaded! Don\'t forget to click Save Changes.');
     } catch (err) {
       toast.error('Upload failed: ' + err.message);
     } finally {
@@ -109,18 +106,17 @@ const AdminSettings = () => {
     background: 'var(--admin-card)',
     borderRadius: '1rem',
     border: '1px solid var(--admin-border)',
-    padding: '1.5rem',
+    padding: isMobile ? '1.25rem' : '2rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.5rem',
+    gap: isMobile ? '1.5rem' : '2rem',
     boxShadow: 'var(--admin-card-shadow)',
-    color: 'var(--admin-text-primary)',
-    transition: 'all 0.3s ease'
+    color: 'var(--admin-text-primary)'
   };
 
   const labelStyle = {
     display: 'block',
-    fontSize: '0.8rem',
+    fontSize: '0.7rem',
     fontWeight: '800',
     color: 'var(--admin-text-secondary)',
     textTransform: 'uppercase',
@@ -137,180 +133,168 @@ const AdminSettings = () => {
     color: 'var(--admin-text-primary)',
     fontSize: '0.95rem',
     outline: 'none',
-    transition: 'all 0.2s ease',
+    transition: '0.2s',
     boxSizing: 'border-box',
     fontWeight: '600'
   };
 
+  if (fetching) return <div style={{ padding: '2rem', textAlign: 'center' }}>Synchronizing settings...</div>;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      
-      {/* Header Area */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '3rem' }}>
       <PageHeader 
         badge="STUDIO MANAGEMENT"
         title="Settings & Configuration"
         subtitle="Manage your studio's operational parameters and personal appearance preferences."
       />
 
-      {/* BUSINESS SETTINGS GROUP */}
-      <section style={{ animation: 'fadeIn 0.5s ease' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '0.75rem', fontWeight: '950', color: 'var(--admin-text-secondary)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Business Operations</h2>
-          <div style={{ height: '1px', flex: 1, background: 'var(--admin-border)', opacity: 0.5 }}></div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
-          {/* Business Information */}
-          <div className="setting-card" style={sectionStyle}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
-              <MapPin size={20} color="var(--admin-brand)" /> Studio Information
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div>
-                <label style={labelStyle}>Business Name</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.business_name} 
-                  onChange={e => setSettings({...settings, business_name: e.target.value})} 
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Contact Number</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.contact_number} 
-                  onChange={e => setSettings({...settings, contact_number: e.target.value})} 
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Email Address</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.email_address} 
-                  onChange={e => setSettings({...settings, email_address: e.target.value})} 
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Studio Address</label>
-                <textarea 
-                  style={{ ...inputStyle, minHeight: '80px', resize: 'none' }} 
-                  value={settings.business_address} 
-                  onChange={e => setSettings({...settings, business_address: e.target.value})} 
-                />
-              </div>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))', gap: isMobile ? '1rem' : '2rem', alignItems: 'start' }}>
+        
+        {/* Business Settings Container */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <MapPin size={20} color="var(--admin-brand)" />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>Studio Configuration</h2>
           </div>
-
+          
           {/* Operating Hours */}
-          <div className="setting-card" style={sectionStyle}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
-              <Clock size={20} color="var(--admin-brand)" /> Operating Hours
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ borderBottom: '1px solid var(--admin-border)', paddingBottom: '2rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', opacity: 0.8 }}>
+              <Clock size={16} color="var(--admin-brand)" />
+              <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>Operating Hours</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '1rem' : '1.5rem' }}>
               <div>
                 <label style={labelStyle}>Opening Time</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.opening_hour} 
-                  onChange={e => setSettings({...settings, opening_hour: e.target.value})} 
-                />
+                <input type="time" style={inputStyle} value={settings.opening_hour} onChange={e => setSettings({...settings, opening_hour: e.target.value})} />
               </div>
               <div>
                 <label style={labelStyle}>Closing Time</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.closing_hour} 
-                  onChange={e => setSettings({...settings, closing_hour: e.target.value})} 
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--admin-card)', padding: '0.5rem', borderRadius: '1rem', border: '1px solid var(--admin-border)', width: 'fit-content' }}>
-                 <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>Active Window:</p>
-                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--admin-text-primary)', fontWeight: '800' }}>{settings.opening_hour} – {settings.closing_hour}</p>
+                <input type="time" style={inputStyle} value={settings.closing_hour} onChange={e => setSettings({...settings, closing_hour: e.target.value})} />
               </div>
             </div>
           </div>
 
-          {/* Payment Settings */}
-          <div className="setting-card" style={sectionStyle}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
-              <CreditCard size={20} color="var(--admin-brand)" /> Payment Gateways
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div>
-                <label style={labelStyle}>GCash Number</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.gcash_number} 
-                  onChange={e => setSettings({...settings, gcash_number: e.target.value})} 
-                />
+          {/* Payment Gateways */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', opacity: 0.8 }}>
+              <CreditCard size={16} color="var(--admin-brand)" />
+              <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment Gateways</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '1rem' : '1.5rem' }}>
+                <div>
+                  <label style={labelStyle}>GCash Number</label>
+                  <input style={inputStyle} value={settings.gcash_number} onChange={e => setSettings({...settings, gcash_number: e.target.value})} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Account Name</label>
+                  <input style={inputStyle} value={settings.gcash_name} onChange={e => setSettings({...settings, gcash_name: e.target.value})} />
+                </div>
               </div>
-              <div>
-                <label style={labelStyle}>Account Holder Name</label>
-                <input 
-                  style={inputStyle} 
-                  value={settings.gcash_name} 
-                  onChange={e => setSettings({...settings, gcash_name: e.target.value})} 
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>GCash QR Code</label>
+
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                gap: '1.5rem', 
+                padding: '2rem', 
+                background: 'var(--admin-bg)', 
+                borderRadius: '1rem', 
+                border: '2px dashed var(--admin-border)',
+                textAlign: 'center'
+              }}>
                 <div style={{ 
-                  border: '2px dashed var(--admin-border)', 
+                  width: '160px', 
+                  height: '160px', 
+                  background: '#fff', 
                   borderRadius: '1rem', 
-                  padding: '1.5rem', 
-                  textAlign: 'center',
-                  background: 'var(--admin-bg)'
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  overflow: 'hidden',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                  border: '1px solid var(--admin-border)'
                 }}>
-                  <div style={{ 
-                    width: '120px', 
-                    height: '120px', 
-                    background: 'var(--admin-card)', 
-                    borderRadius: '0.75rem', 
-                    margin: '0 auto 1rem auto', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    overflow: 'hidden',
-                    border: '1px solid var(--admin-border)' 
-                  }}>
-                    {settings.gcash_qr_url ? (
-                      <img src={settings.gcash_qr_url} alt="QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>NO QR SET</span>
-                    )}
-                  </div>
-                  <input 
-                    type="file" 
-                    id="qr-upload" 
-                    hidden 
-                    accept="image/*" 
-                    onChange={handleQRUpload} 
-                  />
+                  {settings.gcash_qr_url ? (
+                    <img src={settings.gcash_qr_url} alt="QR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                      <Upload size={32} color="var(--admin-text-secondary)" opacity={0.3} />
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>NO QR SET</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ width: '100%' }}>
+                  <input type="file" id="qr-upload" hidden accept="image/*" onChange={handleQRUpload} />
                   <button 
-                    onClick={() => document.getElementById('qr-upload').click()}
+                    onClick={() => document.getElementById('qr-upload').click()} 
                     style={{ 
+                      width: '100%',
+                      padding: '0.85rem', 
                       background: 'var(--admin-card)', 
                       border: '1px solid var(--admin-border)', 
-                      color: 'var(--admin-text-primary)', 
-                      padding: '0.6rem 1.25rem', 
-                      borderRadius: '0.6rem', 
+                      borderRadius: '0.75rem', 
                       fontSize: '0.8rem', 
-                      fontWeight: '800', 
+                      fontWeight: '900', 
+                      color: 'var(--admin-text-primary)',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.6rem',
-                      margin: '0 auto'
+                      justifyContent: 'center',
+                      gap: '0.75rem',
+                      transition: '0.2s'
                     }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--admin-brand)'; e.currentTarget.style.background = 'var(--admin-bg)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--admin-border)'; e.currentTarget.style.background = 'var(--admin-card)'; }}
                   >
-                    <Upload size={14} /> Replace QR
+                    <Upload size={18} color="var(--admin-brand)" /> UPLOAD NEW QR CODE
                   </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+
+        {/* System Appearance Container */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <Sparkles size={20} color="var(--admin-brand)" />
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0 }}>System Appearance</h2>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '600', lineHeight: '1.6' }}>
+            Personalize your workspace. Choose how the Speedway Studio interface appears on your current device.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '0.5rem' }}>
+            {['system', 'light', 'dark'].map(t => (
+              <button
+                key={t}
+                onClick={() => toggleTheme(t)}
+                style={{
+                  padding: '1.25rem',
+                  background: theme === t ? 'var(--admin-brand)' : 'var(--admin-bg)',
+                  color: theme === t ? '#fff' : 'var(--admin-text-primary)',
+                  border: theme === t ? 'none' : '1px solid var(--admin-border)',
+                  borderRadius: '0.85rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                {t}
+                {theme === t && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
         <button 
@@ -318,12 +302,12 @@ const AdminSettings = () => {
           disabled={loading}
           style={{ 
             background: 'var(--admin-brand)', 
-            color: '#FFFFFF', 
+            color: '#fff', 
             border: 'none', 
             padding: '1rem 2.5rem', 
             borderRadius: '0.75rem', 
-            fontWeight: '800', 
-            fontSize: '0.95rem', 
+            fontWeight: '900', 
+            fontSize: '0.9rem', 
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -331,22 +315,12 @@ const AdminSettings = () => {
             boxShadow: '0 4px 15px rgba(220, 38, 38, 0.2)'
           }}
         >
-          {loading ? 'Saving...' : <><Save size={18} /> Save Changes</>}
+          {loading ? 'Saving...' : <><Save size={18} /> SAVE CHANGES</>}
         </button>
       </div>
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .setting-card {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .setting-card:hover {
-          border-color: var(--admin-brand) !important;
-          transform: translateY(-2px);
-        }
-        button, input, select, textarea {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
       `}</style>
     </div>
   );

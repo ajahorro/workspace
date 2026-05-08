@@ -78,7 +78,7 @@ const AdminLayout = () => {
     { name: 'Staff Management', path: '/admin/staff', icon: Users },
     { name: 'Users', path: '/admin/users', icon: User },
     { name: 'Notifications', path: '/admin/notifications', icon: Bell },
-    { name: 'Profile', path: '/admin/profile', icon: User },
+
   ];
 
   const bottomLinks = [
@@ -134,7 +134,7 @@ const AdminLayout = () => {
       {/* Mobile Overlay */}
       <div style={overlayStyle} onClick={() => setIsSidebarOpen(false)} />
 
-      <aside style={sidebarStyle}>
+      <aside className="no-print" style={sidebarStyle}>
         <div style={{ 
           marginTop: '-10px', // Pull it up to remove the gap
           padding: '0', 
@@ -219,8 +219,8 @@ const AdminLayout = () => {
         </div>
       </aside>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1, maxWidth: '100%', marginLeft: isMobile ? 0 : '280px' }}>
-        <header style={{
+      <div className="admin-main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1, maxWidth: '100%', marginLeft: isMobile ? 0 : '280px' }}>
+        <header className="no-print" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',

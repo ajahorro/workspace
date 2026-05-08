@@ -4,7 +4,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const PageHeader = ({ title, subtitle, badge, onRefresh, children, showBack, onBack }) => {
   const [isRotating, setIsRotating] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery('(max-width: 1024px)');
 
   const handleRefresh = () => {
     setIsRotating(true);

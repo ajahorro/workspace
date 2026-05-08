@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          await fetchProfile(session.user.id, session.user.email);
+          await fetchProfile(session.user);
           
           // Sync OneSignal ID
           /* 
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
       
       if (sessionUser) {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          fetchProfile(sessionUser.id, sessionUser.email);
+          fetchProfile(sessionUser);
         }
       } else {
         setProfile(null);
@@ -72,7 +72,12 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId, userEmail) => {
+  const fetchProfile = async (currentUser) => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+    const userEmail = currentUser.email;
+    const fullName = currentUser.user_metadata?.full_name || 'New User';
+
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
       
@@ -80,12 +85,25 @@ export const AuthProvider = ({ children }) => {
         setProfile(data);
         localStorage.setItem('speedway_profile', JSON.stringify(data));
       } else if (!error) {
-        // Handle new user
-        const { data: newProfile } = await supabase.from('profiles').insert([{ 
-          id: userId, 
-          role: 'CUSTOMER',
-          email: userEmail 
-        }]).select().maybeSingle();
+        // Handle new user or missing profile (Trigger should handle this, but safety fallback)
+        const { data: newProfile, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert(
+            [{ 
+              id: userId, 
+              role: 'CUSTOMER', 
+              email: userEmail,
+              full_name: fullName
+            }],
+            { onConflict: 'id', ignoreDuplicates: true }
+          )
+          .select()
+          .maybeSingle();
+
+        if (upsertError) {
+          console.error('Profile upsert failed:', upsertError.message, upsertError.details);
+        }
+
         if (newProfile) {
           setProfile(newProfile);
           localStorage.setItem('speedway_profile', JSON.stringify(newProfile));

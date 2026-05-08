@@ -227,13 +227,13 @@ const AdminStaffManagement = () => {
 
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', 
-        gap: '1.5rem',
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(350px, 400px) 1fr', 
+        gap: isMobile ? '1rem' : '1.5rem',
         alignItems: 'start'
       }}>
         
         {/* Left: Registration Form */}
-        <div style={adminCardStyle}>
+        <div style={{ ...adminCardStyle, position: isMobile ? 'static' : 'sticky', top: '100px', padding: isMobile ? '1rem' : '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
             <div style={{ padding: '0.5rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', color: 'var(--admin-brand)' }}>
               <UserPlus size={20} />
@@ -353,7 +353,7 @@ const AdminStaffManagement = () => {
         </div>
 
         {/* Right: Team List */}
-        <div style={{ ...adminCardStyle, position: 'relative', top: '0' }}>
+        <div style={{ ...adminCardStyle, position: 'relative', top: '0', padding: isMobile ? '1rem' : '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ padding: '0.5rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', color: 'var(--admin-brand)' }}>

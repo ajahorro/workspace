@@ -1,603 +1,525 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Tesseract from 'tesseract.js';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History, User } from 'lucide-react';
+import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History, User, CheckCircle2, Wrench, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BookingAuditTrail from '../../components/BookingAuditTrail';
 import BookingChat from '../../components/BookingChat';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import PageHeader from '../../components/PageHeader';
+import { formatCurrency } from '../../utils/formatters';
 
 const BookingDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [booking, setBooking] = useState(null);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reuploading, setReuploading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrError, setOcrError] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelPolicy, setCancelPolicy] = useState(null);
-  const [refund, setRefund] = useState(null);
-  const [newChatMsg, setNewChatMsg] = useState('');
-  const [sendingMsg, setSendingMsg] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1024px)');
+  
+  const vehicleRefs = useRef({});
 
   useEffect(() => {
     if (user) {
       fetchBooking();
-      fetchBusinessSettings();
-      fetchRefund();
-
-      // Real-time listener for this specific booking
-      const channel = supabase
-        .channel(`booking-update-${id}`)
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'bookings_v2', 
-          filter: `id=eq.${id}` 
-        }, () => {
-          fetchBooking();
-          fetchRefund();
-        })
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'payments_v2', 
-          filter: `booking_id=eq.${id}` 
-        }, () => {
-          fetchBooking();
-        })
+      const channel = supabase.channel(`booking-live-cust-${id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, () => fetchBooking())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_vehicles', filter: `booking_id=eq.${id}` }, () => fetchBooking())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `booking_id=eq.${id}` }, () => fetchBooking())
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      return () => { supabase.removeChannel(channel); };
     }
   }, [id, user]);
 
-  const fetchBusinessSettings = async () => {
-    const { data } = await supabase.from('business_settings').select('*').maybeSingle();
-    if (data) setCancelPolicy(data);
-  };
-
-  const fetchRefund = async () => {
-    const { data } = await supabase
-      .from('refunds')
-      .select('*')
-      .eq('booking_id', id)
-      .maybeSingle();
-    if (data) setRefund(data);
-  };
+  useEffect(() => {
+    // Handle Scroll Anchors (e.g. from notifications ?vehicle=ID)
+    const params = new URLSearchParams(location.search);
+    const vehicleId = params.get('vehicle');
+    if (vehicleId && vehicleRefs.current[vehicleId]) {
+      setTimeout(() => {
+        vehicleRefs.current[vehicleId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        vehicleRefs.current[vehicleId].style.border = '2px solid var(--admin-brand)';
+        vehicleRefs.current[vehicleId].style.boxShadow = '0 0 20px rgba(169, 27, 24, 0.2)';
+      }, 500);
+    }
+  }, [vehicles, location.search]);
 
   const fetchBooking = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
     try {
+      console.log('🔄 Syncing Booking Details for ID:', id);
+      
       const { data, error } = await supabase
-        .from('bookings_v2')
+        .from('bookings')
         .select(`
           *,
-          booking_services_v2 (
-            price_at_booking,
-            services_v2 (
-              name
-            )
+          vehicles:booking_vehicles(*, 
+            services:booking_vehicle_services(*)
           ),
-          payments_v2 (*),
-          assigned_staff:profiles!staff_id(full_name)
+          payments:payments(*)
         `)
         .eq('id', id)
         .eq('customer_id', user.id)
         .maybeSingle();
 
       if (error) throw error;
-      setBooking(data);
-    } catch (err) {
-      console.error('Error fetching booking:', err);
-      toast.error('Failed to load booking details.');
-    } finally {
-      setLoading(false);
+      if (data) {
+        console.log('📦 Raw Booking Data:', data);
+
+        // 1. Process Vehicles & Services with robust snapshot logic
+        const processedVehicles = (data.vehicles || []).map(v => {
+          const snapshotSubtotal = (v.services || []).reduce((sum, s) => {
+            // Robust fallback: price_snapshot -> service.price (if joined) -> 0
+            const price = Number(s.price_snapshot || s.price || 0);
+            return sum + price;
+          }, 0);
+
+          return {
+            ...v,
+            subtotal: Number(v.subtotal) > 0 ? Number(v.subtotal) : snapshotSubtotal
+          };
+        });
+        
+        // 2. Calculate Grand Total
+        const calculatedTotal = processedVehicles.reduce((sum, v) => sum + v.subtotal, 0);
+        
+        // 3. Process Payments & Receipt URLs
+        const processedPayments = (data.payments || []).map(p => {
+          let url = p.receipt_url;
+          // If it's a relative path, convert to Public URL
+          if (url && !url.startsWith('http')) {
+            const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(url);
+            url = publicUrl;
+          }
+          return { ...p, receipt_url: url };
+        });
+
+        const finalBooking = {
+          ...data,
+          total_amount: Number(data.total_amount) > 0 ? Number(data.total_amount) : calculatedTotal,
+          payments: processedPayments
+        };
+
+        console.log('✅ Processed Booking:', finalBooking);
+        setBooking(finalBooking);
+        setVehicles(processedVehicles);
+      }
+    } catch (err) { 
+      console.error('❌ Fetch Error:', err);
+      toast.error('Data pipeline error. Check console.'); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
   const handleOCR = async (file) => {
     if (!file) return;
     setReuploading(true);
-    setOcrError(null);
-    setOcrProgress(0);
-
     try {
-      // 1. Upload to Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('receipts')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
+      await supabase.storage.from('receipts').upload(fileName, file);
       const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(fileName);
+      
+      const { data: { text } } = await Tesseract.recognize(file, 'eng', { logger: m => { if (m.status === 'recognizing text') setOcrProgress(Math.round(m.progress * 100)); } });
 
-      // 2. OCR scan — use simple API (worker API crashes with DataCloneError)
-      let text = '';
-      try {
-        const result = await Tesseract.recognize(file, 'eng', {
-          logger: m => { if (m.status === 'recognizing text') setOcrProgress(Math.round(m.progress * 100)); }
-        });
-        text = result.data.text || '';
-      } catch (ocrErr) {
-        console.warn('OCR scan failed, proceeding without text:', ocrErr);
-        text = '';
-      }
+      const verifiedPaid = (booking.payments || []).filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0);
+      const balanceDue = Math.max(0, (booking.total_amount || 0) - verifiedPaid);
 
-      const textUpper = text.toUpperCase();
-      const isGCash = textUpper.includes('GCASH') || textUpper.includes('REF NO') || textUpper.includes('SUCCESS');
-
-      if (!isGCash) {
-        setOcrError("Warning: This doesn't look like a standard GCash receipt, but it has been submitted for admin review.");
-      }
-
-      // Calculate total paid so far
-      const totalPaid = (booking.payments_v2 || [])
-        .filter(p => p.status === 'PAID')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // 3. Record Payment — Direct INSERT, no RPC
-      const { error: payErr } = await supabase
-        .from('payments_v2')
-        .insert({
-          booking_id: id,
-          amount: booking.total_price - totalPaid,
-          method: 'GCASH',
-          status: 'FOR_VERIFICATION',
-          receipt_url: publicUrl,
-          ocr_text: text || '',
-          receipt_attempt: 1
-        });
-
-      if (payErr) {
-        console.error('Payment insert failed:', payErr);
-        throw payErr;
-      }
-
-      toast.success('Receipt uploaded! Awaiting verification.');
+      const { error } = await supabase.from('payments').insert({
+        booking_id: id, 
+        amount: balanceDue, 
+        method: 'GCASH', 
+        status: 'FOR_VERIFICATION', 
+        receipt_url: publicUrl, 
+        ocr_text: text || '', 
+        receipt_attempt: (booking.payments?.length || 0) + 1
+      });
+      if (error) throw error;
+      toast.success('Receipt queued for verification.');
       fetchBooking();
-    } catch (err) {
-      console.error('OCR/Upload Error:', err);
-      setOcrError(err.message || 'Failed to process receipt.');
-    } finally {
-      setReuploading(false);
+    } catch (err) { 
+      console.error('OCR Error:', err);
+      toast.error('Upload failed'); 
+    } finally { 
+      setReuploading(false); 
     }
   };
 
-  const isMobile = useMediaQuery('(max-width: 1024px)');
+  if (loading) return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'var(--admin-bg)' }}>
+      <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--admin-brand)', borderRadius: '50%' }} />
+      <span style={{ fontWeight: '900', letterSpacing: '2px', color: 'var(--admin-text-secondary)' }}>SYNCING FLEET DATA...</span>
+    </div>
+  );
 
-  if (loading) return <div style={{ padding: '2rem' }}>Loading details...</div>;
-  if (!booking) return <div style={{ padding: '2rem' }}>Booking not found.</div>;
+  if (!booking) return <div style={{ padding: '4rem', textAlign: 'center' }}>Booking not found.</div>;
 
-  const getStatusDisplay = (status) => {
-    switch (status) {
-      case 'scheduled': return { label: 'Scheduled', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-      case 'in_progress': return { label: 'In Progress', color: 'var(--admin-brand)', bg: 'rgba(169, 27, 24, 0.1)' };
-      case 'completed': return { label: 'COMPLETED', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
-      case 'cancelled': return { label: 'CANCELLED', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
-      default: return { label: status, color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' };
-    }
+  const tracks = {
+    app: { 
+      scheduled: { label: 'Scheduled', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
+      completed: { label: 'Completed', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+      cancelled: { label: 'Cancelled', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' }
+    }[booking.status] || { label: booking.status, color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' },
+    pay: {
+      unpaid: { label: 'Unpaid', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+      partially_paid: { label: 'Partial', color: 'var(--admin-brand)', bg: 'rgba(169, 27, 24, 0.1)' },
+      paid: { label: 'Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
+    }[booking.payment_status] || { label: 'Settling', color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' }
   };
 
-  const getServiceStatusDisplay = (status, bookingStatus) => {
-    if (bookingStatus === 'cancelled') return { label: 'CANCELLED', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
-    switch (status) {
-      case 'NOT_STARTED': return { label: 'NOT STARTED', color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' };
-      case 'IN_PROGRESS': return { label: 'IN PROGRESS', color: 'var(--admin-brand)', bg: 'rgba(169, 27, 24, 0.1)' };
-      case 'FINISHED': return { label: 'FINISHED', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
-      default: return { label: status || 'PENDING', color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' };
-    }
-  };
+  const verifiedPaid = (booking.payments || [])
+    .filter(p => p.status === 'PAID')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const balanceDue = Math.max(0, (booking.total_amount || 0) - verifiedPaid);
 
-  const getPaymentStatusDisplay = (status, bookingStatus, paidAmount = 0) => {
-    // Fix #11: Show REFUND REQUIRED when booking is cancelled but customer had paid
-    if (bookingStatus === 'cancelled') {
-      if (paidAmount > 0) return { label: 'REFUND REQUIRED', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-      return { label: 'CANCELLED (UNPAID)', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
-    }
-    switch (status) {
-      case 'UNPAID': return { label: 'UNPAID', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-      case 'VERIFYING': return { label: 'VERIFYING', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-      case 'PARTIAL': return { label: 'PARTIAL', color: 'var(--admin-brand)', bg: 'rgba(169, 27, 24, 0.1)' };
-      case 'PAID': return { label: 'PAID', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
-      default: return { label: status || 'UNKNOWN', color: 'var(--admin-text-secondary)', bg: 'var(--admin-bg)' };
-    }
-  };
+  // 1. Progress Steps Logic
+  const steps = [
+    { id: 'submitted', label: 'Submitted', icon: <FileText size={14} />, color: '#3b82f6' },
+    { id: 'confirmed', label: 'Confirmed', icon: <CheckCircle2 size={14} />, color: '#10b981' },
+    { id: 'queued', label: 'In Queue', icon: <Clock size={14} />, color: '#f59e0b' },
+    { id: 'in_progress', label: 'In Progress', icon: <Wrench size={14} />, color: '#a855f7' },
+    { id: 'completed', label: 'Completed', icon: <Check size={14} />, color: '#10b981' }
+  ];
 
-  const status = getStatusDisplay(booking.status);
-  const serviceStatus = getServiceStatusDisplay(booking.service_status, booking.status);
-  
-  const payments = booking.payments_v2 || [];
-  const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + Number(p.amount), 0);
-  const isVerifying = payments.some(p => p.status === 'FOR_VERIFICATION');
-  const derivedPaymentStatus = totalPaid >= booking.total_price ? 'PAID' : (isVerifying ? 'VERIFYING' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID'));
-  const paymentStatus = getPaymentStatusDisplay(derivedPaymentStatus, booking.status, totalPaid);
+  const getCurrentStep = () => {
+    if (booking.status === 'completed') return 4;
+    if (vehicles.some(v => v.status === 'in_progress')) return 3;
+    if (vehicles.some(v => v.status === 'queued')) return 2;
+    if (booking.status === 'scheduled') return 1;
+    return 0;
+  };
+  const currentStepIndex = getCurrentStep();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: isMobile ? '5rem' : '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '5rem' }}>
       <PageHeader 
-        showBack
-        onBack={() => navigate(-1)}
-        badge="BOOKING RECORD"
-        title="Details"
-        subtitle={`Summary for #${booking.id.slice(0, 8).toUpperCase()}`}
-        onRefresh={() => fetchBooking()}
+        showBack 
+        onBack={() => navigate(-1)} 
+        badge={`ID: ${id.slice(0, 8).toUpperCase()}`} 
+        title="FLEET STATUS" 
+        subtitle="Live unit-level tracking for your detailing appointment." 
+        onRefresh={fetchBooking}
       >
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
-          <span style={{ padding: '0.45rem 1rem', background: status.bg, color: status.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', border: `1px solid ${status.color}33` }}>
-            <span style={{ opacity: 0.7, fontWeight: '700' }}>BOOKING:</span>
-            <Clock size={12} /> {status.label.toUpperCase()}
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+          <span style={{ padding: '0.45rem 1rem', background: tracks.app.bg, color: tracks.app.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '900', border: '1px solid currentColor', letterSpacing: '0.5px' }}>
+            STATUS: {tracks.app.label.toUpperCase()}
           </span>
-          <span style={{ padding: '0.45rem 1rem', background: serviceStatus.bg, color: serviceStatus.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '800', border: `1px solid ${serviceStatus.color}33`, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ opacity: 0.7, fontWeight: '700' }}>SERVICE:</span>
-            {serviceStatus.label.toUpperCase()}
-          </span>
-          <span style={{ padding: '0.45rem 1rem', background: paymentStatus.bg, color: paymentStatus.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '800', border: `1px solid ${paymentStatus.color}33`, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ opacity: 0.7, fontWeight: '700' }}>PAYMENT:</span>
-            {paymentStatus.label.toUpperCase()}
+          <span style={{ padding: '0.45rem 1rem', background: tracks.pay.bg, color: tracks.pay.color, borderRadius: '5rem', fontSize: '0.7rem', fontWeight: '900', border: '1px solid currentColor', letterSpacing: '0.5px' }}>
+            PAYMENT: {tracks.pay.label.toUpperCase()}
           </span>
         </div>
       </PageHeader>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1.5rem' }}>
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          {/* Service Details */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <Box size={18} color="var(--admin-brand)" /> Service Details
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {booking.booking_services_v2?.map((bs, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--admin-border)' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 0.15rem 0', fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{bs.services_v2?.name}</h3>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '800' }}>SERVICE</span>
-                  </div>
-                  <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--admin-text-primary)' }}>₱{(bs.price_at_booking || 0).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem' }}>
-              <span style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--admin-text-secondary)' }}>Total Amount</span>
-              <span style={{ fontWeight: '900', fontSize: '1.4rem', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</span>
-            </div>
-          </div>
+      {/* 2. PROGRESS TIMELINE */}
+      <div style={{ 
+        background: 'var(--admin-card)', 
+        borderRadius: '1.25rem', 
+        border: '1px solid var(--admin-border)', 
+        padding: '1.5rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+          <div style={{ 
+            position: 'absolute', top: '22px', left: '10%', right: '10%', height: '2px', 
+            background: 'rgba(255,255,255,0.05)', zIndex: 0 
+          }} />
+          <div style={{ 
+            position: 'absolute', top: '22px', left: '10%', 
+            width: `${(currentStepIndex / (steps.length - 1)) * 80}%`, 
+            height: '2px', background: 'var(--admin-brand)', zIndex: 0,
+            transition: 'width 1s ease-in-out'
+          }} />
 
-          {/* Vehicle Information */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <Car size={18} color="var(--admin-brand)" /> Vehicle Info
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--admin-text-secondary)', marginBottom: '0.2rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TYPE</span>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>{booking.vehicle_type || 'Sedan'}</span>
-              </div>
-              <div>
-                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--admin-text-secondary)', marginBottom: '0.2rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase' }}>PLATE</span>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>{booking.plate_number}</span>
-              </div>
-              <div>
-                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--admin-text-secondary)', marginBottom: '0.2rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase' }}>BRAND</span>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>{booking.vehicle_brand || '---'}</span>
-              </div>
-              <div>
-                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--admin-text-secondary)', marginBottom: '0.2rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase' }}>MODEL</span>
-                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>{booking.vehicle_model || '---'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Booking Notes */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: isMobile ? '1.25rem' : '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <FileText size={18} color="var(--admin-brand)" /> Notes
-            </h2>
-            <div style={{ background: 'var(--admin-bg)', padding: '1rem', borderRadius: '0.75rem', color: booking.customer_notes ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontSize: '0.85rem', lineHeight: '1.5', border: '1px solid var(--admin-border)' }}>
-              {booking.customer_notes || 'No special instructions provided for this booking.'}
-            </div>
-          </div>
-
-          {/* Activity Trail (Desktop Only or simplified on mobile) */}
-          {booking.assigned_staff && (
-            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-                <User size={24} />
-              </div>
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', opacity: 0.6 }}>Assigned Technician</div>
-                <div style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>{booking.assigned_staff.full_name}</div>
-              </div>
-            </div>
-          )}
-
-          {!isMobile && (
-            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.5rem', boxShadow: 'var(--admin-card-shadow)', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: '800', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--admin-text-primary)' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(var(--admin-brand-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <History size={18} color="var(--admin-brand)" />
-                </div>
-                Activity Trail
-              </h2>
-              <div style={{ padding: '0.5rem 0' }}>
-                <BookingAuditTrail bookingId={id} />
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Right Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          {/* Appointment */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <Calendar size={18} color="var(--admin-brand)" /> Appointment
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-               <span style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--admin-brand)', lineHeight: '1' }}>
-                 {new Date(booking.start_datetime).getDate()}
-               </span>
-               <div>
-                 <span style={{ display: 'block', fontWeight: '800', fontSize: '0.9rem', color: 'var(--admin-text-primary)' }}>
-                   {new Date(booking.start_datetime).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                 </span>
-                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--admin-text-secondary)', marginTop: '0.2rem', fontWeight: '700' }}>
-                   <Clock size={12} /> {new Date(booking.start_datetime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                 </span>
-               </div>
-            </div>
-          </div>
-
-          {/* Payment Section - Replicated from Admin for Professional Look */}
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: '700', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-              <Banknote size={18} color="var(--admin-brand)" /> Payment & Balance
-            </h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>Grand Total</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>₱{(booking.total_price || 0).toLocaleString()}</span>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--admin-border)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-secondary)' }}>Total Paid</span>
-                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#10b981' }}>₱{totalPaid.toLocaleString()}</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>Balance Due</span>
+          {steps.map((step, idx) => {
+            const isActive = idx <= currentStepIndex;
+            const isCurrent = idx === currentStepIndex;
+            return (
+              <div key={step.id} style={{ 
+                display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                gap: '0.75rem', zIndex: 1, position: 'relative', width: '20%' 
+              }}>
                 <div style={{ 
-                  padding: '0.3rem 0.6rem', 
-                  borderRadius: '0.4rem', 
-                  background: (booking.total_price - totalPaid) === 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                  color: (booking.total_price - totalPaid) === 0 ? '#10b981' : '#f59e0b',
-                  fontSize: '0.75rem',
-                  fontWeight: '900'
+                  width: '44px', height: '44px', borderRadius: '50%', 
+                  background: isActive ? 'var(--admin-brand)' : 'var(--admin-bg)',
+                  border: `2px solid ${isActive ? 'var(--admin-brand)' : 'var(--admin-border)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: isActive ? '#fff' : 'var(--admin-text-secondary)',
+                  boxShadow: isCurrent ? '0 0 20px rgba(169, 27, 24, 0.4)' : 'none',
+                  transition: 'all 0.3s ease'
                 }}>
-                  ₱{(booking.total_price - totalPaid).toLocaleString()}
+                  {step.icon}
                 </div>
+                <span style={{ 
+                  fontSize: '0.65rem', fontWeight: '950', 
+                  color: isActive ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)',
+                  textTransform: 'uppercase', letterSpacing: '0.5px'
+                }}>
+                  {step.label}
+                </span>
               </div>
-            </div>
+            );
+          })}
+        </div>
+      </div>
 
-            {/* Mini Transaction History */}
-            {payments.length > 0 && (
-              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px dashed var(--admin-border)' }}>
-                <div style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.75rem', opacity: 0.5 }}>Transaction History</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {payments.map((p, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem', border: '1px solid var(--admin-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{p.method}</span>
-                        <span style={{ fontSize: '0.6rem', fontWeight: '900', color: p.status === 'PAID' ? '#10b981' : '#f59e0b', background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '0.2rem' }}>{p.status}</span>
-                      </div>
-                      <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{Number(p.amount).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1.2fr', gap: '1.5rem' }}>
+        {/* LEFT COLUMN: FLEET UNITS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '0.9rem', fontWeight: '950', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--admin-text-secondary)' }}>
+              Fleet Units ({vehicles.length})
+            </h2>
+            {booking.status === 'scheduled' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b', fontSize: '0.7rem', fontWeight: '800' }}>
+                <Clock size={14} /> ESTIMATED START: {new Date(booking.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             )}
           </div>
           
-          {/* Receipt Upload Section */}
-          {booking.payment_method === 'GCASH' && derivedPaymentStatus !== 'PAID' && (
-            <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', boxShadow: 'var(--admin-card-shadow)', marginTop: '1rem' }}>
-               <h2 style={{ fontSize: '0.85rem', fontWeight: '800', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-brand)' }}>
-                <Check size={16} /> Upload Receipt
-              </h2>
-              <p style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', marginBottom: '1rem', opacity: 0.7 }}>
-                Send the balance (₱{(booking.total_price - totalPaid).toLocaleString()}) to GCash and upload the receipt here.
-              </p>
+          {vehicles.map((v) => (
+            <div key={v.id} ref={el => vehicleRefs.current[v.id] = el} style={{ 
+              background: 'var(--admin-card)', 
+              borderRadius: '1.25rem', 
+              border: '1px solid var(--admin-border)', 
+              overflow: 'hidden', 
+              transition: 'all 0.5s ease' 
+            }}>
+              <div style={{ 
+                padding: '1.25rem 1.5rem', 
+                background: 'rgba(255,255,255,0.02)', 
+                borderBottom: '1px solid var(--admin-border)', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center' 
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.75rem' }}>
+                    <Car size={18} color="var(--admin-brand)" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '900', fontSize: '1rem' }}>{v.make} {v.model}</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--admin-text-secondary)', textTransform: 'uppercase' }}>{v.plate_number}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ 
+                    fontSize: '0.65rem', fontWeight: '950', padding: '0.35rem 0.75rem', borderRadius: '5rem',
+                    background: v.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : (v.status === 'in_progress' ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255,255,255,0.05)'),
+                    color: v.status === 'completed' ? '#10b981' : (v.status === 'in_progress' ? '#a855f7' : 'var(--admin-text-secondary)'),
+                    border: '1px solid currentColor'
+                  }}>
+                    {v.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div style={{ padding: '1.5rem' }}>
+                 <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                   {v.services?.map(s => (
+                     <span key={s.id} style={{ 
+                       padding: '0.4rem 0.8rem', 
+                       background: 'rgba(255,255,255,0.03)', 
+                       border: '1px solid var(--admin-border)', 
+                       borderRadius: '0.6rem', 
+                       fontSize: '0.75rem', 
+                       fontWeight: '600',
+                       color: 'var(--admin-text-primary)',
+                       letterSpacing: '0.2px',
+                       display: 'flex',
+                       alignItems: 'center',
+                       gap: '0.4rem',
+                       transition: 'all 0.2s ease',
+                       cursor: 'default'
+                     }}
+                     onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = 'var(--admin-brand)'; }}
+                     onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'var(--admin-border)'; }}
+                     >
+                       <Wrench size={10} /> {s.service_name_snapshot}
+                     </span>
+                   ))}
+                 </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--admin-border)', paddingTop: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)', letterSpacing: '0.5px' }}>UNIT SUBTOTAL</span>
+                    <span style={{ fontWeight: '950', fontSize: '1.1rem' }}>{formatCurrency(v.subtotal)}</span>
+                 </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* RIGHT COLUMN: FINANCIALS, PROOF & HISTORY */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+           {/* FINANCIAL SUMMARY */}
+           <div style={{ 
+             background: 'var(--admin-card)', 
+             borderRadius: '1.25rem', 
+             border: '1px solid var(--admin-border)', 
+             padding: '1.5rem',
+             position: 'relative',
+             overflow: 'hidden'
+           }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: '100px', height: '100px', background: 'var(--admin-brand)', opacity: 0.03, filter: 'blur(50px)', borderRadius: '50%' }} />
               
-              <div style={{ background: 'var(--admin-bg)', padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)', marginBottom: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.6rem', fontWeight: '800', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem' }}>GCASH NUMBER</div>
-                <div style={{ fontWeight: '900', color: 'var(--admin-text-primary)', fontSize: '1.1rem' }}>0917 123 4567</div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', opacity: 0.5 }}>Account: RENEW DETAILING</div>
+              <h3 style={{ fontSize: '0.8rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Banknote size={16} /> Financial Summary
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                   <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700' }}>Subtotal ({vehicles.length} Units)</span>
+                   <span style={{ fontWeight: '800' }}>{formatCurrency(booking.total_amount)}</span>
+                 </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                   <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700' }}>Payment Method</span>
+                   <span style={{ fontWeight: '900', color: 'var(--admin-brand)' }}>{booking.payment_method}</span>
+                 </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                   <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700' }}>Verified Paid</span>
+                   <span style={{ fontWeight: '900', color: '#10b981' }}>{formatCurrency(verifiedPaid)}</span>
+                 </div>
+                 
+                 <div style={{ 
+                   display: 'flex', justifyContent: 'space-between', 
+                   borderTop: '2px solid var(--admin-border)', paddingTop: '1rem', 
+                   marginTop: '0.5rem' 
+                 }}>
+                   <span style={{ fontWeight: '950', fontSize: '0.9rem' }}>BALANCE DUE</span>
+                   <span style={{ fontWeight: '950', fontSize: '1.25rem', color: balanceDue > 0 ? '#f59e0b' : '#10b981' }}>
+                     {formatCurrency(balanceDue)}
+                   </span>
+                 </div>
               </div>
 
-              <label style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                padding: '1.5rem', 
-                border: '2px dashed var(--admin-border)', 
-                borderRadius: '0.75rem', 
-                cursor: reuploading ? 'not-allowed' : 'pointer',
-                background: 'rgba(255,255,255,0.02)'
-              }}>
-                <Banknote size={24} color={reuploading ? 'var(--admin-text-secondary)' : 'var(--admin-brand)'} />
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
-                  {reuploading ? `Processing... ${ocrProgress}%` : 'SELECT RECEIPT IMAGE'}
-                </span>
-                <input type="file" hidden accept="image/*" disabled={reuploading} onChange={(e) => handleOCR(e.target.files[0])} />
-              </label>
+              {balanceDue > 0 && booking.payment_method === 'GCASH' && (
+                <label style={{ 
+                  marginTop: '1.5rem', display: 'flex', flexDirection: 'column', 
+                  alignItems: 'center', gap: '0.5rem', padding: '1.25rem', 
+                  border: '2px dashed var(--admin-brand)', borderRadius: '1rem', 
+                  cursor: 'pointer', background: 'rgba(169, 27, 24, 0.05)',
+                  transition: 'all 0.3s ease'
+                }}>
+                  <Banknote size={20} color="var(--admin-brand)" />
+                  <span style={{ fontSize: '0.75rem', fontWeight: '950', color: 'var(--admin-brand)', letterSpacing: '0.5px' }}>
+                    {reuploading ? `Scanning... ${ocrProgress}%` : 'RE-UPLOAD RECEIPT'}
+                  </span>
+                  <input type="file" hidden accept="image/*" onChange={e => handleOCR(e.target.files[0])} />
+                </label>
+              )}
+           </div>
+
+           {/* PROOF OF PAYMENT SECTION */}
+           <div style={{ 
+             background: 'var(--admin-card)', 
+             borderRadius: '1.25rem', 
+             border: '1px solid var(--admin-border)', 
+             padding: '1.5rem' 
+           }}>
+              <h3 style={{ fontSize: '0.8rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle2 size={16} /> Proof of Payment
+              </h3>
               
-              {ocrError && (
-                <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '0.4rem', fontSize: '0.65rem', color: '#ef4444', fontWeight: '700', textAlign: 'center' }}>
-                  {ocrError}
+              {booking.payments && booking.payments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {booking.payments.filter(p => p.receipt_url).map((payment, pIdx) => (
+                    <div key={payment.id} style={{ 
+                      background: 'rgba(255,255,255,0.02)', 
+                      borderRadius: '1rem', 
+                      border: '1px solid var(--admin-border)',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ position: 'relative', height: '140px', background: '#000' }}>
+                        <img 
+                          src={payment.receipt_url} 
+                          alt="Receipt" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8, cursor: 'pointer' }}
+                          onClick={() => window.open(payment.receipt_url, '_blank')}
+                        />
+                        <div style={{ 
+                          position: 'absolute', bottom: '0.75rem', right: '0.75rem', 
+                          padding: '0.25rem 0.5rem', background: 'rgba(0,0,0,0.6)', 
+                          borderRadius: '0.4rem', fontSize: '0.6rem', fontWeight: '900'
+                        }}>
+                          CLICK TO EXPAND
+                        </div>
+                      </div>
+                      <div style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--admin-text-primary)' }}>
+                            RECEIPT #{pIdx + 1}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.6rem', fontWeight: '950', padding: '0.2rem 0.5rem', borderRadius: '4px',
+                            background: payment.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                            color: payment.status === 'PAID' ? '#10b981' : '#f59e0b',
+                            border: '1px solid currentColor'
+                          }}>
+                            {payment.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                          <span style={{ color: 'var(--admin-text-secondary)', fontWeight: '700' }}>OCR Value</span>
+                          <span style={{ fontWeight: '900' }}>{formatCurrency(payment.amount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(255,255,255,0.01)', borderRadius: '1rem', border: '1px dashed var(--admin-border)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>No receipts uploaded.</div>
                 </div>
               )}
-            </div>
-          )}
+           </div>
 
-          {/* Cancel Button - Only visible if not ongoing/finished */}
-          {(booking.status === 'scheduled' && booking.service_status !== 'IN_PROGRESS' && booking.service_status !== 'FINISHED') && (
-            <button 
-              onClick={() => setShowCancelModal(true)}
-              style={{ 
-                width: '100%', 
-                padding: '1rem', 
-                background: 'rgba(239, 68, 68, 0.04)', 
-                border: '1px solid rgba(239, 68, 68, 0.2)', 
-                color: 'var(--danger-color)', 
-                borderRadius: '0.75rem', 
-                cursor: 'pointer', 
-                fontWeight: '800', 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                gap: '0.5rem',
-                transition: 'all 0.2s ease',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                fontSize: '0.75rem'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)'}
-            >
-              <AlertTriangle size={16} /> Cancel Booking
-            </button>
-          )}
+           {/* COMMUNICATION PANEL */}
+           <div style={{ 
+             background: 'var(--admin-card)', 
+             borderRadius: '1.25rem', 
+             border: '1px solid var(--admin-border)', 
+             padding: '1.5rem' 
+           }}>
+              <h3 style={{ fontSize: '0.8rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MessageCircle size={16} /> Communication
+              </h3>
+              <div style={{ height: '350px', overflow: 'hidden', borderRadius: '0.75rem' }}>
+                <BookingChat bookingId={id} />
+              </div>
+           </div>
 
-          {/* Unified Booking Chat */}
-          <div style={{ marginTop: '1rem' }}>
-            <BookingChat bookingId={id} />
-          </div>
+           {/* ACTIVITY HISTORY (Moved to Right Column) */}
+           <div style={{ 
+             background: 'var(--admin-card)', 
+             borderRadius: '1.25rem', 
+             border: '1px solid var(--admin-border)', 
+             padding: '1.5rem' 
+           }}>
+              <h3 style={{ fontSize: '0.8rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={16} /> Activity History
+              </h3>
+              <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                <BookingAuditTrail bookingId={id} />
+              </div>
+           </div>
         </div>
       </div>
 
-      {/* Audit Trail on Mobile at the bottom */}
-      {isMobile && (
-        <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1.25rem', marginTop: '1.5rem', boxShadow: 'var(--admin-card-shadow)' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: '800', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--admin-text-secondary)', opacity: 0.6 }}>
-            <History size={18} color="var(--admin-brand)" /> Activity Trail
-          </h2>
-          <BookingAuditTrail bookingId={id} />
-        </div>
-      )}
-
-      {/* Cancellation Confirmation Modal */}
-      {showCancelModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(10px)', padding: isMobile ? '1rem' : '0' }}>
-          <div style={{ background: 'var(--admin-card)', padding: isMobile ? '1.5rem' : '2rem', borderRadius: '1.25rem', border: '1px solid rgba(239, 68, 68, 0.2)', maxWidth: '400px', width: '100%', textAlign: 'center', boxShadow: 'var(--admin-card-shadow)' }}>
-            <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
-            <h2 style={{ fontSize: '1.25rem', margin: '0 0 0.75rem 0', fontWeight: '900', color: 'var(--admin-text-primary)' }}>Confirm?</h2>
-            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.6', opacity: 0.6 }}>
-              {booking.payment_method === 'GCASH' 
-                ? 'Your refund will be the total payment minus any material costs already purchased. We will coordinate this in the Refund Hub.'
-                : 'Are you sure you want to cancel this booking? This will release your time slot.'}
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button 
-                onClick={() => setShowCancelModal(false)}
-                style={{ flex: 1, padding: '0.85rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '700' }}
-              >
-                Back
-              </button>
-              <button 
-                onClick={async () => {
-                  if (booking.service_status === 'IN_PROGRESS' || booking.service_status === 'FINISHED') {
-                    toast.error("Cannot cancel ongoing service.");
-                    setShowCancelModal(false);
-                    return;
-                  }
-
-                  setIsCancelling(true);
-                  try {
-                    const { data, error } = await supabase
-                      .from('bookings_v2')
-                      .update({ status: 'cancelled' })
-                      .eq('id', id)
-                      .eq('customer_id', user.id)
-                      .select();
-                    
-                    if (error) throw error;
-                    if (!data || data.length === 0) throw new Error('Update failed.');
-                // Notify customer via DB
-      if (booking.customer_id) {
-        await supabase.from('notifications').insert({
-          user_id: booking.customer_id,
-          title: `Booking CANCELLED 🔄`,
-          message: `Your booking status has been updated to cancelled.`,
-          type: 'error',
-          action_url: `/my-bookings/${id}`
-        });
-      }
-               // Fix: Notify Admins & Staff of cancellation
-                    try {
-                      const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
-                      const recipients = [...(admins || [])];
-                      if (booking?.staff_id) recipients.push({ id: booking.staff_id });
-
-                      if (recipients.length > 0) {
-                        await supabase.from('notifications').insert(
-                          recipients.map(r => ({
-                            user_id: r.id,
-                            title: 'Booking Cancelled by Customer 🛑',
-                            message: `The booking for ${new Date(booking.start_datetime).toLocaleDateString()} has been cancelled.`,
-                            type: 'error',
-                            action_url: booking?.staff_id === r.id ? '/staff/tasks' : `/admin/bookings/${id}`
-                          }))
-                        );
-                      }
-                    } catch (notifErr) { console.error(notifErr); }
-
-                    supabase.functions.invoke('send-email', {
-                      body: { type: 'booking_cancelled', to: user.email, data: { date: new Date(booking.start_datetime).toLocaleDateString() } }
-                    }).catch(() => {});
-
-                    setBooking({ ...booking, status: 'cancelled' });
-                    toast.success('Booking cancelled successfully', {
-                      style: { background: 'var(--bg-panel)', color: 'var(--panel-text)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(12px)' }
-                    });
-                    setShowCancelModal(false);
-                  } catch (err) {
-                    toast.error('Failed to cancel.', {
-                      style: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', backdropFilter: 'blur(12px)' }
-                    });
-                  } finally {
-                    setIsCancelling(false);
-                  }
-                }}
-                disabled={isCancelling}
-                style={{ flex: 1, padding: '0.85rem', background: '#ef4444', border: 'none', color: '#FFFFFF', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '800' }}
-              >
-                {isCancelling ? '...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        label:hover { transform: translateY(-2px); background: rgba(169, 27, 24, 0.08) !important; }
+        button:hover { background: rgba(255,255,255,0.1) !important; }
+      `}</style>
     </div>
   );
 };
+
+
 
 export default BookingDetails;

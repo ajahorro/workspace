@@ -20,7 +20,7 @@ const LandingPage = () => {
     const fetchServices = async () => {
       try {
         const { data, error } = await supabase
-          .from('services_v2')
+          .from('services')
           .select('*')
           .eq('is_active', true);
         if (!error && data) setServices(data);

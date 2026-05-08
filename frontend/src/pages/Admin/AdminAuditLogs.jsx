@@ -126,45 +126,52 @@ const AdminAuditLogs = () => {
       />
 
       {/* Search and Filters */}
-      <div style={{ background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', padding: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
+      <div style={{ 
+            background: 'var(--admin-input-bg)', 
+            borderRadius: '1rem', 
+            border: '1px solid var(--admin-border)', 
+            padding: '0.75rem', 
+            display: 'flex', 
+            gap: '0.75rem', 
+            flexWrap: 'wrap', 
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' 
+          }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: isMobile ? '100%' : '300px' }}>
           <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
           <input 
             type="text" 
-            placeholder="Search by action, performer, or details..."
+            placeholder="Search action or performer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ 
               width: '100%', 
-              padding: '0.875rem 1rem 0.875rem 3rem', 
+              padding: '0.75rem 1rem 0.75rem 2.75rem', 
               background: 'var(--admin-input-bg)', 
               border: '1px solid var(--admin-input-border)', 
               borderRadius: '0.75rem', 
               color: 'var(--admin-text-primary)', 
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               outline: 'none',
-              fontWeight: '600',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+              fontWeight: '600'
             }}
           />
         </div>
-        <div style={{ position: 'relative', minWidth: '180px' }}>
+        <div style={{ position: 'relative', width: isMobile ? '100%' : '180px' }}>
           <Filter size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
           <select 
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             style={{ 
               width: '100%', 
-              padding: '0.875rem 1rem 0.875rem 3rem', 
+              padding: '0.75rem 1rem 0.75rem 2.75rem', 
               background: 'var(--admin-input-bg)', 
               border: '1px solid var(--admin-input-border)', 
               borderRadius: '0.75rem', 
               color: 'var(--admin-text-primary)', 
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               outline: 'none',
               appearance: 'none',
-              fontWeight: '600',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+              fontWeight: '600'
             }}
           >
             <option value="All">All Entities</option>
@@ -193,76 +200,71 @@ const AdminAuditLogs = () => {
                   background: 'var(--admin-card)', 
                   border: '1px solid var(--admin-border)', 
                   borderRadius: '1rem', 
-                  padding: '1.25rem 1.5rem',
+                  padding: isMobile ? '1rem' : '1.25rem 1.5rem',
                   display: 'flex',
-                  justifyContent: 'space-between',
+                  gap: isMobile ? '0.75rem' : '1.5rem',
                   alignItems: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
                   color: 'var(--admin-text-primary)'
-                }}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 <div style={{ 
-                  width: '44px', 
-                  height: '44px', 
+                  width: isMobile ? '36px' : '44px', 
+                  height: isMobile ? '36px' : '44px', 
                   background: 'var(--admin-bg)', 
-                  borderRadius: '0.75rem', 
+                  borderRadius: '0.6rem', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
                   color: 'var(--admin-brand)',
-                  border: '1px solid var(--admin-border)'
+                  border: '1px solid var(--admin-border)',
+                  flexShrink: 0
                 }}>
                   {getEventIcon(log.event_type)}
                 </div>
 
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                     <span style={{ 
-                      padding: '0.25rem 0.6rem', 
+                      padding: '0.2rem 0.5rem', 
                       background: badge.bg, 
                       color: badge.text, 
                       borderRadius: '0.4rem', 
-                      fontSize: '0.65rem', 
+                      fontSize: '0.6rem', 
                       fontWeight: '800',
-                      textTransform: 'uppercase'
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap'
                     }}>
                       {log.event_type.replace(/_/g, ' ')}
                     </span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
-                      by <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{log.profiles?.full_name || 'System'}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      by <span style={{ fontWeight: '800', color: 'var(--admin-text-primary)' }}>{log.profiles?.full_name?.split(' ')[0] || 'System'}</span>
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: 'var(--admin-text-primary)' }}>
+                  <p style={{ margin: 0, fontSize: isMobile ? '0.85rem' : '0.95rem', fontWeight: '500', color: 'var(--admin-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {formatDescription(log)}
                   </p>
                 </div>
 
-                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '1.5rem', flexShrink: 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>
                       {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <ChevronRight size={18} color="var(--admin-text-secondary)" style={{ opacity: 0.5 }} />
+                  {!isMobile && <ChevronRight size={18} color="var(--admin-text-secondary)" style={{ opacity: 0.5 }} />}
                 </div>
               </div>
             );
           })
         ) : (
-          <div style={{ textAlign: 'center', padding: '5rem', background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', color: 'var(--admin-text-secondary)' }}>
-            <Database size={48} strokeWidth={1} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-            <p style={{ fontWeight: '700' }}>No audit logs found matching your criteria</p>
+          <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'var(--admin-card)', borderRadius: '1rem', border: '1px solid var(--admin-border)', color: 'var(--admin-text-secondary)' }}>
+            <Database size={40} strokeWidth={1} style={{ marginBottom: '1rem', opacity: 0.3 }} />
+            <p style={{ fontWeight: '700', fontSize: '0.9rem' }}>No logs found</p>
           </div>
         )}
       </div>

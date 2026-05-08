@@ -142,12 +142,12 @@ serve(async (req) => {
       if (!userId) throw new Error('userId is required')
       
       const { data, error } = await supabaseAdmin
-        .from('bookings_v2')
+        .from('bookings')
         .select(`
           *,
-          booking_services:booking_services_v2(
-            price_at_booking,
-            service:services_v2(name)
+          booking_services:booking_vehicle_services(
+            service_price_snapshot,
+            service_name_snapshot
           )
         `)
         .eq('customer_id', userId)
@@ -158,7 +158,7 @@ serve(async (req) => {
       // Flatten services for the frontend
       const formattedData = (data || []).map(b => ({
         ...b,
-        services: b.booking_services.map(bs => ({ service_name: bs.service?.name || 'Unknown Service' }))
+        services: b.booking_services.map(bs => ({ service_name: bs.service_name_snapshot || 'Unknown Service' }))
       }))
 
       return new Response(JSON.stringify({ success: true, data: formattedData }), {
@@ -173,28 +173,20 @@ serve(async (req) => {
       for (const b of bookings) {
         // Insert booking
         const { data: booking, error: bErr } = await supabaseAdmin
-          .from('bookings_v2')
+          .from('bookings')
           .insert({
             customer_id: userId,
             status: b.status,
             start_datetime: b.start_datetime,
             end_datetime: b.end_datetime,
-            total_price: b.total_price
+            total_amount: b.total_amount
           })
           .select()
           .single()
 
         if (bErr) throw bErr
 
-        // Link services (assuming we link the first available service for testing)
-        const { data: services } = await supabaseAdmin.from('services_v2').select('id').limit(1)
-        if (services && services.length > 0) {
-          await supabaseAdmin.from('booking_services_v2').insert({
-            booking_id: booking.id,
-            service_id: services[0].id,
-            price_at_booking: b.total_price
-          })
-        }
+        // In production we'd link to booking_vehicles but for seeding history we just insert the booking
         results.push(booking)
       }
       return new Response(JSON.stringify({ success: true, results }), {

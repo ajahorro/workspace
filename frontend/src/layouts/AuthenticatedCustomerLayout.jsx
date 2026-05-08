@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import AiChatbot from '../components/AiChatbot';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -278,7 +277,6 @@ const AuthenticatedCustomerLayout = () => {
         <main style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', overflowY: 'auto' }}>
           <Outlet />
         </main>
-        {/* <AiChatbot /> */}
       </div>
     </div>
   );

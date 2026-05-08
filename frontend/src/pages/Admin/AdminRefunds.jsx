@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { 
   AlertTriangle, CreditCard, ArrowRight, Clock, 
   CheckCircle, XCircle, Search, Filter, MessageCircle,
-  Car, Calendar, User, Eye, Download
+  Car, Calendar, User, Eye, Download, Box
 } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import LoadingState from '../../components/LoadingState';
@@ -17,398 +17,220 @@ const AdminRefunds = () => {
   const [refundItems, setRefundItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState('PENDING'); // PENDING, PROCESSED, ALL
+  const [filter, setFilter] = useState('PENDING'); 
   const [selectedItem, setSelectedItem] = useState(null);
-  // Fix #9: Replace window.confirm() with modal state
   const [confirmRefundItem, setConfirmRefundItem] = useState(null);
 
   useEffect(() => {
     fetchRefundData();
-
-    const channel = supabase
-      .channel('admin-refunds-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings_v2' }, () => fetchRefundData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments_v2' }, () => fetchRefundData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds_v2' }, () => fetchRefundData())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const channel = supabase.channel('admin-refunds-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchRefundData()).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchRefundData = async () => {
     setLoading(true);
     try {
-      // Fetch cancelled bookings that had payments
       const { data: cancelledBookings, error: bookingError } = await supabase
-        .from('bookings_v2')
-        .select('*')
+        .from('bookings')
+        .select('*, vehicles:booking_vehicles(*), payments:payments(*)')
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
       if (bookingError) throw bookingError;
-      if (!cancelledBookings || cancelledBookings.length === 0) {
-        setRefundItems([]);
-        setLoading(false);
-        return;
+
+      const customerIds = [...new Set(cancelledBookings.map(b => b.customer_id).filter(Boolean))];
+      let profileMap = {};
+      if (customerIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('id, full_name, phone_number, email').in('id', customerIds);
+        if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
       }
 
-      const bookingIds = cancelledBookings.map(b => b.id);
-      const customerIds = [...new Set(cancelledBookings.map(b => b.customer_id).filter(Boolean))];
-
-      // Get payments for these bookings
-      const { data: payments } = await supabase
-        .from('payments_v2')
-        .select('*')
-        .in('booking_id', bookingIds)
-        .gt('amount', 0);
-
-      // Get existing refunds
-      const { data: refunds } = await supabase
-        .from('refunds_v2')
-        .select('*')
-        .in('booking_id', bookingIds);
-
-      // Get customer profiles
-      const { data: profiles } = customerIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name, phone_number').in('id', customerIds)
-        : { data: [] };
-
-      const profileMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-      const paymentsByBooking = (payments || []).reduce((acc, p) => {
-        if (!acc[p.booking_id]) acc[p.booking_id] = [];
-        acc[p.booking_id].push(p);
-        return acc;
-      }, {});
-      const refundsByBooking = (refunds || []).reduce((acc, r) => {
-        if (!acc[r.booking_id]) acc[r.booking_id] = [];
-        acc[r.booking_id].push(r);
-        return acc;
-      }, {});
-
-      // Build combined items — only bookings that had actual payments
       const items = cancelledBookings
-        .filter(b => paymentsByBooking[b.id]?.some(p => p.status === 'PAID' || p.status === 'FOR_VERIFICATION'))
+        .filter(b => (b.payments || []).some(p => p.status === 'PAID'))
         .map(b => ({
           ...b,
-          customer: profileMap[b.customer_id] || { full_name: 'Unknown' },
-          payments: paymentsByBooking[b.id] || [],
-          refunds: refundsByBooking[b.id] || [],
-          totalPaid: (paymentsByBooking[b.id] || [])
-            .filter(p => p.status === 'PAID')
-            .reduce((sum, p) => sum + Number(p.amount), 0),
-          hasRefund: (refundsByBooking[b.id] || []).length > 0,
-          refundStatus: (refundsByBooking[b.id] || [])[0]?.status || null
+          customer: profileMap[b.customer_id] || { full_name: 'Walk-in' },
+          totalPaid: (b.payments || []).filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0),
+          refundStatus: (b.payments || []).some(p => p.status === 'REFUNDED') ? 'PROCESSED' : 'PENDING'
         }));
 
       setRefundItems(items);
-    } catch (error) {
-      console.error('Error fetching refunds:', error);
-      toast.error('Failed to load refund requests');
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { toast.error('Failed to load refunds'); } finally { setLoading(false); }
   };
 
   const handleProcessRefund = async (item) => {
-    // Fix #9: No longer uses window.confirm() — modal triggers this directly
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const paidPayment = item.payments.find(p => p.status === 'PAID');
+      if (!paidPayment) return toast.error('No paid payment found');
 
-      if (!paidPayment) {
-        toast.error('No paid payment found for this booking');
-        return;
-      }
-
-      if (item.hasRefund) {
-        // Update existing refund
-        const refund = item.refunds[0];
-        const { error } = await supabase
-          .from('refunds_v2')
-          .update({ status: 'PROCESSED', processed_at: new Date().toISOString() })
-          .eq('id', refund.id);
-        if (error) throw error;
-      } else {
-        // Create new refund record (required FK to payment)
-        const { error } = await supabase
-          .from('refunds_v2')
-          .insert({
-            booking_id: item.id,
-            payment_id: paidPayment.id,
-            amount: item.totalPaid,
-            reason: 'Booking cancelled — customer refund',
-            status: 'PROCESSED',
-            created_by: user.id,
-            processed_at: new Date().toISOString()
-          });
-        if (error) throw error;
-      }
-
-      // Update payment status to REFUNDED
-      await supabase
-        .from('payments_v2')
-        .update({ status: 'REFUNDED' })
-        .eq('id', paidPayment.id);
+      const { error } = await supabase.from('payments').update({ status: 'REFUNDED' }).eq('id', paidPayment.id);
+      if (error) throw error;
 
       toast.success('Refund marked as PROCESSED');
       fetchRefundData();
       setSelectedItem(null);
-    } catch (err) {
-      toast.error(`Failed to process refund: ${err.message}`);
-    }
+    } catch (err) { toast.error('Refund update failed'); }
   };
 
   const filteredItems = refundItems.filter(b => {
-    const matchesSearch =
-      b.customer?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.plate_number?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (filter === 'PENDING') return matchesSearch && b.refundStatus !== 'PROCESSED';
+    const matchesSearch = b.customer?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (filter === 'PENDING') return matchesSearch && b.refundStatus === 'PENDING';
     if (filter === 'PROCESSED') return matchesSearch && b.refundStatus === 'PROCESSED';
     return matchesSearch;
   });
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PROCESSED': return '#10b981';
-      case 'FOR_VERIFICATION': return 'var(--admin-brand)';
-      default: return '#ef4444';
-    }
-  };
-
-  if (loading) return <LoadingState message="Loading refund requests..." />;
-
-  const panelStyle = {
-    background: 'var(--admin-card)',
-    border: '1px solid var(--admin-border)',
-    borderRadius: '1rem',
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-    color: 'var(--admin-text-primary)',
-    transition: 'all 0.3s ease'
-  };
+  const cardStyle = { background: 'var(--admin-card)', border: '1px solid var(--admin-border)', borderRadius: '1rem', overflow: 'hidden', boxShadow: 'var(--admin-card-shadow)', color: 'var(--admin-text-primary)' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <PageHeader
-        showBack
-        onBack={() => navigate(-1)}
-        badge="FINANCIAL RECONCILIATION"
-        title="REFUND HUB"
-        subtitle="Manage money-back requests for cancelled bookings."
-        onRefresh={fetchRefundData}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
+      <PageHeader showBack onBack={() => navigate(-1)} badge="FINANCIAL" title="REFUND HUB" subtitle="Manage money-back requests for cancelled fleet bookings." onRefresh={fetchRefundData} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '2rem' }}>
-
-        {/* Left Side: List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ ...panelStyle, padding: '1rem', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1, width: '100%' }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-secondary)' }} />
-              <input
-                type="text"
-                placeholder="Search customer, ID or plate..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 3rem', background: 'var(--admin-input-bg)', border: '1px solid var(--admin-input-border)', borderRadius: '0.75rem', color: 'var(--admin-text-primary)', fontSize: '0.95rem', outline: 'none' }}
-              />
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? '1rem' : '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ 
+            background: 'var(--admin-input-bg)', 
+            borderRadius: '1rem', 
+            border: '1px solid var(--admin-border)', 
+            padding: '0.75rem', 
+            display: 'flex', 
+            gap: '0.75rem', 
+            alignItems: 'center', 
+            flexWrap: 'wrap',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: isMobile ? '100%' : '200px', position: 'relative' }}>
+              <Search size={18} color="var(--admin-text-secondary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} />
+              <input type="text" placeholder="Search customer or ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ flex: 1, background: 'var(--admin-bg)', border: '1px solid var(--admin-input-border)', borderRadius: '0.75rem', padding: '0.75rem 1rem 0.75rem 2.75rem', color: 'var(--admin-text-primary)', outline: 'none', fontWeight: '800', width: '100%' }} />
             </div>
-            <div style={{ display: 'flex', gap: '0.25rem', background: '#F1F5F9', padding: '0.25rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
+            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--admin-card)', padding: '0.25rem', borderRadius: '0.75rem', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'center' : 'flex-start', border: '1px solid var(--admin-border)' }}>
               {['PENDING', 'PROCESSED', 'ALL'].map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  style={{
-                    padding: '0.5rem 1rem', borderRadius: '0.6rem', border: 'none',
-                    background: filter === f ? 'var(--admin-brand)' : 'transparent',
-                    color: filter === f ? '#FFFFFF' : 'var(--admin-text-secondary)',
-                    fontSize: '0.7rem', fontWeight: '800', cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {f}
-                </button>
+                <button key={f} onClick={() => setFilter(f)} style={{ flex: isMobile ? 1 : 'none', padding: '0.5rem 0.75rem', borderRadius: '0.6rem', border: 'none', background: filter === f ? 'var(--admin-brand)' : 'transparent', color: filter === f ? 'white' : 'var(--admin-text-secondary)', fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer' }}>{f}</button>
               ))}
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {filteredItems.length === 0 ? (
-              <div style={{ ...panelStyle, padding: '4rem', textAlign: 'center', color: 'var(--card-text)', opacity: 0.2, fontWeight: '700' }}>
-                No refund records found.
+          {filteredItems.map(b => (
+            <div key={b.id} onClick={() => setSelectedItem(b)} style={{ ...cardStyle, padding: isMobile ? '1rem' : '1.25rem', cursor: 'pointer', border: selectedItem?.id === b.id ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                 <div style={{ minWidth: 0, flex: 1 }}>
+                   <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>#{b.id.slice(0, 8).toUpperCase()}</div>
+                   <h3 style={{ margin: 0, fontWeight: '900', fontSize: isMobile ? '0.9rem' : '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.customer?.full_name}</h3>
+                 </div>
+                 <span style={{ flexShrink: 0, fontSize: '0.6rem', padding: '0.2rem 0.5rem', borderRadius: '2rem', background: b.refundStatus === 'PROCESSED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: b.refundStatus === 'PROCESSED' ? '#10b981' : '#ef4444', fontWeight: '900', height: 'fit-content' }}>{b.refundStatus}</span>
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--admin-border)', paddingTop: '0.75rem' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--admin-text-secondary)', fontSize: '0.75rem', fontWeight: '700' }}>
+                   <Car size={14} /> {b.vehicles?.length || 0} Units
+                 </div>
+                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                   <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>REFUND AMOUNT</div>
+                   <div style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: '950', color: 'var(--admin-text-primary)' }}>₱{b.totalPaid.toLocaleString()}</div>
+                 </div>
+               </div>
+            </div>
+          ))}
+        </div>
+
+        {!isMobile && (
+          <div style={{ position: 'sticky', top: '1.5rem', height: 'fit-content' }}>
+            {selectedItem ? (
+              <div style={{ ...cardStyle, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, fontWeight: '950', fontSize: '0.9rem', color: 'var(--admin-brand)' }}>REFUND DETAILS</h3>
+                  <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><XCircle size={20} /></button>
+                </div>
+                
+                <div style={{ background: 'var(--admin-bg)', padding: '0.85rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
+                  <div style={{ fontWeight: '900', fontSize: '0.9rem' }}>{selectedItem.customer?.full_name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{selectedItem.customer?.email}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{selectedItem.customer?.phone_number}</div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Fleet Units</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {selectedItem.vehicles?.map(v => (
+                      <div key={v.id} style={{ fontSize: '0.75rem', fontWeight: '800', background: 'var(--admin-bg)', padding: '0.5rem', borderRadius: '0.5rem' }}>{v.make} {v.model} ({v.plate_number})</div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>Refundable Total</span>
+                    <span style={{ fontWeight: '950', fontSize: '1.5rem' }}>₱{selectedItem.totalPaid.toLocaleString()}</span>
+                  </div>
+                  {selectedItem.refundStatus === 'PENDING' && (
+                    <button onClick={() => setConfirmRefundItem(selectedItem)} style={{ width: '100%', padding: '0.85rem', background: 'var(--admin-brand)', color: 'white', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.85rem' }}>MARK AS REFUNDED</button>
+                  )}
+                </div>
               </div>
             ) : (
-              filteredItems.map(b => {
-                const isSelected = selectedItem?.id === b.id;
-                const displayStatus = b.refundStatus || 'PENDING';
-                return (
-                  <div
-                    key={b.id}
-                    onClick={() => setSelectedItem(b)}
-                    style={{
-                      ...panelStyle,
-                      padding: '1.25rem',
-                      cursor: 'pointer',
-                      border: isSelected ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)',
-                      transform: isSelected ? 'scale(1.01)' : 'scale(1)',
-                      boxShadow: isSelected ? '0 8px 24px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '0.25rem' }}>#{b.id.slice(0, 8).toUpperCase()}</div>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>{b.customer?.full_name}</h3>
-                      </div>
-                      <div className="badge" style={{
-                        padding: '0.4rem 0.8rem', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: '800',
-                        textTransform: 'uppercase', color: getStatusColor(displayStatus)
-                      }}>
-                        {displayStatus}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid var(--admin-border)', paddingTop: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '700', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Vehicle Details</div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{b.vehicle_brand} {b.vehicle_model}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{b.plate_number}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '700', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Amount to Refund</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--admin-text-primary)' }}>₱{b.totalPaid.toLocaleString()}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>VIA {b.payments[0]?.method || 'N/A'}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              <div style={{ ...cardStyle, padding: '5rem 2rem', textAlign: 'center', borderStyle: 'dashed', border: '2px dashed var(--admin-border)', background: 'transparent' }}>
+                <Eye size={40} style={{ opacity: 0.2, marginBottom: '0.75rem' }} />
+                <p style={{ fontWeight: '900', color: 'var(--admin-text-secondary)', fontSize: '0.8rem' }}>SELECT A REQUEST</p>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Right Side: Details View */}
-        <div style={{ position: 'sticky', top: '2rem', height: 'fit-content' }}>
-          {selectedItem ? (
-            <div style={{ ...panelStyle, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontWeight: '800', letterSpacing: '1px', fontSize: '0.9rem', textTransform: 'uppercase', color: 'var(--admin-text-secondary)' }}>REFUND SUMMARY</h3>
-                <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><XCircle size={20}/></button>
-              </div>
-
-              <div style={{ background: 'var(--admin-bg)', padding: '1.25rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--admin-border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--admin-card)', border: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <User size={20} color="var(--admin-brand)" />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--admin-text-primary)' }}>{selectedItem.customer?.full_name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>{selectedItem.customer?.email}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>{selectedItem.customer?.phone_number}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Vehicle Details</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <span style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{selectedItem.vehicle_brand} {selectedItem.vehicle_model}</span>
-                  <span style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{selectedItem.plate_number}</span>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment History</div>
-                {selectedItem.payments.filter(p => p.amount > 0).map(p => (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--admin-bg)', borderRadius: '0.5rem', marginBottom: '0.5rem', border: '1px solid var(--admin-border)' }}>
-                    <div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>{p.method} • {p.reference_number || 'N/A'}</div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)' }}>{new Date(p.created_at).toLocaleDateString()}</div>
-                    </div>
-                    <div style={{ fontWeight: '800', color: getStatusColor(p.status) }}>₱{Number(p.amount).toLocaleString()} • {p.status}</div>
-                  </div>
-                ))}
-              </div>
-
-              {selectedItem.payments.find(p => p.receipt_url) && (
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    Customer Receipt
-                    <a href={selectedItem.payments.find(p => p.receipt_url).receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--admin-brand)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: '700' }}>
-                      OPEN <Download size={12} />
-                    </a>
-                  </div>
-                  <div
-                    onClick={() => window.open(selectedItem.payments.find(p => p.receipt_url).receipt_url, '_blank')}
-                    style={{ width: '100%', height: '200px', background: '#F8FAFC', borderRadius: '0.75rem', overflow: 'hidden', cursor: 'pointer', border: '1px solid var(--admin-border)' }}
-                  >
-                    <img src={selectedItem.payments.find(p => p.receipt_url).receipt_url} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  </div>
-                </div>
-              )}
-
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-                <button
-                  onClick={() => navigate(`/admin/bookings/${selectedItem.id}`)}
-                  style={{ flex: 1, padding: '0.85rem', background: '#FFFFFF', border: '1px solid var(--admin-input-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.8rem' }}
-                >
-                  <MessageCircle size={18} /> Booking
-                </button>
-                {selectedItem.refundStatus !== 'PROCESSED' && (
-                  <button
-                    onClick={() => setConfirmRefundItem(selectedItem)}
-                    style={{ flex: 1, padding: '0.85rem', background: 'var(--admin-brand)', color: '#FFFFFF', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(153, 27, 27, 0.2)' }}
-                  >
-                    Mark Refunded
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div style={{ ...panelStyle, padding: '5rem 2rem', textAlign: 'center', color: 'var(--admin-text-secondary)', borderStyle: 'dashed', border: '2px dashed var(--admin-border)', background: 'transparent' }}>
-              <Eye size={40} style={{ marginBottom: '1.5rem', opacity: 0.5 }} />
-              <p style={{ fontSize: '0.9rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>Select a request to process</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Fix #9: Confirm Refund Modal — replaces window.confirm() */}
-      {confirmRefundItem && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)', padding: '1.5rem' }}>
-          <div style={{ background: 'var(--admin-card)', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', padding: '2.5rem', width: '100%', maxWidth: '420px', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', color: 'var(--admin-text-primary)' }}>
-            <div style={{ width: '64px', height: '64px', background: 'rgba(16,185,129,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
-              <CheckCircle size={32} color="#10b981" />
+      {isMobile && selectedItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ ...cardStyle, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontWeight: '950', fontSize: '1rem', color: 'var(--admin-brand)' }}>REFUND DETAILS</h3>
+              <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><XCircle size={24} /></button>
             </div>
-            <h2 style={{ margin: '0 0 0.75rem 0', fontWeight: '900', fontSize: '1.35rem' }}>Confirm Refund?</h2>
-            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '2rem', opacity: 0.8 }}>
-              Please ensure you have sent <strong style={{ color: 'var(--admin-text-primary)' }}>₱{confirmRefundItem.totalPaid?.toLocaleString()}</strong> back to the customer via GCash before confirming.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={() => setConfirmRefundItem(null)}
-                style={{ flex: 1, padding: '1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { handleProcessRefund(confirmRefundItem); setConfirmRefundItem(null); }}
-                style={{ flex: 1, padding: '1rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: '800', cursor: 'pointer' }}
-              >
-                Yes, Refunded
-              </button>
+            
+            <div style={{ background: 'var(--admin-bg)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
+              <div style={{ fontWeight: '900', fontSize: '1rem' }}>{selectedItem.customer?.full_name}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{selectedItem.customer?.email}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '600' }}>{selectedItem.customer?.phone_number}</div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.7rem', fontWeight: '900', color: 'var(--admin-text-secondary)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Fleet Units</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {selectedItem.vehicles?.map(v => (
+                  <div key={v.id} style={{ fontSize: '0.85rem', fontWeight: '800', background: 'var(--admin-bg)', padding: '0.5rem', borderRadius: '0.5rem' }}>{v.make} {v.model} ({v.plate_number})</div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--admin-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.25rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--admin-text-secondary)' }}>Refundable Total</span>
+                <span style={{ fontWeight: '950', fontSize: '1.35rem' }}>₱{selectedItem.totalPaid.toLocaleString()}</span>
+              </div>
+              {selectedItem.refundStatus === 'PENDING' && (
+                <button onClick={() => setConfirmRefundItem(selectedItem)} style={{ width: '100%', padding: '1rem', background: 'var(--admin-brand)', color: 'white', border: 'none', borderRadius: '0.75rem', fontWeight: '900', cursor: 'pointer', fontSize: '0.9rem' }}>MARK AS REFUNDED</button>
+              )}
             </div>
           </div>
         </div>
       )}
 
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalSlideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
       `}</style>
+
+      {confirmRefundItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: 'var(--admin-card)', padding: '2.5rem', borderRadius: '1.5rem', border: '1px solid var(--admin-border)', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+            <CheckCircle size={48} color="#10b981" style={{ marginBottom: '1.5rem' }} />
+            <h2 style={{ fontWeight: '950', fontSize: '1.25rem' }}>Confirm Refund?</h2>
+            <p style={{ color: 'var(--admin-text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' }}>Ensure you have sent ₱{confirmRefundItem.totalPaid.toLocaleString()} back to the customer before confirming.</p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => setConfirmRefundItem(null)} style={{ flex: 1, padding: '1rem', background: 'var(--admin-bg)', border: '1px solid var(--admin-border)', color: 'var(--admin-text-primary)', borderRadius: '0.75rem', fontWeight: '800' }}>CANCEL</button>
+              <button onClick={() => { handleProcessRefund(confirmRefundItem); setConfirmRefundItem(null); }} style={{ flex: 1, padding: '1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '0.75rem', fontWeight: '900' }}>YES, REFUNDED</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
