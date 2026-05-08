@@ -190,8 +190,17 @@ const BookingDetails = () => {
 
   const getCurrentStep = () => {
     if (booking.status === 'completed') return 4;
+    
+    // If all units are done but booking isn't marked completed (e.g. pending settlement)
+    const allUnitsDone = vehicles.length > 0 && vehicles.every(v => v.status === 'completed');
+    if (allUnitsDone) return 4;
+
     if (vehicles.some(v => v.status === 'in_progress')) return 3;
-    if (vehicles.some(v => v.status === 'queued')) return 2;
+    if (vehicles.some(v => v.status === 'completed')) return 3; // Partial completion still means in progress
+    
+    // If assigned but not started
+    if (booking.staff_id) return 2;
+    
     if (booking.status === 'scheduled') return 1;
     return 0;
   };

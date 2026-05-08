@@ -145,9 +145,12 @@ serve(async (req) => {
         .from('bookings')
         .select(`
           *,
-          booking_services:booking_vehicle_services(
-            service_price_snapshot,
-            service_name_snapshot
+          vehicles:booking_vehicles(
+            *,
+            services:booking_vehicle_services(
+              price_snapshot,
+              service_name_snapshot
+            )
           )
         `)
         .eq('customer_id', userId)
@@ -158,7 +161,9 @@ serve(async (req) => {
       // Flatten services for the frontend
       const formattedData = (data || []).map(b => ({
         ...b,
-        services: b.booking_services.map(bs => ({ service_name: bs.service_name_snapshot || 'Unknown Service' }))
+        services: (b.vehicles || []).flatMap(v => 
+          (v.services || []).map(s => ({ service_name: s.service_name_snapshot || 'Unknown Service' }))
+        )
       }))
 
       return new Response(JSON.stringify({ success: true, data: formattedData }), {

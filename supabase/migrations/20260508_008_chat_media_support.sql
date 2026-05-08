@@ -1,0 +1,6 @@
+-- 🧱 ADD MEDIA SUPPORT TO BOOKING CHAT
+ALTER TABLE booking_messages ADD COLUMN IF NOT EXISTS media_url TEXT;
+ALTER TABLE booking_messages ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'text';
+ALTER TABLE booking_messages ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE;
+
+-- 🛡️ ENSURE RLS POLICIES COVER NEW COLUMNS (They already do as they are table-level)

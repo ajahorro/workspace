@@ -14,7 +14,7 @@ const AdminPayments = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(location.state?.filter || '');
-  const [filter, setFilter] = useState('PENDING'); 
+  const [filter, setFilter] = useState('PENDING');
   const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
@@ -26,6 +26,7 @@ const AdminPayments = () => {
   const fetchPayments = async () => {
     setLoading(true);
     try {
+      console.log('🔄 Auditing Payment Transactions...');
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
         .select('*, booking:bookings(*, vehicles:booking_vehicles(*))')
@@ -40,12 +41,27 @@ const AdminPayments = () => {
           const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', customerIds);
           if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
         }
-        setPayments(paymentData.filter(p => p.amount > 0).map(p => ({
-          ...p,
-          customer: profileMap[p.booking?.customer_id] || { full_name: 'Walk-in' }
-        })));
+
+        const processed = paymentData.filter(p => p.amount > 0).map(p => {
+          let url = p.receipt_url;
+          if (url && !url.startsWith('http')) {
+            const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(url);
+            url = publicUrl;
+          }
+          return {
+            ...p,
+            receipt_url: url,
+            customer: profileMap[p.booking?.customer_id] || { full_name: 'Walk-in' }
+          };
+        });
+        setPayments(processed);
       }
-    } catch (err) { toast.error('Failed to load transactions'); } finally { setLoading(false); }
+    } catch (err) {
+      console.error('Payment Audit Error:', err);
+      toast.error('Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyPayment = async (payment) => {
@@ -85,14 +101,14 @@ const AdminPayments = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? '1rem' : '2rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ 
-            background: 'var(--admin-input-bg)', 
-            borderRadius: '1rem', 
-            border: '1px solid var(--admin-border)', 
-            padding: '0.75rem', 
-            display: 'flex', 
-            gap: '0.75rem', 
-            alignItems: 'center', 
+          <div style={{
+            background: 'var(--admin-input-bg)',
+            borderRadius: '1rem',
+            border: '1px solid var(--admin-border)',
+            padding: '0.75rem',
+            display: 'flex',
+            gap: '0.75rem',
+            alignItems: 'center',
             flexWrap: 'wrap',
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
           }}>
@@ -109,23 +125,23 @@ const AdminPayments = () => {
 
           {filteredItems.map(p => (
             <div key={p.id} onClick={() => setSelectedItem(p)} style={{ ...cardStyle, padding: isMobile ? '1rem' : '1.25rem', cursor: 'pointer', border: selectedItem?.id === p.id ? '2px solid var(--admin-brand)' : '1px solid var(--admin-border)' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                 <div style={{ minWidth: 0, flex: 1 }}>
-                   <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>#{p.id.slice(0, 8).toUpperCase()}</div>
-                   <h3 style={{ margin: 0, fontWeight: '900', fontSize: isMobile ? '0.9rem' : '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.customer?.full_name}</h3>
-                 </div>
-                 <span style={{ flexShrink: 0, fontSize: '0.6rem', padding: '0.2rem 0.5rem', borderRadius: '2rem', background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: p.status === 'PAID' ? '#10b981' : '#f59e0b', fontWeight: '900', height: 'fit-content' }}>{p.status.replace('_', ' ')}</span>
-               </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--admin-border)', paddingTop: '0.75rem' }}>
-                 <div style={{ minWidth: 0, flex: 1 }}>
-                   <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>METHOD / REF</div>
-                   <div style={{ fontSize: '0.75rem', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.method} • {p.reference_number || 'N/A'}</div>
-                 </div>
-                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                   <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>AMOUNT</div>
-                   <div style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: '950', color: 'var(--admin-text-primary)' }}>₱{p.amount?.toLocaleString()}</div>
-                 </div>
-               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>#{p.id.slice(0, 8).toUpperCase()}</div>
+                  <h3 style={{ margin: 0, fontWeight: '900', fontSize: isMobile ? '0.9rem' : '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.customer?.full_name}</h3>
+                </div>
+                <span style={{ flexShrink: 0, fontSize: '0.6rem', padding: '0.2rem 0.5rem', borderRadius: '2rem', background: p.status === 'PAID' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: p.status === 'PAID' ? '#10b981' : '#f59e0b', fontWeight: '900', height: 'fit-content' }}>{p.status.replace('_', ' ')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--admin-border)', paddingTop: '0.75rem' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>METHOD / REF</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.method} • {p.reference_number || 'N/A'}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--admin-text-secondary)', fontWeight: '700' }}>AMOUNT</div>
+                  <div style={{ fontSize: isMobile ? '1rem' : '1.25rem', fontWeight: '950', color: 'var(--admin-text-primary)' }}>₱{p.amount?.toLocaleString()}</div>
+                </div>
+              </div>
             </div>
           ))}
         </div>

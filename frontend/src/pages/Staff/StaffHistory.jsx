@@ -22,24 +22,55 @@ const StaffHistory = () => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch completed bookings for this staff
+      const { data: bookings, error: bErr } = await supabase
         .from('bookings')
-        .select(`
-          *,
-          customer:profiles!customer_id(full_name, email),
-          vehicles:booking_vehicles(
-            *,
-            services:booking_vehicle_services(*)
-          )
-        `)
+        .select('*')
         .eq('staff_id', user.id)
         .eq('status', 'completed')
         .order('start_datetime', { ascending: false });
 
-      if (error) throw error;
-      if (data) setHistory(data);
+      if (bErr) throw bErr;
+      if (!bookings || bookings.length === 0) {
+        setHistory([]);
+        return;
+      }
+
+      const bookingIds = bookings.map(b => b.id);
+
+      // 2. Fetch profiles
+      const customerIds = [...new Set(bookings.map(b => b.customer_id).filter(Boolean))];
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', customerIds);
+      const profileMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+
+      // 3. Fetch vehicles
+      const { data: vehicles } = await supabase.from('booking_vehicles').select('*').in('booking_id', bookingIds);
+      const vehicleIds = (vehicles || []).map(v => v.id);
+
+      // 4. Fetch services
+      let serviceMap = {};
+      if (vehicleIds.length > 0) {
+        const { data: services } = await supabase.from('booking_vehicle_services').select('*').in('vehicle_id', vehicleIds);
+        serviceMap = (services || []).reduce((acc, s) => {
+          if (!acc[s.vehicle_id]) acc[s.vehicle_id] = [];
+          acc[s.vehicle_id].push(s);
+          return acc;
+        }, {});
+      }
+
+      // Assemble
+      const assembled = bookings.map(b => ({
+        ...b,
+        customer: profileMap[b.customer_id],
+        vehicles: (vehicles || []).filter(v => v.booking_id === b.id).map(v => ({
+          ...v,
+          services: serviceMap[v.id] || []
+        }))
+      }));
+
+      setHistory(assembled);
     } catch (err) {
-      console.error('Error fetching history:', err);
+      console.error('History Fetch Error:', err);
     } finally {
       setLoading(false);
     }

@@ -159,8 +159,10 @@ const BookingChat = ({ bookingId }) => {
           const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
           if (admins) admins.forEach(a => recipients.push(a.id));
         } else {
-          // Staff or Admin sent - Notify Customer
+          // Staff or Admin sent - Notify Customer AND other Admins
           recipients.push(booking.customer_id);
+          const { data: admins } = await supabase.from('profiles').select('id').in('role', ['ADMIN', 'SUPER_ADMIN']);
+          if (admins) admins.forEach(a => recipients.push(a.id));
         }
 
         const uniqueRecipients = [...new Set(recipients)].filter(r => r !== user.id);
@@ -203,9 +205,13 @@ const BookingChat = ({ bookingId }) => {
               <MessageCircle size={32} style={{ color: 'var(--admin-brand)', opacity: 0.5 }} />
             </div>
             <div>
-              <p style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff', marginBottom: '0.5rem' }}>Direct Line to Staff</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: '800', color: '#fff', marginBottom: '0.5rem' }}>
+                {profile?.role === 'CUSTOMER' ? 'Direct Line to Staff' : 'Direct Line to Customer & Admin'}
+              </p>
               <p style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-secondary)', lineHeight: '1.5', maxWidth: '240px' }}>
-                Need to change something or send a photo of your vehicle? Message us here for real-time support.
+                {profile?.role === 'CUSTOMER' 
+                  ? 'Need to change something or send a photo of your vehicle? Message us here for real-time support.'
+                  : 'Document pre-wash damage, send photo proof of work, or coordinate with the customer and management.'}
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
