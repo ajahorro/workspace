@@ -1,0 +1,11 @@
+{
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1",
+    "cors": "^2.8.6",
+    "body-parser": "^2.2.2",
+    "nodemailer": "^8.0.7",
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0"
+  }
+}
