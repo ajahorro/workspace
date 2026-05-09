@@ -5,17 +5,8 @@ const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(() => {
-    try {
-      const saved = localStorage.getItem('speedway_profile');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
-  
-  // Start with loading false if we have a cached profile, true otherwise
-  const [loading, setLoading] = useState(() => {
-    return !localStorage.getItem('speedway_profile');
-  });
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -23,28 +14,8 @@ export const AuthProvider = ({ children }) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          await fetchProfile(session.user);
-          
-          // Sync OneSignal ID
-          /* 
-          try {
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            window.OneSignalDeferred.push(async function(OneSignal) {
-              const pushId = OneSignal.User.PushSubscription.id;
-              if (pushId) {
-                await supabase
-                  .from('profiles')
-                  .update({ onesignal_id: pushId })
-                  .eq('id', session.user.id);
-              }
-            });
-          } catch (err) {
-            console.warn('OneSignal sync failed:', err);
-          }
-          */
+          await fetchAndSyncProfile(session.user);
         } else {
-          setProfile(null);
-          localStorage.removeItem('speedway_profile');
           setLoading(false);
         }
       } catch (err) {
@@ -54,17 +25,14 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const sessionUser = session?.user || null;
       setUser(sessionUser);
       
       if (sessionUser) {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          fetchProfile(sessionUser);
-        }
+        await fetchAndSyncProfile(sessionUser);
       } else {
         setProfile(null);
-        localStorage.removeItem('speedway_profile');
         setLoading(false);
       }
     });
@@ -72,76 +40,37 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (currentUser) => {
-    if (!currentUser) return;
-    const userId = currentUser.id;
-    const userEmail = currentUser.email;
-    const fullName = currentUser.user_metadata?.full_name || 'New User';
-
+  const fetchAndSyncProfile = async (currentUser) => {
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      
-      if (data) {
-        setProfile(data);
-        localStorage.setItem('speedway_profile', JSON.stringify(data));
-      } else if (!error) {
-        // Handle new user or missing profile (Trigger should handle this, but safety fallback)
-        const { data: newProfile, error: upsertError } = await supabase
-          .from('profiles')
-          .upsert(
-            [{ 
-              id: userId, 
-              role: 'CUSTOMER', 
-              email: userEmail,
-              full_name: fullName
-            }],
-            { onConflict: 'id', ignoreDuplicates: true }
-          )
-          .select()
-          .maybeSingle();
-
-        if (upsertError) {
-          console.error('Profile upsert failed:', upsertError.message, upsertError.details);
-        }
-
-        if (newProfile) {
-          setProfile(newProfile);
-          localStorage.setItem('speedway_profile', JSON.stringify(newProfile));
-        }
-      }
-    } catch (err) {
-      console.error('Background profile sync failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signOut = async () => {
-    setProfile(null);
-    setUser(null);
-    localStorage.removeItem('speedway_profile');
-    setLoading(true); // Show loader during exit
-    await supabase.auth.signOut();
-    setLoading(false);
-  };
-
-  const updateProfile = async (updates) => {
-    try {
+      // 1. Try to fetch existing profile
       const { data, error } = await supabase
         .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
-      
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
       if (data) {
         setProfile(data);
-        localStorage.setItem('speedway_profile', JSON.stringify(data));
-        return { data, error: null };
+      } else {
+        // 2. SAFETY: If profile is missing (404 logic), create it now
+        // This fixes the "stuck at loading" error
+        const { data: newProfile, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: currentUser.id,
+            full_name: currentUser.user_metadata?.full_name || 'Fleet Member',
+            email: currentUser.email,
+            role: currentUser.user_metadata?.role || 'CUSTOMER'
+          })
+          .select()
+          .single();
+
+        if (newProfile) setProfile(newProfile);
       }
-      return { data: null, error };
     } catch (err) {
-      return { data: null, error: err };
+      console.error('Profile Sync Error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,8 +78,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{ 
       user, profile, loading, 
       signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-      updateProfile,
-      signOut 
+      signOut: () => supabase.auth.signOut() 
     }}>
       {children}
     </AuthContext.Provider>
