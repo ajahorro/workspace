@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
           setLoading(false);
         }
       } catch (err) {
+        console.error("Init Auth Error:", err);
         setLoading(false);
       }
     };
@@ -32,7 +33,6 @@ export const AuthProvider = ({ children }) => {
       if (sessionUser) {
         await fetchAndSyncProfile(sessionUser);
       } else {
-        // Clean up state if session is lost/signed out
         setProfile(null);
         localStorage.removeItem('speedway_profile');
         setLoading(false);
@@ -43,61 +43,60 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const fetchAndSyncProfile = async (currentUser) => {
+    console.log("[AUTH] Syncing profile for:", currentUser.email);
     try {
-      const { data: pData } = await supabase
+      const { data: pData, error: pError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
-        .maybeSingle();
+        .single();
 
-      if (pData) {
-        if (['ADMIN', 'STAFF', 'SUPER_ADMIN'].includes(pData.role)) {
-          const { data: internalData } = await supabase
-            .from('internal_personnel')
-            .select('*')
-            .eq('id', currentUser.id)
-            .maybeSingle();
-          const merged = { ...pData, ...internalData };
-          setProfile(merged);
-          localStorage.setItem('speedway_profile', JSON.stringify(merged));
-        } else {
-          setProfile(pData);
-          localStorage.setItem('speedway_profile', JSON.stringify(pData));
-        }
+      if (pError) {
+        console.error("[AUTH] Profile Table Error:", pError);
+        throw pError;
+      }
+
+      console.log("[AUTH] Profile Table Role:", pData.role);
+
+      if (['ADMIN', 'STAFF', 'SUPER_ADMIN'].includes(pData.role)) {
+        const { data: internalData } = await supabase
+          .from('internal_personnel')
+          .select('*')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+
+        const merged = { ...pData, ...(internalData || {}) };
+        console.log("[AUTH] Final Admin Profile:", merged);
+        setProfile(merged);
+        localStorage.setItem('speedway_profile', JSON.stringify(merged));
       } else {
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .upsert({
-            id: currentUser.id,
-            full_name: currentUser.user_metadata?.full_name || 'Fleet Member',
-            email: currentUser.email,
-            role: currentUser.user_metadata?.role || 'CUSTOMER'
-          })
-          .select()
-          .single();
-
-        if (newProfile) {
-          setProfile(newProfile);
-          localStorage.setItem('speedway_profile', JSON.stringify(newProfile));
-        }
+        setProfile(pData);
+        localStorage.setItem('speedway_profile', JSON.stringify(pData));
       }
     } catch (err) {
-      console.error('Profile sync failed:', err);
+      console.warn("[AUTH] Using Metadata Fallback for role...");
+      const metadataRole = currentUser.user_metadata?.role || 'CUSTOMER';
+      console.log("[AUTH] Metadata Role found:", metadataRole);
+      
+      const fallbackProfile = {
+        id: currentUser.id,
+        email: currentUser.email,
+        role: metadataRole,
+        full_name: currentUser.user_metadata?.full_name || 'User'
+      };
+      setProfile(fallbackProfile);
     } finally {
       setLoading(false);
     }
   };
 
-  // FIXED SIGN OUT LOGIC
   const signOut = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await supabase.auth.signOut();
     } catch (err) {
       console.error('Signout error:', err.message);
     } finally {
-      // Always clear local state even if the server-side signout fails
       setUser(null);
       setProfile(null);
       localStorage.removeItem('speedway_profile');
@@ -107,11 +106,9 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
+      user, profile, loading, 
       signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-      signOut // Passing the new function
+      signOut 
     }}>
       {children}
     </AuthContext.Provider>
