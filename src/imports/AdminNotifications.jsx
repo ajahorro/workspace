@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 
 const AdminNotifications = () => {
   const { user } = useAuth();

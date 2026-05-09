@@ -7,7 +7,7 @@ import {
 
 import PageHeader from './PageHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { getDisplayName, formatCurrency } from '../../utils/formatters';
+import { getDisplayName, formatCurrency } from '../utils/formatters';
 
 const AdminAnalytics = () => {
   const isMobile = useMediaQuery('(max-width: 1024px)');

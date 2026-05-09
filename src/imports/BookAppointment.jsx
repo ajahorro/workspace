@@ -11,7 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import PageHeader from './PageHeader';
-import { sendBookingConfirmation } from '../../services/EmailService';
+import { sendBookingConfirmation } from '../services/EmailService';
 
 const BookAppointment = () => {
   const navigate = useNavigate();

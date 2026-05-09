@@ -5,7 +5,7 @@ import { Bell, CheckCheck, Trash2, Clock, Calendar, CreditCard, CheckCircle, Inf
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const Notifications = () => {

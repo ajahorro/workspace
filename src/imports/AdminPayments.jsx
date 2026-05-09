@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { CheckCircle, AlertCircle, Search, RotateCw, Filter, CreditCard, XCircle, ArrowRight, Car } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const AdminPayments = () => {

@@ -9,11 +9,11 @@ import {
   Send
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import BookingAuditTrail from '../../components/BookingAuditTrail';
-import BookingChat from '../../components/BookingChat';
+import BookingAuditTrail from './BookingAuditTrail';
+import BookingChat from './BookingChat';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 
 const AdminBookingDetails = () => {
   const { id } = useParams();

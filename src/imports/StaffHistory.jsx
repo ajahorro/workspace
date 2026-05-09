@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { History, Clock, CheckCircle2, ChevronRight, Search, Car } from 'lucide-react';
 import PageHeader from './PageHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 
 const StaffHistory = () => {
   const { user } = useAuth();

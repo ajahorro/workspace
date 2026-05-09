@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { TrendingUp, Users, Clipboard, CreditCard, ArrowRight, Check, Clock, Play, CheckCircle, XCircle, AlertTriangle, Calendar, Activity } from 'lucide-react';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const AdminDashboard = () => {

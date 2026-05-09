@@ -7,7 +7,7 @@ import {
   Car, Calendar, User, Eye, Download, Box
 } from 'lucide-react';
 import PageHeader from './PageHeader';
-import LoadingState from '../../components/LoadingState';
+import LoadingState from './LoadingState';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import toast from 'react-hot-toast';
 

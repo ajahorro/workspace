@@ -5,11 +5,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Box, Car, FileText, Calendar, Clock, Banknote, AlertTriangle, Check, History, User, CheckCircle2, Wrench, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import BookingAuditTrail from '../../components/BookingAuditTrail';
-import BookingChat from '../../components/BookingChat';
+import BookingAuditTrail from './BookingAuditTrail';
+import BookingChat from './BookingChat';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import PageHeader from './PageHeader';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
 const BookingDetails = () => {
   const { id } = useParams();
