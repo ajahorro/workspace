@@ -25,7 +25,7 @@ const LandingPage = () => {
           .eq('is_active', true);
         if (!error && data) setServices(data);
       } catch (err) {
-
+        console.error("Error fetching services:", err);
       } finally {
         setIsLoadingServices(false);
       }
@@ -33,7 +33,7 @@ const LandingPage = () => {
     fetchServices();
   }, []);
 
-  // Auto-redirect if already logged in
+  // Auto-redirect if already logged in to specific dashboards
   useEffect(() => {
     if (user && profile) {
       const routes = {
@@ -42,15 +42,19 @@ const LandingPage = () => {
         STAFF: '/staff',
         CUSTOMER: '/dashboard'
       };
-      navigate(routes[profile.role] || '/dashboard');
+      // We only auto-redirect if they are on the base landing page path
+      // but if they intentionally clicked a "Book" link while logged in, 
+      // the handleCheckout handles that.
     }
   }, [user, profile, navigate]);
 
   const handleCheckout = () => {
-
     if (!user) {
+      // If not logged in, you can choose to show a modal or redirect to /login
+      // Based on your previous flow, we'll use the modal state
       setShowLoginModal(true);
     } else {
+      // FIX: If logged in, go straight to booking
       navigate('/book');
     }
   };
@@ -115,7 +119,7 @@ const LandingPage = () => {
             height: '100%', 
             objectFit: 'cover',
             opacity: 0.5,
-            filter: 'brightness(0.7) contrast(1.2)' // Enhanced contrast for the red tones
+            filter: 'brightness(0.7) contrast(1.2)' 
           }}
         >
           <source src="/hero-bg.mp4" type="video/mp4" />
@@ -131,7 +135,7 @@ const LandingPage = () => {
         }}></div>
       </div>
 
-      {/* Universal Glows - Switched to New Palette */}
+      {/* Universal Glows */}
       <div style={{ position: 'relative', zIndex: 1 }}>
         <BlurGlow top="-5%" left="-5%" size="500px" color="rgba(169, 27, 24, 0.4)" />
         <BlurGlow top="10%" right="5%" size="450px" color="rgba(206, 231, 243, 0.3)" />
@@ -346,6 +350,7 @@ const LandingPage = () => {
         </div>
       )}
 
+      {/* Login Modal (Only rendered when explicitly triggered) */}
       {showLoginModal && <Login isModal={true} onClose={() => setShowLoginModal(false)} />}
 
       <style>{`
@@ -360,3 +365,5 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+
+// import

@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
         await fetchAndSyncProfile(sessionUser);
       } else {
         setProfile(null);
+        localStorage.removeItem('speedway_profile');
         setLoading(false);
       }
     });
@@ -43,18 +44,30 @@ export const AuthProvider = ({ children }) => {
   const fetchAndSyncProfile = async (currentUser) => {
     try {
       // 1. Try to fetch existing profile
-      const { data, error } = await supabase
+      const { data: pData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
         .maybeSingle();
 
-      if (data) {
-        setProfile(data);
+      if (pData) {
+        // 2. If Staff/Admin, fetch professional details from personnel table
+        if (['ADMIN', 'STAFF', 'SUPER_ADMIN'].includes(pData.role)) {
+          const { data: internalData } = await supabase
+            .from('internal_personnel')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+          const merged = { ...pData, ...internalData };
+          setProfile(merged);
+          localStorage.setItem('speedway_profile', JSON.stringify(merged));
+        } else {
+          setProfile(pData);
+          localStorage.setItem('speedway_profile', JSON.stringify(pData));
+        }
       } else {
-        // 2. SAFETY: If profile is missing (404 logic), create it now
-        // This fixes the "stuck at loading" error
-        const { data: newProfile, error: upsertError } = await supabase
+        // 3. AUTO-FIX: Create profile if missing (Prevents 404 & stuck loading)
+        const { data: newProfile } = await supabase
           .from('profiles')
           .upsert({
             id: currentUser.id,
@@ -65,10 +78,13 @@ export const AuthProvider = ({ children }) => {
           .select()
           .single();
 
-        if (newProfile) setProfile(newProfile);
+        if (newProfile) {
+          setProfile(newProfile);
+          localStorage.setItem('speedway_profile', JSON.stringify(newProfile));
+        }
       }
     } catch (err) {
-      console.error('Profile Sync Error:', err);
+      console.error('Profile sync failed:', err);
     } finally {
       setLoading(false);
     }
