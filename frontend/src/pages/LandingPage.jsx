@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, ArrowRight, Check, Clock, Sparkles, Menu, X, Monitor, CalendarCheck, ShieldCheck, ChevronRight } from 'lucide-react';
+import { User, ShoppingBag, ArrowRight, Check, Clock, Sparkles, Menu, X, Monitor, CalendarCheck, ShieldCheck, ChevronRight, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
@@ -42,19 +42,14 @@ const LandingPage = () => {
         STAFF: '/staff',
         CUSTOMER: '/dashboard'
       };
-      // We only auto-redirect if they are on the base landing page path
-      // but if they intentionally clicked a "Book" link while logged in, 
-      // the handleCheckout handles that.
+      // Logic for automatic dashboard entry if user lands on home while logged in
     }
   }, [user, profile, navigate]);
 
   const handleCheckout = () => {
     if (!user) {
-      // If not logged in, you can choose to show a modal or redirect to /login
-      // Based on your previous flow, we'll use the modal state
       setShowLoginModal(true);
     } else {
-      // FIX: If logged in, go straight to booking
       navigate('/book');
     }
   };
@@ -146,6 +141,12 @@ const LandingPage = () => {
 
       <PublicHeader setShowLoginModal={setShowLoginModal} />
 
+      {/* FIXED: Modal is now rendered at the top level of the component 
+          This prevents it from appearing "below" the footer or being clipped by parent containers */}
+      {showLoginModal && (
+        <Login isModal={true} onClose={() => setShowLoginModal(false)} />
+      )}
+
       <div style={{ animation: 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
         {/* Hero Section */}
         <section style={{
@@ -164,7 +165,7 @@ const LandingPage = () => {
             <h1 style={{
               fontSize: 'clamp(2.5rem, 10vw, 4.5rem)',
               fontWeight: '900',
-              margin: '0 0 1rem 0',
+              margin: '0 0 1.5rem 0',
               textTransform: 'uppercase',
               letterSpacing: '-2px',
               lineHeight: 0.95,
@@ -173,31 +174,58 @@ const LandingPage = () => {
               TURN THE COLOR <br /> TO THE MAXIMUM
             </h1>
             <p style={{
-              fontSize: '1rem',
+              fontSize: '1.1rem',
               opacity: 0.6,
-              marginBottom: '2rem',
-              maxWidth: '550px',
-              margin: '0 auto 2rem auto',
+              marginBottom: '2.5rem',
+              maxWidth: '600px',
+              margin: '0 auto 2.5rem auto',
               lineHeight: 1.6
             }}>
-              Precision-driven auto detailing and paint restoration. Book your appointment online and experience showroom perfection.
+              Precision-driven auto detailing and paint restoration. Join our fleet of satisfied customers and experience showroom perfection.
             </p>
-            <button
-              onClick={handleCheckout}
-              style={{
-                background: 'var(--primary-color)',
-                color: '#fff',
-                border: 'none',
-                padding: '1.2rem 3.5rem',
-                borderRadius: '5rem',
-                fontWeight: '900',
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                boxShadow: '0 10px 40px rgba(169, 27, 24, 0.3)'
-              }}
-            >
-              BOOK NOW
-            </button>
+            
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleCheckout}
+                style={{
+                  background: 'var(--primary-color)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '1.2rem 3.5rem',
+                  borderRadius: '5rem',
+                  fontWeight: '900',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 40px rgba(169, 27, 24, 0.3)',
+                  textTransform: 'uppercase'
+                }}
+              >
+                BOOK NOW
+              </button>
+              
+              {!user && (
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    padding: '1.2rem 2.5rem',
+                    borderRadius: '5rem',
+                    fontWeight: '900',
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(10px)',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <UserPlus size={18} /> JOIN THE FLEET
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -350,9 +378,6 @@ const LandingPage = () => {
         </div>
       )}
 
-      {/* Login Modal (Only rendered when explicitly triggered) */}
-      {showLoginModal && <Login isModal={true} onClose={() => setShowLoginModal(false)} />}
-
       <style>{`
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes bagPop { from { transform: translateX(-50%) translateY(50px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
@@ -365,5 +390,3 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-
-// import

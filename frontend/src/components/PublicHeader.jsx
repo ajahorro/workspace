@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, UserPlus, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from './BrandLogo';
 
@@ -101,23 +101,51 @@ const PublicHeader = ({ setShowLoginModal }) => {
               DASHBOARD
             </button>
           ) : (
-            <button 
-              className="desktop-nav"
-              onClick={() => setShowLoginModal ? setShowLoginModal(true) : navigate('/login')}
-              style={{ 
-                background: 'var(--primary-color)', 
-                color: '#fff', 
-                border: 'none',
-                padding: '0.65rem 1.75rem',
-                borderRadius: '5rem',
-                fontSize: '0.85rem',
-                fontWeight: '800',
-                cursor: 'pointer',
-                boxShadow: '0 0 25px rgba(169, 27, 24, 0.25)'
-              }}
-            >
-              LOGIN
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }} className="desktop-nav">
+              {/* REGISTER BUTTON */}
+              <button 
+                onClick={() => setShowLoginModal ? setShowLoginModal(true) : navigate('/login')}
+                style={{ 
+                  background: 'transparent', 
+                  color: '#fff', 
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  padding: '0.65rem 1.5rem',
+                  borderRadius: '5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+              >
+                <UserPlus size={16} /> REGISTER
+              </button>
+
+              {/* LOGIN BUTTON */}
+              <button 
+                onClick={() => setShowLoginModal ? setShowLoginModal(true) : navigate('/login')}
+                style={{ 
+                  background: 'var(--primary-color)', 
+                  color: '#fff', 
+                  border: 'none',
+                  padding: '0.65rem 1.75rem',
+                  borderRadius: '5rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 0 25px rgba(169, 27, 24, 0.25)'
+                }}
+              >
+                <LogIn size={16} /> LOGIN
+              </button>
+            </div>
           )}
           
           <button 
@@ -161,25 +189,44 @@ const PublicHeader = ({ setShowLoginModal }) => {
               {item}
             </a>
           ))}
-          <button 
-            onClick={() => {
-              setMobileMenuOpen(false);
-              setShowLoginModal ? setShowLoginModal(true) : navigate('/login');
-            }}
-            style={{ 
-              background: 'var(--primary-color)', 
-              color: '#fff', 
-              border: 'none',
-              padding: '1rem 3rem',
-              borderRadius: '5rem',
-              fontSize: '1.1rem',
-              fontWeight: '900',
-              cursor: 'pointer',
-              marginTop: '1rem'
-            }}
-          >
-            LOGIN
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '80%', maxWidth: '300px' }}>
+            <button 
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowLoginModal ? setShowLoginModal(true) : navigate('/login');
+              }}
+              style={{ 
+                background: 'var(--primary-color)', 
+                color: '#fff', 
+                border: 'none',
+                padding: '1rem',
+                borderRadius: '5rem',
+                fontSize: '1.1rem',
+                fontWeight: '900',
+                cursor: 'pointer'
+              }}
+            >
+              LOGIN
+            </button>
+            <button 
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowLoginModal ? setShowLoginModal(true) : navigate('/login');
+              }}
+              style={{ 
+                background: 'transparent', 
+                color: '#fff', 
+                border: '1px solid var(--primary-color)',
+                padding: '1rem',
+                borderRadius: '5rem',
+                fontSize: '1.1rem',
+                fontWeight: '900',
+                cursor: 'pointer'
+              }}
+            >
+              REGISTER
+            </button>
+          </div>
         </div>
       )}
 

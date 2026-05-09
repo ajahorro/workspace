@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }) => {
       if (sessionUser) {
         await fetchAndSyncProfile(sessionUser);
       } else {
+        // Clean up state if session is lost/signed out
         setProfile(null);
         localStorage.removeItem('speedway_profile');
         setLoading(false);
@@ -43,7 +44,6 @@ export const AuthProvider = ({ children }) => {
 
   const fetchAndSyncProfile = async (currentUser) => {
     try {
-      // 1. Try to fetch existing profile
       const { data: pData } = await supabase
         .from('profiles')
         .select('*')
@@ -51,7 +51,6 @@ export const AuthProvider = ({ children }) => {
         .maybeSingle();
 
       if (pData) {
-        // 2. If Staff/Admin, fetch professional details from personnel table
         if (['ADMIN', 'STAFF', 'SUPER_ADMIN'].includes(pData.role)) {
           const { data: internalData } = await supabase
             .from('internal_personnel')
@@ -66,7 +65,6 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('speedway_profile', JSON.stringify(pData));
         }
       } else {
-        // 3. AUTO-FIX: Create profile if missing (Prevents 404 & stuck loading)
         const { data: newProfile } = await supabase
           .from('profiles')
           .upsert({
@@ -90,11 +88,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // FIXED SIGN OUT LOGIC
+  const signOut = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      console.error('Signout error:', err.message);
+    } finally {
+      // Always clear local state even if the server-side signout fails
+      setUser(null);
+      setProfile(null);
+      localStorage.removeItem('speedway_profile');
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
-      user, profile, loading, 
+      user, 
+      profile, 
+      loading, 
       signInWithPassword: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-      signOut: () => supabase.auth.signOut() 
+      signOut // Passing the new function
     }}>
       {children}
     </AuthContext.Provider>
