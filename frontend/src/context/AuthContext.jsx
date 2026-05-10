@@ -45,18 +45,33 @@ export const AuthProvider = ({ children }) => {
   const fetchAndSyncProfile = async (currentUser) => {
     console.log("[AUTH] Syncing profile for:", currentUser.email);
     try {
+      // Use .maybeSingle() instead of .single() to prevent the PGRST116/406 crash
       const { data: pData, error: pError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
-        .single();
+        .maybeSingle();
 
-      if (pError) {
-        console.error("[AUTH] Profile Table Error:", pError);
-        throw pError;
+      if (pError) throw pError;
+
+      // If profile is missing, create a temporary one to avoid 404s
+      if (!pData) {
+        console.warn("[AUTH] Profile missing, generating temporary record...");
+        const role = currentUser.user_metadata?.role || 'CUSTOMER';
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .upsert({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.user_metadata?.full_name || 'System User',
+            role: role
+          })
+          .select().single();
+        setProfile(newProfile);
+        return;
       }
 
-      console.log("[AUTH] Profile Table Role:", pData.role);
+      console.log("[AUTH] Database Role:", pData.role);
 
       if (['ADMIN', 'STAFF', 'SUPER_ADMIN'].includes(pData.role)) {
         const { data: internalData } = await supabase
@@ -66,7 +81,6 @@ export const AuthProvider = ({ children }) => {
           .maybeSingle();
 
         const merged = { ...pData, ...(internalData || {}) };
-        console.log("[AUTH] Final Admin Profile:", merged);
         setProfile(merged);
         localStorage.setItem('speedway_profile', JSON.stringify(merged));
       } else {
@@ -74,17 +88,14 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('speedway_profile', JSON.stringify(pData));
       }
     } catch (err) {
-      console.warn("[AUTH] Using Metadata Fallback for role...");
-      const metadataRole = currentUser.user_metadata?.role || 'CUSTOMER';
-      console.log("[AUTH] Metadata Role found:", metadataRole);
-      
-      const fallbackProfile = {
+      console.error("[AUTH] Sync Failed, using Metadata Fallback:", err.message);
+      const fallback = {
         id: currentUser.id,
         email: currentUser.email,
-        role: metadataRole,
-        full_name: currentUser.user_metadata?.full_name || 'User'
+        role: currentUser.user_metadata?.role || 'CUSTOMER',
+        full_name: currentUser.user_metadata?.full_name || 'Admin'
       };
-      setProfile(fallbackProfile);
+      setProfile(fallback);
     } finally {
       setLoading(false);
     }

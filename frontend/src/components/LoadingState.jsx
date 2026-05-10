@@ -62,7 +62,7 @@ const LoadingState = ({ message = 'Synchronizing data...' }) => {
           color: 'rgba(255,255,255,0.2)', 
           fontWeight: '600' 
         }}>
-          Calibrating system for peak performance
+          Please wait while we fetch the latest information.
         </p>
       </div>
 

@@ -22,28 +22,35 @@ const AdminBookings = () => {
   }, [location.state]);
 
   useEffect(() => {
-    fetchData();
+    let isMounted = true;
+    
+    fetchData(isMounted);
 
-    // Real-time subscription — re-fetch on any bookings change
+    // Real-time subscription — re-fetch silently in background
     const channel = supabase
       .channel('admin-bookings-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        fetchData();
+        fetchData(isMounted);
       })
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isMounted = true) => {
+    // CRITICAL FIX: We do NOT call setLoading(true) here anymore.
+    // This prevents the screen from getting stuck or flashing during realtime syncs.
     try {
-      // Fetch bookings with their payments and vehicles
       const { data, error } = await supabase
         .from('bookings')
-        .select('*, payments(*), vehicles:booking_vehicles(*)')
+        .select(`
+          *,
+          payments(*),
+          vehicles:booking_vehicles(*)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -81,15 +88,17 @@ const AdminBookings = () => {
             totalPaidAmount: totalPaid
           };
         });
-        setBookings(combinedData);
+        
+        if (isMounted) setBookings(combinedData);
       } else {
-        setBookings([]);
+        if (isMounted) setBookings([]);
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to load records');
     } finally {
-      setLoading(false);
+      // Guarantee the loading screen is dismissed
+      if (isMounted) setLoading(false);
     }
   };
 
@@ -101,10 +110,10 @@ const AdminBookings = () => {
     const searchStr = `
       ${b.id} 
       ${b.customer?.full_name || ''} 
-      ${b.vehicles?.map(v => v.vehicle_type).join(' ') || ''} 
-      ${b.vehicles?.map(v => v.make).join(' ') || ''} 
-      ${b.vehicles?.map(v => v.model).join(' ') || ''} 
-      ${b.vehicles?.map(v => v.plate_number).join(' ') || ''} 
+      ${b.vehicles?.map(v => v.vehicle_type).join(' ')} 
+      ${b.vehicles?.map(v => v.make).join(' ')} 
+      ${b.vehicles?.map(v => v.model).join(' ')} 
+      ${b.vehicles?.map(v => v.plate_number).join(' ')} 
       ${status}
       ${sStatus}
       ${pStatus}
@@ -148,10 +157,9 @@ const AdminBookings = () => {
         badge="RECORDS MANAGEMENT"
         title="BOOKINGS"
         subtitle="Manage and monitor all vehicle detailing appointments."
-        onRefresh={() => { fetchData(); toast.success('Refreshing records...'); }}
+        onRefresh={() => { fetchData(true); toast.success('Refreshing records...'); }}
       />
 
-      {/* Filter & Search Bar */}
       <div style={{ background: 'var(--admin-input-bg)', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', color: 'var(--admin-text-primary)', border: '1px solid var(--admin-border)', padding: '1rem' }}>
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '0.75rem' }}>
           <div style={{ position: 'relative', background: 'var(--admin-input-bg)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', flex: 1, border: '1px solid var(--admin-input-border)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -175,7 +183,6 @@ const AdminBookings = () => {
       ) : filteredBookings.length === 0 ? (
         <div style={{ ...containerStyle, padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: '600' }}>No matching records found.</div>
       ) : isMobile ? (
-        /* Mobile Card Layout */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {filteredBookings.map(booking => {
             const pStatus = getPaymentStatus(booking);
@@ -228,7 +235,6 @@ const AdminBookings = () => {
           })}
         </div>
       ) : (
-        /* Desktop Table Layout */
         <div style={containerStyle}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
@@ -273,7 +279,6 @@ const AdminBookings = () => {
                     </td>
                      <td style={{ padding: '1.25rem 1.5rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                        {/* Appointment Status */}
                         <span style={{ 
                           fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.6rem', borderRadius: '2rem', 
                           background: booking.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : (booking.status === 'cancelled' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)'),
@@ -282,7 +287,6 @@ const AdminBookings = () => {
                         }}>
                           APP: {booking.status}
                         </span>
-                        {/* Service Status */}
                         <span style={{ 
                           fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.6rem', borderRadius: '2rem', 
                           background: booking.service_status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : (booking.service_status === 'in_progress' ? 'rgba(168, 85, 247, 0.1)' : 'var(--admin-bg)'),
@@ -291,7 +295,6 @@ const AdminBookings = () => {
                         }}>
                           SRV: {booking.service_status?.replace('_', ' ')}
                         </span>
-                        {/* Payment Status */}
                         <span style={{ 
                           fontSize: '0.6rem', fontWeight: '900', padding: '0.2rem 0.6rem', borderRadius: '2rem', 
                           background: booking.payment_status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : (booking.payment_status === 'unpaid' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(139, 92, 246, 0.1)'),

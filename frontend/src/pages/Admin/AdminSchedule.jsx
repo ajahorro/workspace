@@ -63,7 +63,7 @@ const AdminSchedule = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2rem' }}>
-      <PageHeader badge="TIMELINE OVERVIEW" title="SCHEDULE" subtitle={`${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'} today.`} onRefresh={() => fetchDailyBookings()}>
+      <PageHeader badge="TIMELINE OVERVIEW" title="Calendar" subtitle={`${bookings.length} ${bookings.length === 1 ? 'booking' : 'bookings'} today.`} onRefresh={() => fetchDailyBookings()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--admin-bg)', padding: '0.45rem 0.85rem', borderRadius: '0.75rem', border: '1px solid var(--admin-border)' }}>
           <button onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString().split('T')[0]); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><ChevronLeft size={18} color="var(--admin-brand)" /></button>
           <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-primary)', fontWeight: '800', fontSize: '0.85rem', outline: 'none', width: '125px' }} />
